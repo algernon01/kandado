@@ -1,0 +1,349 @@
+  /* =========================
+    Light-only Locker UI
+    ========================= */
+  :root{
+    --bg: #f5f7fb;
+    --surface: #ffffff;
+    --text: #1f2937;
+    --muted: #6b7280;
+
+    --primary: #2563eb;
+    --primary-600: #1d4ed8;
+    --primary-700: #1e40af;
+
+    --success: #16a34a;
+    --danger:  #dc2626;
+    --warn:    #f59e0b;
+
+    --border: #e5e7eb;
+    --ring: rgba(37, 99, 235, 0.35);
+    --shadow: 0 10px 30px rgba(2,6,23,0.08);
+    --radius: 16px;
+  }
+
+  /* Base */
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  .page { padding: clamp(14px, 3vw, 28px); }
+  .container { max-width: 1040px; margin: 0 auto; }
+
+  /* Page header */
+  .page-head{
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    margin-bottom: 12px;
+  }
+  .page-head h1{
+    margin: 0;
+    font-size: clamp(20px, 2.6vw, 28px);
+    font-weight: 800;
+    letter-spacing: -0.01em;
+  }
+  .badges{ display: inline-flex; gap: 8px; align-items: center; }
+
+  /* Status badge */
+  .status-badge{
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 6px 10px; border-radius: 999px;
+    font: 700 13px/1 Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: #ecfdf5; color: var(--success);
+    border: 1px solid #d1fae5;
+  }
+  .status-badge::before{ content:""; width:8px; height:8px; border-radius:50%; background: var(--success); }
+  .status-badge.is-expired{ background:#fee2e2; color:var(--danger); border-color:#fecaca; }
+  .status-badge.is-expired::before{ background: var(--danger); }
+  .status-badge.is-used{ background:#fff7ed; color:var(--warn); border-color:#fed7aa; }
+  .status-badge.is-used::before{ background: var(--warn); }
+
+  /* Connection badge (optional) */
+  .conn-badge{
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 6px 10px; border-radius: 999px;
+    border: 1px solid var(--border); background: var(--surface);
+    font-weight: 700; font-size: 13px;
+  }
+  .led{ width:10px; height:10px; border-radius:50%; box-shadow: 0 0 0 2px #f1f5f9 inset; }
+  .led--online{ background: var(--success); }
+  .led--offline{ background: #9ca3af; }
+
+  /* Card */
+  .card{
+    background: var(--surface);
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
+    padding: clamp(18px, 3vw, 24px);
+  }
+
+  /* Locker header */
+  .locker__head{
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; margin-bottom: 10px;
+    border-bottom: 1px dashed #e5e7eb; padding-bottom: 10px;
+  }
+  .locker__eyebrow{ color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .08em; }
+  .locker__number{ font-weight: 900; font-size: clamp(20px, 4vw, 28px); letter-spacing: .02em; }
+  .locker__code{ display: inline-flex; align-items: center; gap: 8px; }
+  .code-label{ color: var(--muted); font-size: 13px; }
+  .code-value{
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    background: #f3f6ff; color: #0f172a;
+    padding: 6px 10px; border-radius: 8px; border: 1px solid #e6eefb;
+    letter-spacing: .02em; overflow-wrap: anywhere;
+  }
+
+  /* Grid: QR | Time/Extend */
+  .locker__grid{ display: grid; gap: 18px; }
+  .locker__qr{ display: grid; gap: 12px; justify-items: center; }
+  @media (min-width: 800px){
+    .locker__grid{ grid-template-columns: 1fr 1fr; align-items: start; }
+    .locker__qr{ justify-items: start; }
+  }
+
+  .qr__button{
+    background: #f8fafc; border: 1px solid #e6eefb; border-radius: 12px;
+    padding: 10px; cursor: zoom-in; transition: transform .15s ease, box-shadow .15s ease;
+  }
+  .qr__button:hover{ transform: translateY(-2px); box-shadow: 0 10px 24px rgba(2,6,23,0.08); }
+  .qr__button img{ display:block; width: clamp(220px, 60vw, 340px); height:auto; }
+
+  /* Time + progress */
+  .locker__time{ display: grid; gap: 12px; }
+  .time__row{ display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+  .time__label{ color: var(--muted); font-size: 14px; }
+  .time__value{
+    font-variant-numeric: tabular-nums;
+    font-size: clamp(24px, 5vw, 34px);
+    font-weight: 900; letter-spacing: .02em; color: var(--primary-600);
+  }
+
+  /* PROGRESS — left-to-right fill */
+  .progress{
+    position: relative;
+    height: 8px;
+    background: rgba(22, 163, 74, .18); /* will be updated by JS */
+    border-radius: 999px;
+    overflow: hidden;
+    border: 1px solid #e5e7eb;
+    transition: background-color .4s linear; /* tint anim */
+  }
+  .progress__bar{
+    position: absolute;
+    left: 0;          /* anchor on the LEFT */
+    top: 0;
+    bottom: 0;
+    width: 0%;        /* JS will grow this from 0% → 100% */
+    background-color: #16a34a;
+    transition: width .4s linear, background-color .4s linear;
+  }
+
+
+
+  /* Extend */
+  .locker__extend{ display: grid; gap: 10px; }
+  .form__label{ color: var(--muted); font-size: 14px; }
+  .extend__row{ display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; }
+  @media (max-width: 520px){ .extend__row{ grid-template-columns: 1fr; } }
+
+  .select{
+    appearance: none; width: 100%; height: 44px;
+    border-radius: 10px; border: 1px solid #d8e0f0;
+    background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' stroke='%2364748b'%3E%3Cpath d='M6 9l6 6 6-6' fill='none' stroke-width='2'/%3E%3C/svg%3E") no-repeat right 10px center/18px 18px;
+    padding: 0 36px 0 12px; font-weight: 600;
+  }
+  .select:focus{ outline: none; box-shadow: 0 0 0 4px var(--ring); }
+
+  .hint{ margin: 2px 2px 0; color: var(--muted); font-size: 13px; }
+
+  /* Actions */
+  .locker__actions{ display: flex; gap: 10px; flex-wrap: wrap; }
+  @media (max-width: 520px){ .locker__actions .btn{ flex: 1 1 100%; } }
+
+  /* Buttons */
+  .btn{
+    --h: 44px;
+    display: inline-flex; align-items: center; justify-content: center;
+    height: var(--h); padding: 0 16px;
+    border-radius: 10px; border: 1px solid transparent;
+    font-weight: 700; font-size: 14px; cursor: pointer; user-select: none;
+    transition: transform .08s ease, background .15s ease, border-color .15s ease, box-shadow .15s ease;
+    text-decoration: none;
+  }
+  .btn:active{ transform: translateY(1px); }
+  .btn:focus-visible{ outline: none; box-shadow: 0 0 0 4px var(--ring); }
+  .btn-primary{ background: var(--primary); color:#fff; }
+  .btn-primary:hover{ background: var(--primary-600); }
+  .btn-secondary{ background:#f8fafc; color:var(--primary-700); border:1px solid #e6eefb; }
+  .btn-secondary:hover{ background:#eef2f7; }
+  .btn-ghost{ background:#ffffff; color:var(--primary); border:1px solid #e6eefb; }
+  .btn-ghost:hover{ background:#f8fafc; }
+  .btn-xs{ height: 32px; padding: 0 10px; font-size: 12px; }
+
+  /* Empty state */
+  .card.empty{
+    text-align: center; display: grid; gap: 12px; justify-items: center;
+    padding: clamp(24px, 4vw, 40px);
+  }
+  .empty__illu{ opacity: .95; }
+  .card.empty h2{ margin: 0; font-size: clamp(18px, 3vw, 22px); }
+  .card.empty p{ margin: 0 0 8px; color: var(--muted); }
+
+  /* SweetAlert checkout */
+  .swal2-popup .co{ background:#fff; border-radius:16px; box-shadow: var(--shadow); padding: 14px; color:#0f172a; }
+  .swal2-popup .co__top{ display:flex; align-items:center; justify-content:space-between; gap:12px; }
+  .swal2-popup .co__brand{ display:flex; align-items:center; gap:12px; }
+  .swal2-popup .co__logo{
+    width:42px; height:42px; border-radius:10px;
+    display:flex; align-items:center; justify-content:center;
+    background:#f1f5f9; color: var(--primary); font-weight:800;
+  }
+  .swal2-popup .co__store{ line-height:1.1; }
+  .swal2-popup .co__sub{ font-size:12px; color:#64748b; }
+  .swal2-popup .co__title{ font-size:14px; font-weight:800; }
+  .swal2-popup .co__amount{ font-weight:800; font-size:18px; white-space:nowrap; color:#16a34a; }
+  .swal2-popup .co__sep{ height:1px; background:#eef2f6; margin:12px 0; }
+  .swal2-popup .co__section{ font-weight:700; font-size:14px; color:#334155; margin-bottom:8px; }
+  .swal2-popup .co__methods{ display:flex; gap:10px; flex-wrap:wrap; }
+  .swal2-popup .co__method{
+    display:flex; align-items:center; gap:10px;
+    padding:10px 12px; border-radius:10px; background:#f8fafc; border:1px solid transparent;
+    cursor:pointer; font-weight:700;
+  }
+  .swal2-popup .co__method.active{ border-color: rgba(37,99,235,.25); background:#f3f8ff; }
+  .swal2-popup .co__method img{ width:36px; height:24px; object-fit:contain; }
+  .swal2-popup .co__ref{ display:flex; justify-content:space-between; align-items:center; font-size:14px; }
+  .swal2-popup .co__ref-label{ color:#64748b; }
+  .swal2-popup .co__ref-value{ font-weight:800; }
+  .swal2-popup .co__actions{ display:flex; gap:10px; justify-content:flex-end; margin-top: 10px; }
+
+  /* Force center on desktop too */
+  .locker__qr { display: grid; gap: 12px; justify-items: center; }
+  @media (min-width: 800px) {
+    .locker__qr { justify-items: center !important; }
+  }
+  .locker__code--below { justify-content: center; }
+
+  /* States */
+  .state-expired{ opacity: .95; }
+  .state-used{ opacity: .95; }
+
+  /* Reduced motion */
+  @media (prefers-reduced-motion: reduce){
+    *{ transition: none !important; animation: none !important; }
+  } 
+  /* --- Center the two payment methods & improve spacing --- */
+.swal2-popup .co__section{
+  text-align: center;
+  margin-bottom: 10px;
+}
+
+.swal2-popup .co__methods{
+  display: flex;
+  justify-content: center;  /* center the row */
+  gap: 16px;                /* comfy space between buttons */
+  flex-wrap: wrap;          /* allow wrap on small screens */
+  margin: 6px 0 4px;
+}
+
+.swal2-popup .co__method{
+  display: flex;
+  align-items: center;
+  justify-content: center;  /* center icon + label */
+  gap: 10px;
+  padding: 12px 18px;       /* a bit roomier */
+  border-radius: 10px;
+  background: #f8fafc;
+  border: 1px solid transparent;
+  cursor: pointer;
+  font-weight: 700;
+
+  /* Make both buttons same width and centered */
+  flex: 0 1 180px;          /* equal-ish width without stretching too wide */
+  text-align: center;
+}
+
+.swal2-popup .co__method.active{
+  border-color: rgba(37,99,235,.25);
+  background: #f3f8ff;
+}
+
+/* Slightly larger, consistent logos */
+.swal2-popup .co__method img{
+  width: 48px;
+  height: 32px;
+  object-fit: contain;
+}
+
+/* Responsive: stack nicely on very small screens */
+@media (max-width: 480px){
+  .swal2-popup .co__method{
+    flex-basis: 100%;       /* full width stack */
+  }
+}
+
+
+/* --- Center the two payment methods & improve spacing --- */
+.swal2-popup .co__section{
+  text-align: center;
+  margin-bottom: 10px;
+}
+
+.swal2-popup .co__methods{
+  display: flex;
+  justify-content: center;  /* center the row */
+  gap: 16px;                /* comfy space between buttons */
+  flex-wrap: wrap;          /* allow wrap on small screens */
+  margin: 6px 0 4px;
+}
+
+.swal2-popup .co__method{
+  display: flex;
+  align-items: center;
+  justify-content: center;  /* center icon + label */
+  gap: 10px;
+  padding: 12px 18px;       /* a bit roomier */
+  border-radius: 10px;
+  background: #f8fafc;
+  border: 1px solid transparent;
+  cursor: pointer;
+  font-weight: 700;
+
+  /* Make both buttons same width and centered */
+  flex: 0 1 180px;          /* equal-ish width without stretching too wide */
+  text-align: center;
+}
+
+.swal2-popup .co__method.active{
+  border-color: rgba(37,99,235,.25);
+  background: #f3f8ff;
+}
+
+/* Slightly larger, consistent logos */
+.swal2-popup .co__method img{
+  width: 48px;
+  height: 32px;
+  object-fit: contain;
+}
+
+/* Responsive: stack nicely on very small screens */
+@media (max-width: 480px){
+  .swal2-popup .co__method{
+    flex-basis: 100%;       /* full width stack */
+  }
+}
+
+/* Danger button */
+.btn-danger{
+  background: var(--danger);
+  color: #fff;
+  border: 1px solid transparent;
+}
+.btn-danger:hover{ background: #b91c1c; }
+.btn-danger:focus-visible{ box-shadow: 0 0 0 4px rgba(220,38,38,.35); }

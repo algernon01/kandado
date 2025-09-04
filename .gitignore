@@ -1,0 +1,8 @@
+/vendor/
+/node_modules/
+.env
+.env.*
+.ftp-deploy-sync-state.json
+.DS_Store
+.git/
+.github/
