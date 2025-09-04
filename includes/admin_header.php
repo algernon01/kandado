@@ -296,7 +296,7 @@ body > main#content{
       <i class="fas fa-bars"></i>
     </button>
     <a href="dashboard.php" class="logo-text" aria-label="Go to dashboard">
-      <i class="fa-solid fa-lock"></i> &nbsp;
+      <i class="fa-solid fa-lock"></i> &nbsp;Kandado Admin
     </a>
   </div>
 </header>
@@ -335,7 +335,21 @@ body > main#content{
         <i class="fas fa-history"></i> <span>Locker History</span>
       </a>
     </li>
-
+    <li>
+      <a href="/kandado/admin/reports.php" class="<?= isActive('reports.php') ?>" aria-current="<?= $currentPage === 'reports.php' ? 'page' : 'false' ?>">
+        <i class="fas fa-chart-line"></i> <span>Reports</span>
+      </a>
+    </li>
+    <li>
+      <a href="/kandado/admin/settings.php" class="<?= isActive('settings.php') ?>" aria-current="<?= $currentPage === 'settings.php' ? 'page' : 'false' ?>">
+        <i class="fas fa-sliders"></i> <span>Settings</span>
+      </a>
+    </li>
+    <li>
+      <a href="../profile.php" class="<?= isActive('profile.php') ?>" aria-current="<?= $currentPage === 'profile.php' ? 'page' : 'false' ?>">
+        <i class="fas fa-user"></i> <span>Profile</span>
+      </a>
+    </li>
   </ul>
 
   <div class="sidebar-section-label">Account</div>
