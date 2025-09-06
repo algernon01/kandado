@@ -33,6 +33,7 @@ $TOTAL_LOCKERS = 4;
           <span class="pill available"><span class="dot"></span>Available</span>
           <span class="pill occupied"><span class="dot"></span>Occupied</span>
           <span class="pill hold"><span class="dot"></span>On&nbsp;Hold</span>
+          <span class="pill maintenance"><span class="dot"></span>Maintenance</span><!-- NEW -->
         </div>
       </div>
       <div class="toolbar">
@@ -88,6 +89,12 @@ $TOTAL_LOCKERS = 4;
           <div class="kpi-value" id="kpiHold">0</div>
           <div class="kpi-sub">Item inside</div>
         </article>
+
+        <article class="kpi"><!-- NEW -->
+          <div class="kpi-title">Maintenance</div>
+          <div class="kpi-value" id="kpiMaintenance">0</div>
+          <div class="kpi-sub">Unavailable (service)</div>
+        </article>
       </div>
     </section>
 
@@ -97,6 +104,7 @@ $TOTAL_LOCKERS = 4;
         <button class="seg" id="filterAvailable" data-filter="available" role="tab" aria-selected="false">Available</button>
         <button class="seg" id="filterOccupied" data-filter="occupied" role="tab" aria-selected="false">Occupied</button>
         <button class="seg" id="filterHold" data-filter="hold" role="tab" aria-selected="false">On Hold</button>
+        <button class="seg" id="filterMaintenance" data-filter="maintenance" role="tab" aria-selected="false">Maintenance</button><!-- NEW -->
       </div>
 
       <div class="search">

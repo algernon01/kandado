@@ -1,28 +1,37 @@
-// user_dashboard.js — extracted from inline script (no logic changes)
+// user_dashboard.js — with Maintenance support
 
 /* ------------------ Config ------------------ */
 const API_BASE = `${window.location.origin}/kandado/api`;
 
 const prices = {
-  '30s': 1,
-  '30min': 10,
-  '45min': 15,
-  '1hour': 20,
-  '3hours': 50,
-  '4hours': 65,
-  '5hours': 80
+  '30s': 0.5,     // for testing
+  '20min': 2,
+  '30min': 3,
+  '1hour': 5,
+  '2hours': 10,
+  '4hours': 15,
+  '8hours': 20,
+  '12hours': 25,   
+  '24hours': 30,
+  '2days': 50,
+  '7days': 150
 };
 
 const DEFAULT_DURATION = '30s';
 const durationOptions = [
-  { value: '30s',    text: '30 Seconds (Test)' },
-  { value: '30min',  text: '30 Minutes'       },
-  { value: '45min',  text: '45 Minutes'       },
-  { value: '1hour',  text: '1 Hour'           },
-  { value: '3hours', text: '3 Hours'          },
-  { value: '4hours', text: '4 Hours'          },
-  { value: '5hours', text: '5 Hours'          }
+  { value: '30s',     text: '30 Seconds (Test)' },
+  { value: '20min',   text: '20 Minutes' },
+  { value: '30min',   text: '30 Minutes' },
+  { value: '1hour',   text: '1 Hour' },
+  { value: '2hours',  text: '2 Hours' },
+  { value: '4hours',  text: '4 Hours' },
+  { value: '8hours',  text: '8 Hours' },
+  { value: '12hours', text: '12 Hours' },
+  { value: '24hours', text: '24 Hours' },
+  { value: '2days',   text: '2 Days' },
+  { value: '7days',   text: '7 Days' }
 ];
+
 
 /* ------------------ Utilities ------------------ */
 const $  = (sel, ctx = document) => ctx.querySelector(sel);
@@ -33,7 +42,7 @@ const debounce = (fn, ms=150) => { let t; return (...a)=>{ clearTimeout(t); t=se
 
 function updateLastUpdated() { $('#lastUpdated').textContent = `Updated: ${nowStr()}`; }
 function statusClasses(el, status){
-  el.classList.remove('available','occupied','hold','item','no-item'); /* clear helpers */
+  el.classList.remove('available','occupied','hold','item','no-item','maintenance'); /* clear helpers */
   el.classList.add(status);
 }
 function setBusy(isBusy){ const g = $('#lockerGrid'); if (!g) return; g.setAttribute('aria-busy', isBusy ? 'true':'false'); g.classList.toggle('grid-busy', isBusy); }
@@ -187,13 +196,15 @@ function updateKpis(count){
   const total = getTotalLockers();
   const inUse = (count.occupied || 0) + (count.hold || 0);
   const available = count.available || 0;
+  const maintenance = count.maintenance || 0; // NEW
   const occPct = total ? Math.round((inUse / total) * 100) : 0;
 
   const totalEl = $('#kpiTotal');
   if (totalEl) totalEl.textContent = String(total);
-  $('#kpiAvailable').textContent = String(available);
-  $('#kpiOccupied').textContent = String(count.occupied || 0);
-  $('#kpiHold').textContent     = String(count.hold || 0);
+  $('#kpiAvailable').textContent   = String(available);
+  $('#kpiOccupied').textContent    = String(count.occupied || 0);
+  $('#kpiHold').textContent        = String(count.hold || 0);
+  $('#kpiMaintenance').textContent = String(maintenance); // NEW
 
   const donut = $('#occDonut');
   const occLabel = $('#kpiOcc');
@@ -207,7 +218,7 @@ function updateKpis(count){
   }
   if (occLabel) occLabel.textContent = `${occPct}%`;
 
-  $('#kpiOccSub').textContent = `${inUse} in use • ${available} available`;
+  $('#kpiOccSub').textContent = `${inUse} in use • ${available} available • ${maintenance} maintenance`; // NEW
 }
 
 /* ------------------ Fetch status ------------------ */
@@ -223,7 +234,7 @@ async function fetchActiveLockers(showToast = false) {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const active = await res.json();
 
-    let count = { available: 0, occupied: 0, hold: 0 };
+    let count = { available: 0, occupied: 0, hold: 0, maintenance: 0 }; // NEW
 
     for (let i = 0; i < getTotalLockers(); i++) {
       const idx = i + 1;
@@ -248,7 +259,21 @@ async function fetchActiveLockers(showToast = false) {
         }
       }
 
-      const hasItem = Number(lockerData?.item) === 1; /* read item flag */
+      const isMaintenance = Number(lockerData?.maintenance) === 1; // NEW
+      const hasItem = Number(lockerData?.item) === 1;
+
+      // Maintenance overrides everything
+      if (isMaintenance) {
+        textEl.textContent = 'Maintenance';
+        statusClasses(statusDiv, 'maintenance');
+        btn.disabled = true;
+        btn.textContent = 'Maintenance';
+        btn.setAttribute('aria-disabled', 'true');
+        card.dataset.status = 'maintenance';
+        clearCountdown(i);
+        count.maintenance++;
+        continue;
+      }
 
       if (status === 'available') {
         textEl.textContent = 'Available';
@@ -269,7 +294,7 @@ async function fetchActiveLockers(showToast = false) {
       }
 
       if (status === 'occupied') {
-        const hasItem2 = Number(lockerData?.item) === 1; // keep same behavior
+        const hasItem2 = Number(lockerData?.item) === 1;
         const label = hasItem2 ? 'Occupied' : 'Occupied (but no item inside)';
         textEl.textContent = label;
 
@@ -474,14 +499,22 @@ function proceedCheckout(locker) {
             Swal.fire({
               icon:'success',
               title:'Payment Successful',
-              html:`<p>Method: <b>${selectedMethod}</b></p>
-                    <p>Reference: <code>${finalRef}</code></p>
-                    <p>Amount: <b>${peso(amount)}</b></p>
-                    <hr>
-                    <p>Locker ${locker + 1} reserved until <b>${expStr}</b></p>
-                    <img src="${data.qr_url}" width="150" height="150" alt="Locker QR">`,
-              confirmButtonText:'Open My Locker',
-              confirmButtonColor:'#2563eb'
+              html: `
+                <div style="text-align:center">
+                  <p>Method: <b>${selectedMethod}</b></p>
+                  <p>Reference: <code>${finalRef}</code></p>
+                  <p>Amount: <b>${peso(amount)}</b></p>
+                  <hr>
+                  <p>Locker ${locker + 1} reserved until <b>${expStr}</b></p>
+
+                  <div style="display:flex; justify-content:center; margin-top:12px;">
+                    <img src="${data.qr_url}" width="150" height="150" alt="Locker QR"
+                        style="display:block;" />
+                  </div>
+                </div>
+              `,
+            confirmButtonText: 'Open My Locker',
+            confirmButtonColor: '#2563eb',
             }).then(()=> window.location='/kandado/public/user/mylocker.php');
 
           } catch (err) {

@@ -335,6 +335,14 @@ body > main#content{
         <i class="fas fa-history"></i> <span>Locker History</span>
       </a>
     </li>
+        <!-- NEW: Payments nav item -->
+    <li>
+      <a href="payments.php" class="<?= isActive('payments.php') ?>" aria-current="<?= $currentPage === 'payments.php' ? 'page' : 'false' ?>">
+        <i class="fas fa-credit-card"></i> <span>Payments</span>
+      </a>
+    </li>
+    <!-- /NEW -->
+  </ul>
 
   </ul>
 

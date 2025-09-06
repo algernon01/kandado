@@ -31,18 +31,31 @@
 
   /* ===== CONFIG ===== */
   const DURATION_OPTIONS = [
-    { value: '30s',    text: '30 Seconds (Test)' },
-    { value: '30min',  text: '30 Minutes'       },
-    { value: '45min',  text: '45 Minutes'       },
-    { value: '1hour',  text: '1 Hour'           },
-    { value: '3hours', text: '3 Hours'          },
-    { value: '4hours', text: '4 Hours'          },
-    { value: '5hours', text: '5 Hours'          }
+    { value: '30s',     text: '30 Seconds (Test)' },
+    { value: '20min',   text: '20 Minutes' },     // added to match backend
+    { value: '30min',   text: '30 Minutes' },
+    { value: '1hour',   text: '1 Hour' },
+    { value: '2hours',  text: '2 Hours' },
+    { value: '4hours',  text: '4 Hours' },
+    { value: '8hours',  text: '8 Hours' },
+    { value: '12hours', text: '12 Hours' },
+    { value: '24hours', text: '24 Hours' },
+    { value: '2days',   text: '2 Days' },
+    { value: '7days',   text: '7 Days' }
   ];
 
   const PRICES = {
-    '30s': 1, '30min': 10, '45min': 15,
-    '1hour': 20, '3hours': 50, '4hours': 65, '5hours': 80
+    '30s': 0.5,
+    '20min': 2,
+    '30min': 3,
+    '1hour': 5,   
+    '2hours': 10,
+    '4hours': 15,
+    '8hours': 20,
+    '12hours': 25,
+    '24hours': 30,
+    '2days': 50,
+    '7days': 150
   };
 
   // Default duration: localStorage -> PHP -> fallback
@@ -455,8 +468,8 @@
               if (data?.code && qrCodeText) qrCodeText.textContent = data.code;
 
               let newEpochMs = null;
-              if (typeof data?.expires_at_epoch === 'number') newEpochMs = data.expires_at_epoch * 1000;
-              else if (typeof data?.expires_at_ms === 'number') newEpochMs = data.expires_at_ms;
+              if (typeof data?.expires_at_ms === 'number') newEpochMs = data.expires_at_ms;
+              else if (typeof data?.expires_at_epoch === 'number') newEpochMs = data.expires_at_epoch * 1000;
               else if (typeof data?.expires_at === 'string') {
                 const iso = data.expires_at.replace(' ', 'T') + '+08:00';
                 const parsed = Date.parse(iso);
@@ -480,8 +493,8 @@
 
               Swal.fire({
                 icon: 'success',
-                title: 'Extended',
-                html: `Locker extended until <b>${new Intl.DateTimeFormat('en-PH',{dateStyle:'medium',timeStyle:'short',timeZone:'Asia/Manila'}).format(new Date(expiresAtMs))}</b>.`,
+                title: data?.idempotent ? 'Already processed' : 'Extended',
+                html: `Locker until <b>${new Intl.DateTimeFormat('en-PH',{dateStyle:'medium',timeStyle:'short',timeZone:'Asia/Manila'}).format(new Date(expiresAtMs))}</b>.`,
                 confirmButtonColor:'#16a34a',
                 confirmButtonText:'OK',
                 customClass:{ confirmButton:'swal-confirm-btn' }
@@ -542,7 +555,6 @@
         timeOffset = serverDateMs - Date.now();
       }
 
-      // Show server message on failure or unexpected payload
       if (!data || data.error || data.success !== true) {
         const msg = data?.message || data?.error || 'Could not terminate the locker.';
         throw new Error(msg);
