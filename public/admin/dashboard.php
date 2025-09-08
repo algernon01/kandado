@@ -1032,14 +1032,19 @@ new Chart(statusCtx, {
 // Duration options
 // ============================
 const durationOptions = [
-  {value:'30s',   text:'30 Seconds (Test)'},
-  {value:'30min', text:'30 Minutes'},
-  {value:'45min', text:'45 Minutes'},
-  {value:'1hour', text:'1 Hour'},
-  {value:'3hours',text:'3 Hours'},
-  {value:'4hours',text:'4 Hours'},
-  {value:'5hours',text:'5 Hours'}
+  { value: '30s',     text: '30 Seconds (Test)' },
+  { value: '20min',   text: '20 Minutes' },
+  { value: '30min',   text: '30 Minutes' },
+  { value: '1hour',   text: '1 Hour' },
+  { value: '2hours',  text: '2 Hours' },
+  { value: '4hours',  text: '4 Hours' },
+  { value: '8hours',  text: '8 Hours' },
+  { value: '12hours', text: '12 Hours' },
+  { value: '24hours', text: '24 Hours' },
+  { value: '2days',   text: '2 Days' },
+  { value: '7days',   text: '7 Days' }
 ];
+
 const durationSelect = document.getElementById('durationSelect');
 durationOptions.forEach(opt => {
   const o = document.createElement('option');

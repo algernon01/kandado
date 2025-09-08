@@ -382,7 +382,7 @@ include '../../includes/admin_header.php';
   .amount { font-weight:800; }
   .method-chip { display:inline-flex; align-items:center; gap:.35rem; padding:.25rem .55rem; border-radius:999px; font-weight:800; font-size:.75rem; }
   .method-gcash { background:#e9f2ff; color:#1d4ed8; border:1px solid #dbe7ff; }
-  .method-maya  { background:#eef0ff; color:#4338ca; border:1px solid #e1e4ff; }
+  .method-maya  { background:#eef0ff; color:#4338ca; border:1px solid #e1e4ff; margin-top:2px; }
 
   .actions { display:flex; gap:.4rem; align-items:center; }
   .icon-btn { width:34px; height:34px; display:inline-flex; align-items:center; justify-content:center; border-radius:10px; border:1px solid var(--border); background:#fff; cursor:pointer; }
