@@ -16,6 +16,9 @@ $esp32_host = 'locker-esp32.local';
 $TOTAL_LOCKERS = 4;
 $esp32_secret = 'MYSECRET123';
 
+// Include shared email helpers (centralized mail)
+require_once $_SERVER['DOCUMENT_ROOT'] . '/kandado/lib/email_lib.php';
+
 // Include phpqrcode
 include_once $_SERVER['DOCUMENT_ROOT'] . '/kandado/phpqrcode/qrlib.php';
 $qr_folder = $_SERVER['DOCUMENT_ROOT'] . '/kandado/qr_image/';
@@ -39,7 +42,7 @@ try {
 
 /* ---------- Helpers ---------- */
 function duration_minutes_map() {
-    // Added 20min; kept your original values
+    // Added 20min; kept original values
     return [
         '30s'    => 0.5,
         '20min'  => 20,
@@ -129,8 +132,7 @@ function moveExpiredQRs($conn, $qr_folder){
         );
         $stmt_history->execute();
 
-        // --- Reset locker depending on item state ---
-        // Refresh item state from DB just in case
+        // Refresh item state (defensive)
         $stmt_item = $conn->prepare("SELECT item FROM locker_qr WHERE locker_number=? LIMIT 1");
         $stmt_item->bind_param("i", $locker_number);
         $stmt_item->execute();
@@ -141,116 +143,123 @@ function moveExpiredQRs($conn, $qr_folder){
             // Item left inside → HOLD
             $stmt_update = $conn->prepare("
                 UPDATE locker_qr 
-                SET code=NULL, user_id=NULL, status='hold', expires_at=NULL, duration_minutes=NULL 
+                SET code=NULL, user_id=NULL, status='hold', expires_at=NULL, duration_minutes=NULL,
+                    notify30_sent=0, notify15_sent=0, notify10_sent=0
                 WHERE locker_number=?");
             $stmt_update->bind_param("i", $locker_number);
             $stmt_update->execute();
 
-            // --- SEND EMAIL TO USER ---
+            // --- SEND EMAIL TO USER (same design) ---
             if($user_email){
-                try{
-                    $mail = new PHPMailer(true);
-                    $mail->isSMTP();
-                    $mail->Host = 'smtp.gmail.com';
-                    $mail->SMTPAuth = true;
-                    $mail->Username = 'lockerkandado01@gmail.com';
-                    $mail->Password = 'xgzhnjxyapnphnco';
-                    $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
-                    $mail->Port = 465;
-
-                    $mail->setFrom('lockerkandado01@gmail.com','Kandado');
-                    $mail->addAddress($user_email, $user_fullname);
-
-                    $mail->isHTML(true);
-                    $mail->Subject = "Locker #{$locker_number} On Hold - Item Inside";
-                    $mail->Body = "
-                        <html>
-                        <head>
-                        <style>
-                            body {
-                            font-family: 'Segoe UI', 'Roboto', sans-serif;
-                            background-color: #f4f6f8;
-                            color: #1f2937;
-                            margin: 0;
-                            padding: 0;
-                            }
-                            .email-container {
-                            max-width: 600px;
-                            margin: 40px auto;
-                            background-color: #ffffff;
-                            border-radius: 8px;
-                            overflow: hidden;
-                            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-                            }
-                            .header {
-                            background-color: #0f172a;
-                            color: #ffffff;
-                            padding: 20px;
-                            text-align: center;
-                            font-size: 24px;
-                            font-weight: 700;
-                            }
-                            .content {
-                            padding: 30px 20px;
-                            line-height: 1.6;
-                            font-size: 16px;
-                            }
-                            .content p {
-                            margin: 15px 0;
-                            }
-                            .highlight {
-                            color: #2563eb;
-                            font-weight: 600;
-                            }
-                            .footer {
-                            background-color: #f1f5f9;
-                            color: #64748b;
-                            font-size: 12px;
-                            text-align: center;
-                            padding: 15px;
-                            }
-                        </style>
-                        </head>
-                        <body>
-                        <div class='email-container'>
-                            <div class='header'>Locker Hold Notification</div>
-                            <div class='content'>
-                            <p>Hi <strong>{$user_fullname}</strong>,</p>
-                            <p>Your locker <span class='highlight'>#{$locker_number}</span> is currently <strong>on hold</strong> because your QR code has expired, but there is still an item inside.</p>
-                            <p>Please visit the admin to retrieve your belongings as soon as possible.</p>
-                            <p>Thank you for trusting <strong>Kandado</strong> for your locker needs.</p>
-                            </div>
-                            <div class='footer'>
-                            &copy; " . date('Y') . " Kandado. All rights reserved.
-                            </div>
-                        </div>
-                        </body>
-                        </html>
-                        ";
-
-                    $mail->send();
-                } catch(Exception $e){
-                    error_log("Mailer Error (Hold Notification): ".$mail->ErrorInfo);
-                }
+                email_on_hold($user_email, $user_fullname, $locker_number);
             }
         } else {
             // No item → AVAILABLE
             $stmt_update = $conn->prepare("
                 UPDATE locker_qr 
-                SET code=NULL, user_id=NULL, status='available', expires_at=NULL, duration_minutes=NULL 
+                SET code=NULL, user_id=NULL, status='available', expires_at=NULL, duration_minutes=NULL,
+                    notify30_sent=0, notify15_sent=0, notify10_sent=0
                 WHERE locker_number=?");
             $stmt_update->bind_param("i", $locker_number);
             $stmt_update->execute();
+
+            // NEW: send expiry email when no item inside
+            if ($user_email) {
+                email_expired_released($user_email, $user_fullname, $locker_number);
+            }
         }
 
         // --- Delete QR image file ---
         $qr_file = $qr_folder.'qr_'.$code.'.png';
-        if(file_exists($qr_file)) unlink($qr_file);
+        if(file_exists($qr_file)) @unlink($qr_file);
+    }
+}
+
+/* ------------------- NEW: Pre-expiry reminders (remaining-time tiers) ------------------- */
+/*
+Tiers (based on TOTAL scheduled duration for the current session):
+- >= 60 minutes  -> send at 30m left AND 15m left (2 emails, with catch-up)
+- 30–59 minutes  -> send at 15m left
+- 20–29 minutes  -> send at 10m left
+- < 20 minutes   -> no reminder
+
+Notes:
+- Flags (notify30_sent / notify15_sent / notify10_sent) prevent duplicates.
+- On extend/generate/used/terminate/expire, flags are reset to 0 so reminders re-arm.
+*/
+function checkAndSendReminders($conn){
+    date_default_timezone_set('Asia/Manila');
+    $now = time();
+
+    $sql = "
+      SELECT l.locker_number, l.code, l.user_id, l.expires_at, l.duration_minutes,
+             l.notify30_sent, l.notify15_sent, l.notify10_sent,
+             u.first_name, u.last_name, u.email
+      FROM locker_qr l
+      LEFT JOIN users u ON u.id = l.user_id
+      WHERE l.status='occupied' AND l.expires_at IS NOT NULL AND l.expires_at > NOW()
+    ";
+    $res = $conn->query($sql);
+    while($row = $res->fetch_assoc()){
+        $locker        = (int)$row['locker_number'];
+        $expires_ts    = strtotime($row['expires_at']);
+        if ($expires_ts === false) continue;
+
+        $remaining_sec = $expires_ts - $now;
+        if ($remaining_sec <= 0) continue;
+
+        $remaining_min = floor($remaining_sec / 60);
+        $total_min     = (int)$row['duration_minutes'];
+        $sent30        = (int)$row['notify30_sent'];
+        $sent15        = (int)$row['notify15_sent'];
+        $sent10        = (int)$row['notify10_sent'];
+        $name          = trim(($row['first_name'] ?? '').' '.($row['last_name'] ?? ''));
+        $email         = $row['email'] ?? '';
+        $expires_fmt   = date('F j, Y h:i A', $expires_ts);
+
+        $didUpdate = false;
+
+        if ($total_min >= 60) {
+            // 30-minute reminder window
+            if ($remaining_min <= 30 && $remaining_min > 15 && !$sent30) {
+                email_time_left($email, $name, $locker, 30, $expires_fmt);
+                $sent30 = 1; $didUpdate = true;
+            }
+            // 15-minute reminder window (+ catch-up for missed 30)
+            if ($remaining_min <= 15 && $remaining_min > 0 && !$sent15) {
+                if (!$sent30) { email_time_left($email, $name, $locker, 30, $expires_fmt); $sent30 = 1; }
+                email_time_left($email, $name, $locker, 15, $expires_fmt);
+                $sent15 = 1; $didUpdate = true;
+            }
+
+        } elseif ($total_min >= 30) {
+            // 30–59 minutes total: single reminder at 15 left
+            if ($remaining_min <= 15 && $remaining_min > 0 && !$sent15) {
+                email_time_left($email, $name, $locker, 15, $expires_fmt);
+                $sent15 = 1; $didUpdate = true;
+            }
+
+        } elseif ($total_min >= 20) {
+            // 20–29 minutes total: single reminder at 10 left
+            if ($remaining_min <= 10 && $remaining_min > 0 && !$sent10) {
+                email_time_left($email, $name, $locker, 10, $expires_fmt);
+                $sent10 = 1; $didUpdate = true;
+            }
+        }
+
+        if ($didUpdate) {
+            $stmt = $conn->prepare("UPDATE locker_qr SET notify30_sent=?, notify15_sent=?, notify10_sent=? WHERE locker_number=?");
+            $stmt->bind_param("iiii", $sent30, $sent15, $sent10, $locker);
+            $stmt->execute();
+        }
     }
 }
 
 // Move expired QR codes on every request
 moveExpiredQRs($conn, $qr_folder);
+
+// NEW: send pre-expiry reminders on every request
+checkAndSendReminders($conn);
 
 /* ------------------- MARK QR AS USED (ESP32) ------------------- */
 if(isset($_GET['used'])){
@@ -289,8 +298,8 @@ if(isset($_GET['used'])){
         $stmt_hist->bind_param("isssis",$locker_number,$code,$user_fullname,$user_email,$expires_at,$duration_minutes);
         $stmt_hist->execute();
 
-        // Release locker
-        $stmt_update = $conn->prepare("UPDATE locker_qr SET code=NULL, user_id=NULL, status='available', expires_at=NULL, duration_minutes=NULL WHERE locker_number=?");
+        // Release locker + reset reminder flags
+        $stmt_update = $conn->prepare("UPDATE locker_qr SET code=NULL, user_id=NULL, status='available', expires_at=NULL, duration_minutes=NULL, notify30_sent=0, notify15_sent=0, notify10_sent=0 WHERE locker_number=?");
         $stmt_update->bind_param("i",$locker_number);
         $stmt_update->execute();
 
@@ -298,7 +307,7 @@ if(isset($_GET['used'])){
 
         // Remove QR image
         $qr_file = $qr_folder.'qr_'.$code.'.png';
-        if(file_exists($qr_file)) unlink($qr_file);
+        if(file_exists($qr_file)) @unlink($qr_file);
 
         jexit(['success'=>true]);
     }catch(mysqli_sql_exception $e){
@@ -361,7 +370,7 @@ if(isset($_GET['extend'])){
                 'qr_url'=>$qr_url,
                 'expires_at'=> date('Y-m-d H:i:s', $expires_ts),
                 'expires_at_ms'=> $expires_ts * 1000,
-                'duration_minutes'=>0, // no additional time since it was duplicate
+                'duration_minutes'=>0, // duplicate extend, no extra time
                 'idempotent'=>true
             ]);
         }
@@ -370,15 +379,14 @@ if(isset($_GET['extend'])){
         $newExpiresTs = $currentExpiresTs + (int)round($duration_minutes * 60);
         $expires_at   = date('Y-m-d H:i:s', $newExpiresTs);
 
-        // Update locker
-        $stmt_upd = $conn->prepare("UPDATE locker_qr SET expires_at=?, duration_minutes=duration_minutes+? WHERE locker_number=?");
+        // Update locker + reset reminder flags (re-arm for new expiry)
+        $stmt_upd = $conn->prepare("UPDATE locker_qr SET expires_at=?, duration_minutes=duration_minutes+?, notify30_sent=0, notify15_sent=0, notify10_sent=0 WHERE locker_number=?");
         $stmt_upd->bind_param("sii", $expires_at, $duration_minutes, $locker);
         $stmt_upd->execute();
 
-        // Record payment as a new row (simpler & keeps history)
+        // Record payment (keep schema)
         $created_at = date('Y-m-d H:i:s');
         $stmt_pay = $conn->prepare("INSERT INTO payments (user_id, locker_number, method, amount, reference_no, duration, created_at) VALUES (?,?,?,?,?,?,?)");
-        // Keep your schema: duration can be numeric here; consistent enough for logs
         $dur_for_db = (string)$duration_minutes;
         $stmt_pay->bind_param("iisdsss", $user_id, $locker, $method, $amount, $reference_no, $dur_for_db, $created_at);
         $stmt_pay->execute();
@@ -400,7 +408,7 @@ if(isset($_GET['extend'])){
     }
 }
 
-/* ====================== TERMINATE LOCKER NOW (used by your JS) ====================== */
+/* ====================== TERMINATE LOCKER NOW ====================== */
 if (isset($_GET['terminate'])) {
     if (!isset($_SESSION['user_id'])) jexit(['error' => 'not_logged_in'], 401);
 
@@ -451,12 +459,13 @@ if (isset($_GET['terminate'])) {
         $stmt_hist->bind_param("isssis", $locker_number, $code, $user_fullname, $user_email, $expires_at, $duration_minutes);
         $stmt_hist->execute();
 
-        // Update locker state
+        // Update locker state + reset reminder flags
         if ($item === 1) {
             // Item left inside → put on hold
             $stmt_upd = $conn->prepare("
                 UPDATE locker_qr
-                SET code=NULL, user_id=NULL, status='hold', expires_at=NULL, duration_minutes=NULL
+                SET code=NULL, user_id=NULL, status='hold', expires_at=NULL, duration_minutes=NULL,
+                    notify30_sent=0, notify15_sent=0, notify10_sent=0
                 WHERE locker_number=?
             ");
             $next_status = 'hold';
@@ -464,7 +473,8 @@ if (isset($_GET['terminate'])) {
             // No item → release
             $stmt_upd = $conn->prepare("
                 UPDATE locker_qr
-                SET code=NULL, user_id=NULL, status='available', expires_at=NULL, duration_minutes=NULL
+                SET code=NULL, user_id=NULL, status='available', expires_at=NULL, duration_minutes=NULL,
+                    notify30_sent=0, notify15_sent=0, notify10_sent=0
                 WHERE locker_number=?
             ");
             $next_status = 'available';
@@ -480,7 +490,7 @@ if (isset($_GET['terminate'])) {
 
         jexit([
             'success' => true,
-            'status'  => $next_status, // 'available' or 'hold'
+            'status'  => $next_status,
             'message' => $next_status === 'hold'
                 ? 'Locker terminated. Locker is on hold because an item is still inside.'
                 : 'Locker terminated and released.'
@@ -498,7 +508,7 @@ if(isset($_GET['generate'])){
     $locker = (int)$_GET['generate'];
     if($locker<1||$locker>$TOTAL_LOCKERS) jexit(['error'=>'invalid_locker'],400);
 
-    // NEW: Block reservation if locker is under maintenance
+    // Block reservation if locker is under maintenance
     $stmt_chk = $conn->prepare("SELECT maintenance FROM locker_qr WHERE locker_number=? LIMIT 1");
     $stmt_chk->bind_param("i", $locker);
     $stmt_chk->execute();
@@ -515,7 +525,7 @@ if(isset($_GET['generate'])){
     $amount = (float)($_GET['amount'] ?? 20);
     $durationLabel = $_GET['duration'] ?? '1hour';
 
-    // Save payment record before generating QR (keep your schema)
+    // Save payment record
     $created_at = date('Y-m-d H:i:s');  // PH time
     $stmt = $conn->prepare("INSERT INTO payments (user_id, locker_number, method, amount, reference_no, duration, created_at) VALUES (?,?,?,?,?,?,?)");
     $stmt->bind_param("iisdsss", $user_id, $locker, $method, $amount, $reference_no, $durationLabel, $created_at);
@@ -537,7 +547,7 @@ if(isset($_GET['generate'])){
         ],400);
     }
 
-    // Get requested duration in minutes (added 20min)
+    // Get requested duration in minutes
     $map = duration_minutes_map();
     $requested = $_GET['duration'] ?? '1hour';
     $duration_minutes = isset($map[$requested]) ? $map[$requested] : 60;
@@ -573,12 +583,12 @@ if(isset($_GET['generate'])){
     QRcode::png($data['code'],$qr_filename,QR_ECLEVEL_L,6);
     $data['qr_url']='/kandado/qr_image/qr_'.$data['code'].'.png';
 
-    // Update locker in DB
-    $stmt = $conn->prepare("UPDATE locker_qr SET code=?, user_id=?, status='occupied', expires_at=?, duration_minutes=? WHERE locker_number=?");
+    // Update locker in DB + reset reminder flags
+    $stmt = $conn->prepare("UPDATE locker_qr SET code=?, user_id=?, status='occupied', expires_at=?, duration_minutes=?, notify30_sent=0, notify15_sent=0, notify10_sent=0 WHERE locker_number=?");
     $stmt->bind_param("sisii",$data['code'],$user_id,$expires_at,$duration_minutes,$locker);
     $stmt->execute();
 
-    // ---------------- SEND EMAIL ----------------
+    // ---------------- SEND EMAIL (same QR design, centralized) ----------------
     $stmt_user = $conn->prepare("SELECT first_name,last_name,email FROM users WHERE id=? LIMIT 1");
     $stmt_user->bind_param("i",$user_id);
     $stmt_user->execute();
@@ -586,55 +596,7 @@ if(isset($_GET['generate'])){
     $user_fullname=$u['first_name'].' '.$u['last_name'];
     $user_email=$u['email'];
 
-    try{
-        $mail=new PHPMailer(true);
-        $mail->isSMTP();
-        $mail->Host='smtp.gmail.com';
-        $mail->SMTPAuth=true;
-        $mail->Username='lockerkandado01@gmail.com';
-        $mail->Password='xgzhnjxyapnphnco';
-        $mail->SMTPSecure=PHPMailer::ENCRYPTION_SMTPS;
-        $mail->Port=465;
-
-        $mail->setFrom('lockerkandado01@gmail.com','Kandado');
-        $mail->addAddress($user_email,$user_fullname);
-
-        $mail->isHTML(true);
-        $mail->Subject="Your Locker QR Code - Locker #{$locker}";
-        $mail->Body= "
-<table width='100%' cellpadding='0' cellspacing='0' border='0' style='background-color: #f9f9f9; padding: 30px;'>
-    <tr>
-        <td align='center'>
-        <table width='400' cellpadding='0' cellspacing='0' border='0' style='background-color: #ffffff; padding: 20px; border-radius: 12px; text-align: center;'>
-            <tr>
-            <td>
-                <h2 style='color: #333; font-family: Arial, sans-serif;'>Hello {$user_fullname},</h2>
-                <p style='font-size: 16px; color: #555; font-family: Arial, sans-serif;'>You have successfully reserved Locker #{$locker}.</p>
-                
-                <p style='font-size: 16px; font-weight: 600; color: #374151; font-family: Arial, sans-serif; margin: 10px 0 20px 0;'>Your QR Code:</p>
-                
-                <img src='cid:lockerqr' alt='QR Code' width='200' style='display: block; margin: 10px auto;' />
-                
-                <p style='font-size: 18px; font-weight: bold; color: #2563eb; font-family: Arial, sans-serif; margin: 10px 0 20px 0;'>{$data['code']}</p>
-                
-                <p style='font-size: 14px; color: #888; font-family: Arial, sans-serif; margin-top: 10px;'>Use this QR code to open your locker.</p>
-
-                <p style='font-size: 14px; color: #555; font-family: Arial, sans-serif; margin-top: 20px;'>
-                    Reserved on: <strong>{$reserve_date}</strong><br>
-                    Reserved Time: <strong>{$reserve_time}</strong><br>
-                    Expires at: <strong>{$expires_at_formatted}</strong>
-                </p>
-            </td>
-            </tr>
-        </table>
-        </td>
-    </tr>
-</table>";
-        $mail->addEmbeddedImage($qr_filename,'lockerqr');
-        $mail->send();
-    }catch(Exception $e){
-        error_log("Mailer Error: ".$mail->ErrorInfo);
-    }
+    email_qr($user_email, $user_fullname, $locker, $qr_filename, $data['code'], $reserve_date, $reserve_time, $expires_at_formatted);
 
     $data['expires_at']=$expires_at;
     $data['duration_minutes']=$duration_minutes;
@@ -665,7 +627,7 @@ if (isset($_GET['esp32']) && ($_GET['secret'] ?? '') === $esp32_secret) {
             'expires_at'       => $expires_iso,
             'duration_minutes' => $row['duration_minutes'] !== null ? (float)$row['duration_minutes'] : null,
             'item'             => (int)$row['item'],
-            'maintenance'      => (int)$row['maintenance'], // NEW
+            'maintenance'      => (int)$row['maintenance'],
         ];
     }
 } else {
@@ -693,13 +655,13 @@ if (isset($_GET['esp32']) && ($_GET['secret'] ?? '') === $esp32_secret) {
 
         $lockerStatus[$locker] = [
             'code'             => $row['code'],
-            'status'           => $status,          // raw database value
-            'status_label'     => $label,           // for dashboard display
+            'status'           => $status,
+            'status_label'     => $label,
             'user_id'          => $row['user_id'],
-            'expires_at'       => $expires_iso,     // <-- countdown source
+            'expires_at'       => $expires_iso,
             'duration_minutes' => $row['duration_minutes'] !== null ? (float)$row['duration_minutes'] : null,
             'item'             => (int)$row['item'],
-            'maintenance'      => (int)$row['maintenance'], // NEW
+            'maintenance'      => (int)$row['maintenance'],
         ];
     }
 }
@@ -718,3 +680,5 @@ if(isset($_GET['update_item'])){
 
 jexit($lockerStatus);
 ?>
+
+

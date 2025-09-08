@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Aug 31, 2025 at 11:43 AM
+-- Generation Time: Sep 06, 2025 at 05:34 PM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -39,6 +39,10 @@ CREATE TABLE `locker_history` (
   `archived` tinyint(4) DEFAULT 0
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+--
+-- Dumping data for table `locker_history`
+--
+
 -- --------------------------------------------------------
 
 --
@@ -63,7 +67,7 @@ CREATE TABLE `locker_qr` (
 
 INSERT INTO `locker_qr` (`id`, `locker_number`, `user_id`, `code`, `status`, `maintenance`, `item`, `expires_at`, `duration_minutes`) VALUES
 (1, 1, NULL, NULL, 'available', 0, 0, NULL, NULL),
-(2, 2, NULL, NULL, 'available', 0, 0, NULL, NULL),
+(2, 2, NULL, NULL, 'available', 0, 1, NULL, NULL),
 (3, 3, NULL, NULL, 'available', 0, 0, NULL, NULL),
 (4, 4, NULL, NULL, 'available', 0, 0, NULL, NULL);
 
@@ -84,6 +88,9 @@ CREATE TABLE `payments` (
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+--
+-- Dumping data for table `payments`
+--
 -- --------------------------------------------------------
 
 --
@@ -98,6 +105,7 @@ CREATE TABLE `users` (
   `password` varchar(255) NOT NULL,
   `profile_image` varchar(255) DEFAULT NULL,
   `verification_token` varchar(255) DEFAULT NULL,
+  `verification_expires_at` datetime DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `role` enum('admin','user') NOT NULL DEFAULT 'user',
   `archived` tinyint(1) NOT NULL DEFAULT 0,
@@ -109,10 +117,9 @@ CREATE TABLE `users` (
 -- Dumping data for table `users`
 --
 
-INSERT INTO `users` (`id`, `first_name`, `last_name`, `email`, `password`, `profile_image`, `verification_token`, `created_at`, `role`, `archived`, `reset_token`, `reset_token_expires`) VALUES
-(1, 'Admin', 'Account', 'admin@gmail.com', '$2y$10$xKFGP/npVtBPdlTawWWTsO9sbjrBk1NlOz9ULvCYbXHnpX.nsY/fW', 'default.jpg', NULL, '2025-08-03 11:45:11', 'admin', 0, NULL, NULL),
-(2, 'Alger', 'Angeles', 'algernonangeles3022@gmail.com', '$2y$10$eqXzA6HqyZ8p7woMAmmGOeRmosWcs7tdu6WhQrEXH9AjHWIFr.SCG', NULL, NULL, '2025-08-26 13:16:35', 'user', 0, NULL, NULL);
-
+INSERT INTO `users` (`id`, `first_name`, `last_name`, `email`, `password`, `profile_image`, `verification_token`, `verification_expires_at`, `created_at`, `role`, `archived`, `reset_token`, `reset_token_expires`) VALUES
+(1, 'Admin', 'Account', 'admin@gmail.com', '$2y$10$xKFGP/npVtBPdlTawWWTsO9sbjrBk1NlOz9ULvCYbXHnpX.nsY/fW', 'default.jpg', NULL, NULL, '2025-08-03 11:45:11', 'admin', 0, NULL, NULL),
+(2, 'Alger', 'Angeles', 'algernonangeles3022@gmail.com', '$2y$10$tjUZpF82svItsmczNGqH7e/Gz0q2d.vfUrdb19679m/XfS/mXy9mS', '40d4bc2db30dac01f5fe56ad68daf04d.jpg', NULL, NULL, '2025-08-26 13:16:35', 'user', 0, NULL, NULL),
 --
 -- Indexes for dumped tables
 --
@@ -145,7 +152,8 @@ ALTER TABLE `payments`
 --
 ALTER TABLE `users`
   ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `email` (`email`);
+  ADD UNIQUE KEY `email` (`email`),
+  ADD KEY `idx_verif_token_expires` (`verification_token`,`verification_expires_at`);
 
 --
 -- AUTO_INCREMENT for dumped tables
@@ -155,7 +163,7 @@ ALTER TABLE `users`
 -- AUTO_INCREMENT for table `locker_history`
 --
 ALTER TABLE `locker_history`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=106;
 
 --
 -- AUTO_INCREMENT for table `locker_qr`
@@ -167,13 +175,13 @@ ALTER TABLE `locker_qr`
 -- AUTO_INCREMENT for table `payments`
 --
 ALTER TABLE `payments`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=84;
 
 --
 -- AUTO_INCREMENT for table `users`
 --
 ALTER TABLE `users`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=41;
 
 --
 -- Constraints for dumped tables
@@ -192,6 +200,12 @@ DELIMITER $$
 --
 CREATE DEFINER=`root`@`localhost` EVENT `delete_old_locker_history` ON SCHEDULE EVERY 1 DAY STARTS '2025-08-18 22:22:00' ON COMPLETION NOT PRESERVE ENABLE DO DELETE FROM locker_history
   WHERE used_at < NOW() - INTERVAL 30 DAY$$
+
+CREATE DEFINER=`root`@`localhost` EVENT `cleanup_expired_verification_tokens` ON SCHEDULE EVERY 5 MINUTE STARTS '2025-09-06 22:42:24' ON COMPLETION NOT PRESERVE ENABLE DO UPDATE users
+  SET verification_token = NULL,
+      verification_expires_at = NULL
+  WHERE verification_expires_at IS NOT NULL
+    AND verification_expires_at < NOW()$$
 
 DELIMITER ;
 COMMIT;

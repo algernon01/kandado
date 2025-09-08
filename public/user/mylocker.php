@@ -52,10 +52,6 @@ $hasLocker        = (bool)$lockerData;
 $lockerNumberSafe = $hasLocker ? (int)$lockerData['locker_number'] : null;
 $lockerCodeSafe   = $hasLocker ? htmlspecialchars($lockerData['code'], ENT_QUOTES, 'UTF-8') : null;
 
-/**
- * Server-side default duration
- * Valid keys: 30s, 30min, 45min, 1hour, 3hours, 4hours, 5hours
- */
 $DEFAULT_DURATION_PHP = '30s';
 
 /* >>> NEW: millisecond-accurate server time to reduce initial skew across devices */
