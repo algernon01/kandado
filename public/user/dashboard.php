@@ -36,18 +36,33 @@ $TOTAL_LOCKERS = 4;
           <span class="pill maintenance"><span class="dot"></span>Maintenance</span><!-- NEW -->
         </div>
       </div>
-      <div class="toolbar">
-        <button id="refreshBtn" class="btn" type="button" title="Refresh now" aria-controls="lockerGrid">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M20 11a8.1 8.1 0 0 0-15.5-2M4 5v4h4"
-                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M4 13a8.1 8.1 0 0 0 15.5 2M20 19v-4h-4"
-                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-          Refresh
-        </button>
-        <span id="lastUpdated" class="last-updated" aria-live="polite">—</span>
+<div class="toolbar">
+  <button id="refreshBtn" class="btn" type="button" title="Refresh now" aria-controls="lockerGrid">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M20 11a8.1 8.1 0 0 0-15.5-2M4 5v4h4"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M4 13a8.1 8.1 0 0 0 15.5 2M20 19v-4h-4"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    Refresh
+  </button>
+  <span id="lastUpdated" class="last-updated" aria-live="polite">—</span>
+
+  <!-- Wallet widget (JS will update balance) -->
+  <div id="walletWidget" class="wallet-widget">
+    <div class="wallet-card" aria-live="polite">
+      <div class="wallet-left">
+        <span class="wallet-icon" aria-hidden="true">💳</span>
+        <span class="wallet-title">Wallet</span>
       </div>
+      <div class="wallet-right">
+        <span id="walletBalanceValue" class="wallet-balance">₱0.00</span>
+      </div>
+    </div>
+    <a href="/kandado/public/user/topup.php" class="btn btn-primary wallet-topup-btn">Top Up</a>
+  </div>
+</div>
+
     </header>
 
     <div id="offlineBanner" class="offline hidden" role="alert" aria-live="assertive">

@@ -367,3 +367,65 @@ h2{
 @media (prefers-contrast: more){
   .btn, .seg, .duration select, .reserveBtn{outline:1.5px solid #334155}
 }
+
+
+/* ===== Wallet widget (header toolbar) ===== */
+.wallet-widget{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  margin-left: 8px;
+  min-width:220px;
+}
+
+.wallet-card{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 12px;
+  box-shadow: var(--shadow);
+}
+
+.wallet-left{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font-weight:800;
+  color: var(--text);
+}
+
+.wallet-icon{ font-size:18px; }
+.wallet-title{ letter-spacing: -.01em; }
+
+.wallet-right .wallet-balance{
+  font-weight:800;
+  font-variant-numeric: tabular-nums;
+}
+
+.wallet-topup-btn{
+  text-align:center;
+  min-height: 40px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+}
+
+/* Small screens: make toolbar wrap nicely */
+@media (max-width: 720px){
+  .toolbar{
+    width: 100%;
+    align-items: stretch;
+  }
+  .wallet-widget{ width:100%; margin-left:0; }
+}
+
+/* Optional: focus rings for accessibility */
+.wallet-card:focus-visible, .wallet-topup-btn:focus-visible{
+  outline:2px solid var(--ring);
+  outline-offset:2px;
+  border-radius:12px;
+}

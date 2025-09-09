@@ -140,6 +140,7 @@ $SERVER_NOW_MS = (int) round(microtime(true) * 1000);
                 <button id="extendBtn" class="btn btn-primary">⏱ Extend</button>
               </div>
               <p class="hint" id="priceHint">Select a duration to see price.</p>
+              <p class="hint wallet-hint" id="walletHint">Wallet: ₱0.00</p>
             </div>
 
         <div class="locker__actions">
@@ -208,7 +209,7 @@ $SERVER_NOW_MS = (int) round(microtime(true) * 1000);
         code: <?= json_encode($lockerData['code'] ?? null) ?>,
         number: <?= json_encode($lockerNumberSafe) ?>,
         expiresAtMs: <?= json_encode(($expires_timestamp ?? (time() - 1)) * 1000) ?>
-      }
+      } 
     };
   </script>
 

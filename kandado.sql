@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Sep 06, 2025 at 05:34 PM
+-- Generation Time: Sep 09, 2025 at 06:48 PM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -39,10 +39,6 @@ CREATE TABLE `locker_history` (
   `archived` tinyint(4) DEFAULT 0
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
---
--- Dumping data for table `locker_history`
---
-
 -- --------------------------------------------------------
 
 --
@@ -58,18 +54,21 @@ CREATE TABLE `locker_qr` (
   `maintenance` tinyint(1) NOT NULL DEFAULT 0,
   `item` tinyint(1) NOT NULL DEFAULT 0,
   `expires_at` datetime DEFAULT NULL,
-  `duration_minutes` int(11) DEFAULT NULL
+  `duration_minutes` int(11) DEFAULT NULL,
+  `notify30_sent` tinyint(1) NOT NULL DEFAULT 0,
+  `notify15_sent` tinyint(1) NOT NULL DEFAULT 0,
+  `notify10_sent` tinyint(1) NOT NULL DEFAULT 0
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Dumping data for table `locker_qr`
 --
 
-INSERT INTO `locker_qr` (`id`, `locker_number`, `user_id`, `code`, `status`, `maintenance`, `item`, `expires_at`, `duration_minutes`) VALUES
-(1, 1, NULL, NULL, 'available', 0, 0, NULL, NULL),
-(2, 2, NULL, NULL, 'available', 0, 1, NULL, NULL),
-(3, 3, NULL, NULL, 'available', 0, 0, NULL, NULL),
-(4, 4, NULL, NULL, 'available', 0, 0, NULL, NULL);
+INSERT INTO `locker_qr` (`id`, `locker_number`, `user_id`, `code`, `status`, `maintenance`, `item`, `expires_at`, `duration_minutes`, `notify30_sent`, `notify15_sent`, `notify10_sent`) VALUES
+(1, 1, NULL, NULL, 'available', 0, 0, NULL, NULL, 0, 0, 0),
+(2, 2, NULL, NULL, 'available', 0, 0, NULL, NULL, 0, 0, 0),
+(3, 3, NULL, NULL, 'available', 0, 0, NULL, NULL, 0, 0, 0),
+(4, 4, NULL, NULL, 'available', 0, 0, NULL, NULL, 0, 0, 0);
 
 -- --------------------------------------------------------
 
@@ -81,16 +80,13 @@ CREATE TABLE `payments` (
   `id` int(11) NOT NULL,
   `user_id` int(11) NOT NULL,
   `locker_number` int(11) NOT NULL,
-  `method` enum('GCash','Maya') NOT NULL,
+  `method` enum('GCash','Maya','Wallet') NOT NULL,
   `amount` decimal(10,2) NOT NULL,
   `reference_no` varchar(50) NOT NULL,
   `duration` varchar(20) NOT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
---
--- Dumping data for table `payments`
---
 -- --------------------------------------------------------
 
 --
@@ -120,6 +116,37 @@ CREATE TABLE `users` (
 INSERT INTO `users` (`id`, `first_name`, `last_name`, `email`, `password`, `profile_image`, `verification_token`, `verification_expires_at`, `created_at`, `role`, `archived`, `reset_token`, `reset_token_expires`) VALUES
 (1, 'Admin', 'Account', 'admin@gmail.com', '$2y$10$xKFGP/npVtBPdlTawWWTsO9sbjrBk1NlOz9ULvCYbXHnpX.nsY/fW', 'default.jpg', NULL, NULL, '2025-08-03 11:45:11', 'admin', 0, NULL, NULL),
 (2, 'Alger', 'Angeles', 'algernonangeles3022@gmail.com', '$2y$10$tjUZpF82svItsmczNGqH7e/Gz0q2d.vfUrdb19679m/XfS/mXy9mS', '40d4bc2db30dac01f5fe56ad68daf04d.jpg', NULL, NULL, '2025-08-26 13:16:35', 'user', 0, NULL, NULL),
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `user_wallets`
+--
+
+CREATE TABLE `user_wallets` (
+  `user_id` int(11) NOT NULL,
+  `balance` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `wallet_transactions`
+--
+
+CREATE TABLE `wallet_transactions` (
+  `id` int(11) NOT NULL,
+  `user_id` int(11) NOT NULL,
+  `type` enum('topup','debit','refund','adjustment') NOT NULL,
+  `method` enum('GCash','Maya','Wallet','Admin') NOT NULL DEFAULT 'Wallet',
+  `amount` decimal(12,2) NOT NULL,
+  `reference_no` varchar(50) DEFAULT NULL,
+  `notes` varchar(255) DEFAULT NULL,
+  `meta` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`meta`)),
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 --
 -- Indexes for dumped tables
 --
@@ -137,7 +164,8 @@ ALTER TABLE `locker_history`
 --
 ALTER TABLE `locker_qr`
   ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `locker_number` (`locker_number`);
+  ADD UNIQUE KEY `locker_number` (`locker_number`),
+  ADD KEY `fk_locker_qr_user` (`user_id`);
 
 --
 -- Indexes for table `payments`
@@ -156,6 +184,21 @@ ALTER TABLE `users`
   ADD KEY `idx_verif_token_expires` (`verification_token`,`verification_expires_at`);
 
 --
+-- Indexes for table `user_wallets`
+--
+ALTER TABLE `user_wallets`
+  ADD PRIMARY KEY (`user_id`);
+
+--
+-- Indexes for table `wallet_transactions`
+--
+ALTER TABLE `wallet_transactions`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `uniq_ref` (`reference_no`),
+  ADD UNIQUE KEY `uniq_wallet_user_ref` (`user_id`,`reference_no`),
+  ADD KEY `idx_user_created` (`user_id`,`created_at`);
+
+--
 -- AUTO_INCREMENT for dumped tables
 --
 
@@ -163,7 +206,7 @@ ALTER TABLE `users`
 -- AUTO_INCREMENT for table `locker_history`
 --
 ALTER TABLE `locker_history`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=106;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `locker_qr`
@@ -175,17 +218,29 @@ ALTER TABLE `locker_qr`
 -- AUTO_INCREMENT for table `payments`
 --
 ALTER TABLE `payments`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=84;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `users`
 --
 ALTER TABLE `users`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=41;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=45;
+
+--
+-- AUTO_INCREMENT for table `wallet_transactions`
+--
+ALTER TABLE `wallet_transactions`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- Constraints for dumped tables
 --
+
+--
+-- Constraints for table `locker_qr`
+--
+ALTER TABLE `locker_qr`
+  ADD CONSTRAINT `fk_locker_qr_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL;
 
 --
 -- Constraints for table `payments`
@@ -193,6 +248,18 @@ ALTER TABLE `users`
 ALTER TABLE `payments`
   ADD CONSTRAINT `payments_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
   ADD CONSTRAINT `payments_ibfk_2` FOREIGN KEY (`locker_number`) REFERENCES `locker_qr` (`locker_number`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `user_wallets`
+--
+ALTER TABLE `user_wallets`
+  ADD CONSTRAINT `fk_user_wallets_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `wallet_transactions`
+--
+ALTER TABLE `wallet_transactions`
+  ADD CONSTRAINT `fk_wallet_tx_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE;
 
 DELIMITER $$
 --
