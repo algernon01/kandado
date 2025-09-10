@@ -56,6 +56,12 @@ body{
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Utility: sr-only for accessible labels used in markup */
+.sr-only{
+  position:absolute !important; width:1px; height:1px; padding:0; margin:-1px;
+  overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0;
+}
+
 /* Safe-area padding for devices with notches */
 .container{
   max-width:1200px;
@@ -78,11 +84,19 @@ h2{
   font-size: 20px;
 }
 
-
-/* Page header */
+/* ---------- Page header (TOP AREA) ---------- */
+/* Mobile-first: single column. On ≥720px, title on left, controls on right */
 .page-header{
-  display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);margin-bottom:var(--space-4);
-  flex-wrap:wrap;
+  display:grid;
+  grid-template-columns: 1fr;     /* mobile: one column */
+  align-items:start;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+@media (min-width: 720px){
+  .page-header{
+    grid-template-columns: 1fr auto; /* desktop: two columns */
+  }
 }
 
 .title-wrap{ display:flex;align-items:flex-end;gap:var(--space-3);flex-wrap:wrap }
@@ -101,8 +115,33 @@ h2{
 .pill.hold .dot{ background: var(--primary); }
 .pill.maintenance .dot{ background: var(--warning); } /* NEW */
 
-/* Toolbar */
-.toolbar{display:flex;align-items:center;gap:var(--space-2)}
+/* Toolbar = right column: vertical stack with a row for refresh + timestamp,
+   and the wallet widget UNDER it (top-right on desktop). */
+.toolbar{
+  display:flex;
+  flex-direction:column;
+  align-items:stretch;    /* mobile: full width */
+  gap: var(--space-2);
+}
+@media (min-width: 720px){
+  .toolbar{
+    align-items:flex-end; /* desktop: right-align */
+    min-width: 260px;
+    width: max-content;
+  }
+}
+
+/* Row that holds Refresh + timestamp */
+.toolbar-row{
+  display:flex;
+  align-items:center;
+  gap: var(--space-2);
+  justify-content:space-between; /* mobile */
+}
+@media (min-width: 720px){
+  .toolbar-row{ justify-content:flex-end; }
+}
+
 .btn{
   display:inline-flex;align-items:center;gap:8px;
   padding:10px 14px;border-radius:10px;border:1px solid var(--border);
@@ -164,7 +203,6 @@ h2{
   letter-spacing:-0.02em;
   color: var(--text);
 }
-
 
 /* Filters – sticky on small screens, scrollable segmented */
 .filter-bar{
@@ -368,59 +406,80 @@ h2{
   .btn, .seg, .duration select, .reserveBtn{outline:1.5px solid #334155}
 }
 
-
-/* ===== Wallet widget (header toolbar) ===== */
+/* ===== Wallet widget (header toolbar) — REVISED (inline, compact, pro) ===== */
 .wallet-widget{
-  display:flex;
-  flex-direction:column;
-  gap:8px;
-  margin-left: 8px;
-  min-width:220px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: nowrap;
+  width: auto;                 /* don't stretch full width */
+  align-self: flex-start;      /* avoid stretching in column toolbar on mobile */
+}
+@media (min-width: 720px){
+  .wallet-widget{ align-self: auto; }
 }
 
 .wallet-card{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 12px;
-  padding: 10px 12px;
+  padding: 8px 12px;           /* compact */
   box-shadow: var(--shadow);
+  height: 42px;                /* same visual height as button */
+  min-width: 176px;            /* fits label + small balance */
+  max-width: 280px;            /* prevents overly wide look */
+  position: relative;
+  overflow: hidden;
+}
+.wallet-card::before{
+  content:"";
+  position:absolute; inset:0;
+  background: radial-gradient(120% 80% at 100% 0%, rgba(37,99,235,0.10) 0%, transparent 60%);
+  pointer-events:none;
 }
 
 .wallet-left{
-  display:flex;
-  align-items:center;
-  gap:8px;
-  font-weight:800;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 800;
   color: var(--text);
 }
+.wallet-icon{ font-size: 16px; line-height: 1; }
+.wallet-title{ letter-spacing: -.01em; font-size: 13px; }
 
-.wallet-icon{ font-size:18px; }
-.wallet-title{ letter-spacing: -.01em; }
-
-.wallet-right .wallet-balance{
-  font-weight:800;
+.wallet-right{ display: inline-flex; align-items: center; }
+.wallet-balance{
+  font-weight: 800;
   font-variant-numeric: tabular-nums;
+  font-size: 16px;
+  white-space: nowrap;
 }
 
+/* Compact Top Up button (keeps .btn-primary styles, overrides sizing) */
 .wallet-topup-btn{
-  text-align:center;
-  min-height: 40px;
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 42px;                /* match wallet-card height */
+  min-width: 96px;
+  padding: 0 14px;
+  border-radius: 10px;
+  font-weight: 800;
+  white-space: nowrap;
+  min-height: 0;               /* override .btn min-height */
+  line-height: 1;
 }
+.wallet-topup-btn:hover{ transform: translateY(-1px); box-shadow: var(--shadow); }
+.wallet-topup-btn:active{ transform: translateY(0); box-shadow: none; }
 
-/* Small screens: make toolbar wrap nicely */
+/* Small screens: the entire toolbar takes full width */
 @media (max-width: 720px){
-  .toolbar{
-    width: 100%;
-    align-items: stretch;
-  }
-  .wallet-widget{ width:100%; margin-left:0; }
+  .toolbar{ width: 100%; }
 }
 
 /* Optional: focus rings for accessibility */
@@ -428,4 +487,231 @@ h2{
   outline:2px solid var(--ring);
   outline-offset:2px;
   border-radius:12px;
+}
+
+/* ===== Reserve Modal (responsive, mobile-first) ===== */
+.reserve-popup.swal2-popup{
+  width: clamp(360px, 92vw, 720px);
+  padding: 16px;
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+}
+
+/* SweetAlert defaults add margin around the custom html container.
+   We remove it for tighter, card-like layout. */
+.reserve-popup .swal2-html-container{
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: visible;        /* desktop: no scroll in container */
+}
+
+/* Mobile behavior: the popup takes most of the viewport height,
+   content area becomes scrollable, actions stay visible. */
+@media (max-width: 720px){
+  .reserve-popup.swal2-popup{
+    height: 92dvh;          /* most of the screen, safe for notches */
+    display: flex;
+    flex-direction: column;
+  }
+  .reserve-popup .swal2-html-container{
+    flex: 1 1 auto;         /* grow to fill space */
+    overflow-y: auto;       /* <-- scroll only on mobile */
+    -webkit-overflow-scrolling: touch;
+    padding-right: 4px;     /* small gutter to avoid scrollbar overlap */
+  }
+  .reserve-popup .swal2-actions{
+    position: sticky;
+    bottom: 0;
+    background: linear-gradient(180deg, rgba(255,255,255,0), #fff 40%);
+    padding-top: 8px;
+    margin-top: 8px;
+  }
+}
+
+/* Desktop: let the dialog grow with content (no scrollbar needed) */
+@media (min-width: 721px){
+  .reserve-popup.swal2-popup{ max-height: none; }
+  .reserve-popup .swal2-html-container{ overflow: visible; }
+}
+
+/* ===== Inner UI bits ===== */
+.reserve-modal{
+  display: grid;
+  gap: 12px;
+}
+
+/* Wallet row inside the modal header */
+.wallet-inline{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 12px;
+  box-shadow: var(--shadow);
+  font-weight: 800;
+}
+.wallet-inline .amount{
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+/* Duration grid (cards) */
+.duration-grid{
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+}
+@media (min-width: 720px){
+  .duration-grid{ gap: 12px; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+}
+
+/* Option card */
+.option-card{
+  position: relative;
+  display: block;
+  border: 1px solid var(--border);
+  background: #fff;
+  border-radius: 12px;
+  padding: 12px;
+  box-shadow: var(--shadow);
+  cursor: pointer;
+  transition: transform var(--transition), box-shadow var(--transition), border-color var(--transition), background var(--transition);
+  min-height: 64px;
+}
+.option-card:hover{ transform: translateY(-1px); box-shadow: 0 8px 24px rgba(2,6,23,0.12); }
+.option-card input{ position: absolute; inset: 0; opacity: 0; pointer-events: none; }
+
+.option-card .opt-main{
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  font-weight: 700;
+}
+.option-card .opt-title{ color: var(--text); font-size: 14px; }
+.option-card .opt-price{ color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+
+/* Selected state */
+.option-card input:checked + .opt-main{
+  background: rgba(37,99,235,0.06);
+  border-radius: 8px;
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
+}
+.option-card:has(input:checked){ border-color: rgba(37,99,235,0.40); }     /* progressive enhancement */
+
+/* Not enough balance hint (visual only; still selectable) */
+.option-card.insufficient{
+  opacity: .75;
+  background: linear-gradient(180deg, #fff, #fff);
+  position: relative;
+}
+.option-card.insufficient::after{
+  content: "Top up needed";
+  position: absolute;
+  right: 10px; bottom: 10px;
+  background: #fff1f2; color: #be123c;
+  border: 1px solid #fecdd3;
+  font-size: 11px; font-weight: 800;
+  padding: 3px 6px; border-radius: 999px;
+}
+
+/* Warning + summary */
+.wallet-warning{
+  display: none;
+  background: #fff8e1;
+  color: #92400e;
+  border: 1px solid #fde68a;
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-weight: 700;
+}
+.wallet-warning.show{ display: block; }
+
+.summary-row{
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px;
+  border-top: 1px dashed var(--border);
+  padding-top: 10px;
+  margin-top: 2px;
+}
+.summary-row .total{ font-weight: 800; }
+
+/* “Top Up” link style inside the modal */
+.reserve-modal .reference .ref-value{
+  color: var(--primary);
+  text-decoration: none;
+}
+.reserve-modal .reference .ref-value:hover{
+  text-decoration: underline;
+}
+
+/* Slightly larger tap targets on coarse pointers */
+@media (pointer: coarse){
+  .option-card{ padding: 14px; }
+  .option-card .opt-title{ font-size: 15px; }
+}
+
+/* Center headings */
+.reserve-popup .swal2-title{ text-align:center; letter-spacing:-0.02em; font-weight:800; }
+.reserve-modal .section-title{ text-align:center; font-weight:800; color:var(--muted); letter-spacing:.12em; }
+
+/* Card layout + polish */
+.option-card{ text-align:center; border-radius:14px; }
+.option-card .opt-main{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
+
+/* Price: never wrap (fixes ₱0.50 breaking), tabular digits for alignment */
+.option-card .opt-price{
+  display:inline-block;
+  white-space: nowrap;         /* <= key fix */
+  word-break: keep-all;
+  overflow-wrap: normal;
+  font-variant-numeric: tabular-nums;
+  font-weight:700; color:var(--muted);
+}
+
+/* Selected state ring */
+.option-card:has(input:checked){
+  border-color: rgba(37,99,235,.45);
+  box-shadow: 0 0 0 3px rgba(37,99,235,.20), var(--shadow);
+  background: linear-gradient(180deg, #ffffff, #f8fbff);
+}
+
+/* Mobile: stack & center title/price, make content scrollable */
+@media (max-width: 720px){
+  .option-card .opt-main{
+    flex-direction: column;     /* title above price */
+    justify-content: center; align-items: center; gap:6px;
+  }
+  .option-card .opt-title{ text-align:center; }
+  .option-card .opt-price{
+    padding:4px 10px; border-radius:999px; border:1px solid var(--border); background:#f1f5f9;
+  }
+
+  .reserve-popup.swal2-popup{ height:92dvh; display:flex; flex-direction:column; }
+  .reserve-popup .swal2-html-container{
+    flex:1 1 auto; overflow-y:auto; -webkit-overflow-scrolling:touch; padding-right:4px;
+  }
+  .reserve-popup .swal2-actions{
+    position:sticky; bottom:0;
+    background:linear-gradient(180deg, rgba(255,255,255,0), #fff 40%);
+    margin-top:8px; padding-top:8px;
+  }
+}
+
+/* Desktop: no scroll inside modal */
+@media (min-width: 721px){
+  .reserve-popup .swal2-html-container{ overflow:visible; }
+}
+
+/* Desktop-only: stack & center text inside each card */
+@media (min-width: 721px){
+  .option-card .opt-main{
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+  .option-card .opt-title,
+  .option-card .opt-price{ text-align: center; }
 }

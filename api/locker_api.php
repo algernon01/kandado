@@ -103,8 +103,11 @@ function get_wallet_balance($conn, $user_id) {
 }
 
 /**
- * Credit wallet (TOPUP). If (user_id, reference_no) already exists,
- * MERGE: amount += new amount, method/notes updated. Single row, growing amount.
+ * Credit wallet (TOPUP).
+ * NEW BEHAVIOR:
+ * - Keep ONE running row per user for type='topup' in wallet_transactions.
+ * - Add to amount; update method/reference_no/notes to the latest.
+ * - If the same reference_no is seen again, treat as idempotent (no double count).
  */
 function wallet_credit($conn, $user_id, $amount, $method, $reference_no, $notes = null, $meta = null) {
     if ($amount <= 0) return ['ok'=>false, 'error'=>'invalid_amount'];
@@ -112,7 +115,7 @@ function wallet_credit($conn, $user_id, $amount, $method, $reference_no, $notes 
     try {
         $conn->begin_transaction();
 
-        // Ensure wallet row exists & lock it
+        // Create/lock wallet row
         $stmt = $conn->prepare("SELECT balance FROM user_wallets WHERE user_id=? FOR UPDATE");
         $stmt->bind_param("i", $user_id);
         $stmt->execute();
@@ -126,38 +129,61 @@ function wallet_credit($conn, $user_id, $amount, $method, $reference_no, $notes 
             $current = (float)$row['balance'];
         }
 
+        // Idempotency guard: if this reference already exists anywhere → no double charge
+        if ($reference_no) {
+            $stmtRef = $conn->prepare("SELECT id FROM wallet_transactions WHERE reference_no=? LIMIT 1");
+            $stmtRef->bind_param("s", $reference_no);
+            $stmtRef->execute();
+            if ($stmtRef->get_result()->fetch_assoc()) {
+                $conn->commit();
+                return ['ok'=>true, 'idempotent'=>true, 'balance'=>$current];
+            }
+        }
+
         $delta = round($amount, 2);
         $newBal = round($current + $delta, 2);
         $note   = $notes ?: ('Top-up via ' . $method);
         $metaJson = $meta ? json_encode($meta) : null;
 
-        // Check if same (user_id, reference_no) exists -> MERGE
+        // Find (or create) the single running TOPUP row for this user
         $tx_id = null;
-        if ($reference_no) {
-            $stmtC = $conn->prepare("SELECT id FROM wallet_transactions WHERE user_id=? AND reference_no=? LIMIT 1");
-            $stmtC->bind_param("is", $user_id, $reference_no);
-            $stmtC->execute();
-            $existing = $stmtC->get_result()->fetch_assoc();
+        $stmtFind = $conn->prepare("SELECT id FROM wallet_transactions WHERE user_id=? AND type='topup' LIMIT 1");
+        $stmtFind->bind_param("i", $user_id);
+        $stmtFind->execute();
+        $existing = $stmtFind->get_result()->fetch_assoc();
 
-            if ($existing) {
-                $tx_id = (int)$existing['id'];
+        if ($existing) {
+            $tx_id = (int)$existing['id'];
+            // Try to update including the new reference_no
+            try {
                 $stmtU = $conn->prepare("
                     UPDATE wallet_transactions
-                       SET method=?, amount=amount+?, notes=?
-                     WHERE id=?");
-                $stmtU->bind_param("sdsi", $method, $delta, $note, $tx_id);
+                       SET method=?, amount=amount+?, reference_no=?, notes=?, meta=COALESCE(?, meta)
+                     WHERE id=?
+                ");
+                $stmtU->bind_param("sdsssi", $method, $delta, $reference_no, $note, $metaJson, $tx_id);
                 $stmtU->execute();
+            } catch (mysqli_sql_exception $e) {
+                // Duplicate reference? Keep old reference_no, still add amount.
+                if ((int)$e->getCode() === 1062) {
+                    $stmtU2 = $conn->prepare("
+                        UPDATE wallet_transactions
+                           SET method=?, amount=amount+?, notes=?, meta=COALESCE(?, meta)
+                         WHERE id=?
+                    ");
+                    $stmtU2->bind_param("sdssi", $method, $delta, $note, $metaJson, $tx_id);
+                    $stmtU2->execute();
+                } else {
+                    throw $e;
+                }
             }
-        }
-
-        if (!$tx_id) {
+        } else {
             $type = 'topup';
             $stmtTx = $conn->prepare("
                 INSERT INTO wallet_transactions
                     (user_id, type, method, amount, reference_no, notes, meta)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
             ");
-            $type = 'topup';
             $stmtTx->bind_param("issdsss", $user_id, $type, $method, $delta, $reference_no, $note, $metaJson);
             $stmtTx->execute();
             $tx_id = $conn->insert_id;
@@ -183,7 +209,11 @@ function wallet_credit($conn, $user_id, $amount, $method, $reference_no, $notes 
 }
 
 /**
- * Debit wallet (RESERVATION/EXTEND). Idempotency by reference_no (if provided).
+ * Debit wallet (RESERVATION/EXTEND).
+ * NEW BEHAVIOR:
+ * - Keep ONE running row per user for type='debit' in wallet_transactions.
+ * - Add to amount; update reference_no and notes to the latest.
+ * - If same reference_no is seen again → idempotent (no double debit).
  */
 function wallet_debit($conn, $user_id, $amount, $reference_no, $notes = null, $meta = null) {
     if ($amount <= 0) return ['ok'=>false, 'error'=>'invalid_amount'];
@@ -191,10 +221,10 @@ function wallet_debit($conn, $user_id, $amount, $reference_no, $notes = null, $m
     try {
         $conn->begin_transaction();
 
-        // If same ref exists -> idempotent success (no double debit)
+        // If same ref exists anywhere -> idempotent success (no double debit)
         if ($reference_no) {
-            $stmt = $conn->prepare("SELECT id FROM wallet_transactions WHERE user_id=? AND reference_no=? LIMIT 1");
-            $stmt->bind_param("is", $user_id, $reference_no);
+            $stmt = $conn->prepare("SELECT id FROM wallet_transactions WHERE reference_no=? LIMIT 1");
+            $stmt->bind_param("s", $reference_no);
             $stmt->execute();
             if ($stmt->get_result()->fetch_assoc()) {
                 $bal = get_wallet_balance($conn, $user_id);
@@ -203,7 +233,7 @@ function wallet_debit($conn, $user_id, $amount, $reference_no, $notes = null, $m
             }
         }
 
-        // Lock row
+        // Lock wallet
         $stmt = $conn->prepare("SELECT balance FROM user_wallets WHERE user_id=? FOR UPDATE");
         $stmt->bind_param("i",$user_id);
         $stmt->execute();
@@ -222,16 +252,48 @@ function wallet_debit($conn, $user_id, $amount, $reference_no, $notes = null, $m
 
         $newBal = round($current - $amount, 2);
 
-        // Insert ledger
+        // Upsert the single running DEBIT row
         $type = 'debit';
         $method = 'Wallet';
         $metaJson = $meta ? json_encode($meta) : null;
-        $stmtTx = $conn->prepare("
-            INSERT INTO wallet_transactions (user_id, type, method, amount, reference_no, notes, meta)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        ");
-        $stmtTx->bind_param("issdsss", $user_id, $type, $method, $amount, $reference_no, $notes, $metaJson);
-        $stmtTx->execute();
+
+        $stmtFind = $conn->prepare("SELECT id FROM wallet_transactions WHERE user_id=? AND type='debit' LIMIT 1");
+        $stmtFind->bind_param("i", $user_id);
+        $stmtFind->execute();
+        $existing = $stmtFind->get_result()->fetch_assoc();
+
+        if ($existing) {
+            $tx_id = (int)$existing['id'];
+            try {
+                $stmtU = $conn->prepare("
+                    UPDATE wallet_transactions
+                       SET method=?, amount=amount+?, reference_no=?, notes=?, meta=COALESCE(?, meta)
+                     WHERE id=?
+                ");
+                $stmtU->bind_param("sdsssi", $method, $amount, $reference_no, $notes, $metaJson, $tx_id);
+                $stmtU->execute();
+            } catch (mysqli_sql_exception $e) {
+                if ((int)$e->getCode() === 1062) {
+                    // Reference collision: add amount, keep old reference
+                    $stmtU2 = $conn->prepare("
+                        UPDATE wallet_transactions
+                           SET method=?, amount=amount+?, notes=?, meta=COALESCE(?, meta)
+                         WHERE id=?
+                    ");
+                    $stmtU2->bind_param("sdssi", $method, $amount, $notes, $metaJson, $tx_id);
+                    $stmtU2->execute();
+                } else {
+                    throw $e;
+                }
+            }
+        } else {
+            $stmtTx = $conn->prepare("
+                INSERT INTO wallet_transactions (user_id, type, method, amount, reference_no, notes, meta)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ");
+            $stmtTx->bind_param("issdsss", $user_id, $type, $method, $amount, $reference_no, $notes, $metaJson);
+            $stmtTx->execute();
+        }
 
         // Update wallet
         $stmtUp = $conn->prepare("UPDATE user_wallets SET balance=? WHERE user_id=?");
@@ -442,7 +504,7 @@ if (isset($_GET['wallet_topup'])) {
         jexit(['error'=>'invalid_method'],400);
     }
     $amount = (float)($_GET['amount'] ?? 0);
-    $reference_no = $_GET['ref'] ?? null; // PSP or client ref (stable to merge)
+    $reference_no = $_GET['ref'] ?? null; // PSP or client ref (stable to merge/idempotency)
     $res = wallet_credit($conn, $uid, round($amount,2), $method, $reference_no, 'Top-up via '.$method);
     if (!$res['ok']) jexit(['error'=>$res['error'], 'message'=>$res['message'] ?? null], 500);
     jexit(['success'=>true, 'balance'=>$res['balance'], 'idempotent'=>!empty($res['idempotent'])]);
@@ -555,7 +617,7 @@ if(isset($_GET['extend'])){
             ]);
         }
 
-        // Wallet debit
+        // Wallet debit (aggregates into single DEBIT row)
         $deb = wallet_debit($conn, $user_id, round($amount,2), $reference_no, "Extend locker #$locker ($requested)");
         if (!$deb['ok']) {
             $conn->rollback();
@@ -762,7 +824,7 @@ if(isset($_GET['generate'])){
             jexit(['error'=>'locker_unavailable'],409);
         }
 
-        // Wallet debit
+        // Wallet debit (aggregates into single DEBIT row)
         $deb = wallet_debit($conn, $user_id, round($amount,2), $reference_no, "Reserve locker #$locker ($requested)");
         if (!$deb['ok']) {
             $conn->rollback();

@@ -1,10 +1,10 @@
-// user_dashboard.js — Wallet-enabled (keeps original UX/KPIs)
+// user_dashboard.js — Wallet-enabled, modal-based duration picker (no selects on cards)
 
 /* ------------------ Config ------------------ */
 const API_BASE = `${window.location.origin}/kandado/api`;
 const TOPUP_URL = `/kandado/public/user/topup.php`;
 
-// Client price map (will be synced from API /prices at boot)
+// Client price map (synced from API /prices at boot)
 let prices = {
   '30s': 0.5,     // for testing
   '20min': 2,
@@ -19,7 +19,9 @@ let prices = {
   '7days': 150
 };
 
-const DEFAULT_DURATION = '30s';
+// Initial selection when opening the modal
+const DEFAULT_DURATION = localStorage.getItem('kd_last_duration') || '30min';
+
 const durationOptions = [
   { value: '30s',     text: '30 Seconds (Test)' },
   { value: '20min',   text: '20 Minutes' },
@@ -34,17 +36,17 @@ const durationOptions = [
   { value: '7days',   text: '7 Days' }
 ];
 
-
 /* ------------------ Utilities ------------------ */
 const $  = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => Array.from(ctx.querySelectorAll(sel));
 const peso = (n) => `₱${Number(n || 0).toFixed(2)}`;
 const nowStr = () => new Date().toLocaleTimeString();
 const debounce = (fn, ms=150) => { let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a),ms); }; };
+const cssVar = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 
 function updateLastUpdated() { $('#lastUpdated').textContent = `Updated: ${nowStr()}`; }
 function statusClasses(el, status){
-  el.classList.remove('available','occupied','hold','item','no-item','maintenance'); /* clear helpers */
+  el.classList.remove('available','occupied','hold','item','no-item','maintenance');
   el.classList.add(status);
 }
 function setBusy(isBusy){ const g = $('#lockerGrid'); if (!g) return; g.setAttribute('aria-busy', isBusy ? 'true':'false'); g.classList.toggle('grid-busy', isBusy); }
@@ -64,9 +66,6 @@ function formatDuration(ms){
   parts.push(`${sec}s`);
   return parts.slice(0,3).join(' ');
 }
-
-// CSS var reader
-const cssVar = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 
 // Choose donut color by % (<=50 green, 51-80 orange, >80 red)
 function getOccColor(pct){
@@ -100,7 +99,7 @@ function applyFilters(){
     const matchesStatus = (currentStatusFilter === 'all') || (status === currentStatusFilter);
     const matchesSearch = !currentSearch || id === currentSearch;
     const show = matchesStatus && matchesSearch;
-    
+
     card.classList.toggle('hidden', !show);
     card.classList.toggle('locker--highlight', !!currentSearch && id === currentSearch);
     if (show) visible++;
@@ -120,10 +119,6 @@ function buildLockerCard(i) {
   card.setAttribute('role', 'region');
   card.setAttribute('aria-labelledby', `locker${i}-title`);
 
-  const optionsHtml = durationOptions.map(o =>
-    `<option value="${o.value}" ${o.value === DEFAULT_DURATION ? 'selected' : ''}>${o.text}</option>`
-  ).join('');
-
   card.innerHTML = `
     <div class="lnum" id="locker${i}-title">Locker ${idx}</div>
 
@@ -132,19 +127,9 @@ function buildLockerCard(i) {
       <span class="status-text">Available</span>
     </div>
 
-    <div class="price" id="price${i}" aria-label="Price for selected duration">${peso(prices[DEFAULT_DURATION])}</div>
-
-    <div class="duration-container">
-      <div class="duration">
-        <label class="sr-only" for="duration${i}">Select duration for locker ${idx}</label>
-        <select id="duration${i}" aria-label="Duration for locker ${idx}">
-          ${optionsHtml}
-        </select>
-      </div>
-      <button id="btn${i}" class="reserveBtn" type="button" onclick="startCheckout(${i})" aria-label="Reserve locker ${idx}">
-        Reserve
-      </button>
-    </div>
+    <button id="btn${i}" class="reserveBtn" type="button" onclick="startCheckout(${i})" aria-label="Reserve locker ${idx}">
+      Reserve
+    </button>
 
     <div class="meta" id="meta${i}">
       <div class="meta-row">
@@ -153,14 +138,6 @@ function buildLockerCard(i) {
       </div>
     </div>
   `;
-
-  const selectEl = card.querySelector(`#duration${i}`);
-  const priceEl  = card.querySelector(`#price${i}`);
-  selectEl.value = DEFAULT_DURATION;
-  priceEl.textContent = peso(prices[selectEl.value] ?? prices[DEFAULT_DURATION]);
-  selectEl.addEventListener('change', (e) => {
-    priceEl.textContent = peso(prices[e.target.value] ?? prices[DEFAULT_DURATION]);
-  });
 
   return card;
 }
@@ -176,12 +153,6 @@ async function syncPricesFromAPI() {
     const data = await r.json();
     if (data?.success && data?.prices && typeof data.prices === 'object') {
       prices = { ...prices, ...data.prices };
-      // refresh card price labels to synced prices
-      for (let i = 0; i < getTotalLockers(); i++) {
-        const sel = document.getElementById(`duration${i}`);
-        const priceEl = document.getElementById(`price${i}`);
-        if (sel && priceEl) priceEl.textContent = peso(prices[sel.value] ?? prices[DEFAULT_DURATION]);
-      }
     }
   } catch (e) {
     // ignore, fallback to hardcoded prices
@@ -192,62 +163,8 @@ async function syncPricesFromAPI() {
 let walletPollId = null;
 
 function ensureWalletWidget() {
-  const toolbar = $('.toolbar');
-  if (!toolbar || $('#walletWidget')) return;
-
-  // container
-  const wrap = document.createElement('div');
-  wrap.id = 'walletWidget';
-  wrap.style.display = 'flex';
-  wrap.style.flexDirection = 'column';
-  wrap.style.gap = '6px';
-  wrap.style.minWidth = '220px';
-
-  // balance pill
-  const bal = document.createElement('div');
-  bal.id = 'walletBalance';
-  bal.setAttribute('aria-live', 'polite');
-  bal.style.display = 'flex';
-  bal.style.alignItems = 'center';
-  bal.style.justifyContent = 'space-between';
-  bal.style.border = '1px solid var(--border)';
-  bal.style.background = 'var(--surface)';
-  bal.style.borderRadius = '12px';
-  bal.style.padding = '10px 12px';
-  bal.style.boxShadow = 'var(--shadow)';
-  bal.innerHTML = `
-    <div style="display:flex; align-items:center; gap:8px; font-weight:800;">
-      <span aria-hidden="true">💳</span>
-      <span>Wallet</span>
-    </div>
-    <div id="walletBalanceValue" style="font-weight:800;">₱0.00</div>
-  `;
-
-  // topup button
-  const top = document.createElement('a');
-  top.href = TOPUP_URL;
-  top.textContent = 'Top Up';
-  top.className = 'btn btn-primary';
-  top.style.textAlign = 'center';
-
-  // Place the wallet widget under the Refresh/Updated area
-  // toolbar currently: [Refresh button][lastUpdated]; we append a column under it.
-  const holder = document.createElement('div');
-  holder.style.display = 'flex';
-  holder.style.flexDirection = 'column';
-  holder.style.gap = '8px';
-  holder.appendChild(bal);
-  holder.appendChild(top);
-
-  // put a small separator
-  const spacer = document.createElement('div');
-  spacer.style.width = '1px';
-  spacer.style.height = '1px';
-
-  wrap.appendChild(holder);
-
-  // Insert after lastUpdated
-  toolbar.appendChild(wrap);
+  // already in the HTML (walletWidget inside toolbar)
+  // keep for backward-compat with older templates
 }
 
 async function refreshWalletBalance() {
@@ -263,8 +180,25 @@ async function refreshWalletBalance() {
       if (v) v.textContent = peso(data.balance);
     }
   } catch (e) {
-    // ignore display errors; keep last value
+    // ignore display errors
   }
+}
+
+// helper that also returns a number for modal logic
+async function getWalletBalance(){
+  try{
+    const r = await fetch(`${API_BASE}/locker_api.php?wallet=1`, {
+      credentials:'same-origin',
+      cache:'no-store'
+    });
+    const data = await r.json();
+    if (data?.success){
+      const v = $('#walletBalanceValue');
+      if (v) v.textContent = peso(data.balance);
+      return Number(data.balance || 0);
+    }
+  }catch(_){}
+  return 0;
 }
 
 function startWalletPolling(intervalMs = 10000) {
@@ -460,7 +394,138 @@ async function fetchActiveLockers(showToast = false) {
   }
 }
 
-/* ------------------ Checkout flow (Wallet) ------------------ */
+/* ------------------ Reserve flow: modal with duration + wallet ------------------ */
+function labelForDuration(value){
+  return durationOptions.find(o=>o.value===value)?.text || value;
+}
+
+// Renders a single option card (value comes from your durationOptions list)
+function optionCardHTML(value, text){
+  const price = prices[value] ?? 0;
+  const id = `dur-${value.replace(/[^a-zA-Z0-9_-]/g, '')}`;
+  return `
+    <label class="option-card" data-value="${value}">
+      <input id="${id}" type="radio" name="reserve-duration" value="${value}">
+      <div class="opt-main">
+        <span class="opt-title">${text}</span>
+        <span class="opt-price">${peso(price)}</span>
+      </div>
+    </label>
+  `;
+}
+
+
+async function openReserveModal(locker){
+  const balance = await getWalletBalance();
+  const initial = durationOptions.some(o => o.value === DEFAULT_DURATION)
+    ? DEFAULT_DURATION
+    : '30min';
+
+  const optionsHtml = durationOptions.map(o => optionCardHTML(o.value, o.text)).join('');
+
+  return Swal.fire({
+    title: `Reserve Locker ${locker + 1}`,
+    html: `
+      <div class="reserve-modal">
+        <div class="wallet-inline" aria-live="polite">
+          <span>Wallet</span>
+          <span id="rm-balance" class="amount">${peso(balance)}</span>
+        </div>
+
+        <div class="section-title">Choose time duration</div>
+
+        <div class="duration-grid" id="rm-grid" role="radiogroup" aria-label="Select rental duration">
+          ${optionsHtml}
+        </div>
+
+        <div class="wallet-warning" id="rm-warning"></div>
+
+        <div class="summary-row" aria-live="polite">
+          <div id="rm-selected">Selected: <b>${labelForDuration(initial)}</b></div>
+          <div class="total">Total: <span id="rm-total">${peso(prices[initial] ?? 0)}</span></div>
+        </div>
+
+        <div class="reference" style="margin-top:6px">
+          <span class="ref-label">Need more funds?</span>
+          <a class="ref-value" href="${TOPUP_URL}" target="_blank" rel="noopener">Top Up</a>
+        </div>
+      </div>
+    `,
+    customClass: { popup: 'reserve-popup' },
+    focusConfirm: false,
+    showCancelButton: true,
+    confirmButtonText: 'Pay Now',
+    confirmButtonColor: '#2563eb',
+    preConfirm: () => {
+      const checked = document.querySelector('input[name="reserve-duration"]:checked');
+      if (!checked) {
+        Swal.showValidationMessage('Please choose a time duration');
+        return false;
+      }
+      return checked.value;
+    },
+    didOpen: () => {
+      // mark initial selection
+      const initEl = document.querySelector(`#dur-${CSS.escape(initial)}`);
+      if (initEl) initEl.checked = true;
+
+      const grid       = document.getElementById('rm-grid');
+      const totalEl    = document.getElementById('rm-total');
+      const warnEl     = document.getElementById('rm-warning');
+      const selectedEl = document.getElementById('rm-selected');
+      const confirmBtn = Swal.getConfirmButton();
+
+      // visual affordability markers
+      function markAffordability(){
+        grid.querySelectorAll('.option-card').forEach(card => {
+          const value = card.getAttribute('data-value');
+          const price = Number(prices[value] || 0);
+          card.classList.toggle('insufficient', price > balance);
+        });
+      }
+
+      function update(){
+        const checked = grid.querySelector('input[name="reserve-duration"]:checked');
+        if (!checked) { confirmBtn.disabled = true; return; }
+
+        const val   = checked.value;
+        const price = Number(prices[val] || 0);
+        const short = Math.max(0, price - balance);
+
+        totalEl.textContent = peso(price);
+        selectedEl.innerHTML = `Selected: <b>${labelForDuration(val)}</b>`;
+
+        if (short > 0){
+          warnEl.innerHTML = `Insufficient balance. Short by <b>${peso(short)}</b>. <a class="ref-value" href="${TOPUP_URL}" target="_blank" rel="noopener">Top Up</a>`;
+          warnEl.classList.add('show');
+          confirmBtn.disabled = true;
+        }else{
+          warnEl.classList.remove('show');
+          warnEl.textContent = '';
+          confirmBtn.disabled = false;
+        }
+      }
+
+      // Click-to-select anywhere on the card
+      grid.addEventListener('click', (e) => {
+        const card = e.target.closest('.option-card');
+        if (!card) return;
+        const input = card.querySelector('input[type="radio"]');
+        if (input && !input.checked){
+          input.checked = true;
+          input.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      });
+
+      grid.addEventListener('change', update);
+
+      markAffordability();
+      update();
+    }
+  });
+}
+
+/* Entry point from the card */
 async function startCheckout(locker) {
   const btn = document.getElementById(`btn${locker}`);
   if (!btn) return;
@@ -486,18 +551,20 @@ async function startCheckout(locker) {
           confirmButtonColor: '#2563eb'
         });
       }
-      btn.disabled = false;
-      btn.textContent = 'Reserve';
-      btn.removeAttribute('aria-disabled');
       return;
     }
 
-    // Wallet-based reservation (no PSP modal)
-    reserveWithWallet(locker);
-
+    // Show duration + wallet modal
+    const result = await openReserveModal(locker);
+    if (result.isConfirmed && result.value) {
+      const chosen = result.value;
+      localStorage.setItem('kd_last_duration', chosen);
+      await reserveWithWallet(locker, chosen);
+    }
   } catch (err) {
     console.error(err);
     if (window.Swal) Swal.fire({ icon:'error', title:'Network Error', text:'Unable to check locker status.' });
+  } finally {
     btn.disabled = false;
     btn.textContent = 'Reserve';
     btn.removeAttribute('aria-disabled');
@@ -505,16 +572,13 @@ async function startCheckout(locker) {
 }
 window.startCheckout = startCheckout; // needed for onclick in generated markup
 
-async function reserveWithWallet(locker) {
-  const btn = document.getElementById(`btn${locker}`);
-  const durationSelect = document.getElementById(`duration${locker}`);
-  const duration = durationSelect ? (durationSelect.value || DEFAULT_DURATION) : DEFAULT_DURATION;
-
+/* ------------------ Wallet reservation ------------------ */
+async function reserveWithWallet(locker, duration) {
   try {
     if (window.Swal) {
       Swal.fire({
         title: 'Reserving…',
-        html: `Debiting your wallet (${duration})`,
+        html: `Debiting your wallet (${labelForDuration(duration)})`,
         didOpen: () => Swal.showLoading(),
         allowOutsideClick: false
       });
@@ -525,7 +589,6 @@ async function reserveWithWallet(locker) {
     const data = await r.json();
 
     if (data?.error) {
-      // Wallet insufficient
       if (data.error === 'insufficient_balance') {
         const needed = Number(data.needed || 0);
         const bal = Number(data.balance || 0);
@@ -554,9 +617,6 @@ async function reserveWithWallet(locker) {
       } else {
         if (window.Swal) Swal.fire({ icon:'error', title:'Reservation failed', text: data.message || data.error });
       }
-      btn.disabled = false;
-      btn.textContent = 'Reserve';
-      btn.removeAttribute('aria-disabled');
       return;
     }
 
@@ -585,13 +645,14 @@ async function reserveWithWallet(locker) {
   } catch (err) {
     if (window.Swal) Swal.fire({ icon:'error', title:'Network Error', text: err.message });
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = 'Reserve'; btn.removeAttribute('aria-disabled'); }
+    // Refresh UI & wallet after any attempt
+    fetchActiveLockers();
+    refreshWalletBalance();
   }
 }
 
 /* ------------------ Layout bootstrap ------------------ */
 function getTotalLockers(){
-  // Prefer the PHP-provided bootstrap; fallback to KPI text if needed
   const n = Number(window.DASHBOARD?.totalLockers);
   if (Number.isFinite(n) && n > 0) return n;
   const kpi = parseInt($('#kpiTotal')?.textContent || '0', 10);

@@ -130,17 +130,10 @@ $SERVER_NOW_MS = (int) round(microtime(true) * 1000);
             </div>
 
             <div class="locker__extend">
-              <label class="form__label" for="extendDuration">Extend Time</label>
               <div class="extend__row">
-                <select
-                  id="extendDuration"
-                  class="select"
-                  data-default="<?= htmlspecialchars($DEFAULT_DURATION_PHP, ENT_QUOTES, 'UTF-8') ?>"
-                ></select>
+
                 <button id="extendBtn" class="btn btn-primary">⏱ Extend</button>
               </div>
-              <p class="hint" id="priceHint">Select a duration to see price.</p>
-              <p class="hint wallet-hint" id="walletHint">Wallet: ₱0.00</p>
             </div>
 
         <div class="locker__actions">

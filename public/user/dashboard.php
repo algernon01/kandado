@@ -26,6 +26,7 @@ $TOTAL_LOCKERS = 4;
   <?php include $_SERVER['DOCUMENT_ROOT'] . '/kandado/includes/user_header.php'; ?>
 
   <main class="container" role="main">
+    <!-- ======= HEADER (title on the left, controls on the right) ======= -->
     <header class="page-header" role="region" aria-label="Locker dashboard controls">
       <div class="title-wrap">
         <h2>Locker Dashboard</h2>
@@ -33,36 +34,39 @@ $TOTAL_LOCKERS = 4;
           <span class="pill available"><span class="dot"></span>Available</span>
           <span class="pill occupied"><span class="dot"></span>Occupied</span>
           <span class="pill hold"><span class="dot"></span>On&nbsp;Hold</span>
-          <span class="pill maintenance"><span class="dot"></span>Maintenance</span><!-- NEW -->
+          <span class="pill maintenance"><span class="dot"></span>Maintenance</span>
         </div>
       </div>
-<div class="toolbar">
-  <button id="refreshBtn" class="btn" type="button" title="Refresh now" aria-controls="lockerGrid">
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M20 11a8.1 8.1 0 0 0-15.5-2M4 5v4h4"
-            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-      <path d="M4 13a8.1 8.1 0 0 0 15.5 2M20 19v-4h-4"
-            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-    </svg>
-    Refresh
-  </button>
-  <span id="lastUpdated" class="last-updated" aria-live="polite">—</span>
 
-  <!-- Wallet widget (JS will update balance) -->
-  <div id="walletWidget" class="wallet-widget">
-    <div class="wallet-card" aria-live="polite">
-      <div class="wallet-left">
-        <span class="wallet-icon" aria-hidden="true">💳</span>
-        <span class="wallet-title">Wallet</span>
-      </div>
-      <div class="wallet-right">
-        <span id="walletBalanceValue" class="wallet-balance">₱0.00</span>
-      </div>
-    </div>
-    <a href="/kandado/public/user/topup.php" class="btn btn-primary wallet-topup-btn">Top Up</a>
-  </div>
-</div>
+      <!-- RIGHT COLUMN: Refresh row (top) + Wallet widget directly under it -->
+      <div class="toolbar">
+        <div class="toolbar-row">
+          <button id="refreshBtn" class="btn" type="button" title="Refresh now" aria-controls="lockerGrid">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M20 11a8.1 8.1 0 0 0-15.5-2M4 5v4h4"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M4 13a8.1 8.1 0 0 0 15.5 2M20 19v-4h-4"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Refresh
+          </button>
+          <span id="lastUpdated" class="last-updated" aria-live="polite">—</span>
+        </div>
 
+        <!-- Wallet widget (JS will update balance) -->
+        <div id="walletWidget" class="wallet-widget">
+          <div class="wallet-card" aria-live="polite">
+            <div class="wallet-left">
+              <span class="wallet-icon" aria-hidden="true">💳</span>
+              <span class="wallet-title">Wallet</span>
+            </div>
+            <div class="wallet-right">
+              <span id="walletBalanceValue" class="wallet-balance">₱0.00</span>
+            </div>
+          </div>
+          <a href="/kandado/public/user/topup.php" class="btn btn-primary wallet-topup-btn">Top Up</a>
+        </div>
+      </div>
     </header>
 
     <div id="offlineBanner" class="offline hidden" role="alert" aria-live="assertive">
@@ -119,7 +123,7 @@ $TOTAL_LOCKERS = 4;
         <button class="seg" id="filterAvailable" data-filter="available" role="tab" aria-selected="false">Available</button>
         <button class="seg" id="filterOccupied" data-filter="occupied" role="tab" aria-selected="false">Occupied</button>
         <button class="seg" id="filterHold" data-filter="hold" role="tab" aria-selected="false">On Hold</button>
-        <button class="seg" id="filterMaintenance" data-filter="maintenance" role="tab" aria-selected="false">Maintenance</button><!-- NEW -->
+        <button class="seg" id="filterMaintenance" data-filter="maintenance" role="tab" aria-selected="false">Maintenance</button>
       </div>
 
       <div class="search">
@@ -137,14 +141,11 @@ $TOTAL_LOCKERS = 4;
     </div>
   </main>
 
-  <!-- Pass only what's needed from PHP to JS -->
   <script>
     window.DASHBOARD = {
       totalLockers: <?= (int)$TOTAL_LOCKERS ?>
     };
   </script>
-  <!-- External JS -->
   <script src="/kandado/assets/js/user_dashboard.js?v=1"></script>
-
 </body>
 </html>
