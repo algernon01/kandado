@@ -1,7 +1,19 @@
 <?php
 // user_header.php — v6 (medium-width mobile drawer)
 
-if (session_status() === PHP_SESSION_NONE) { session_start(); }
+if (session_status() === PHP_SESSION_NONE) {
+  // Ensure the session cookie is valid across the whole site (prevents “logout” on file routes)
+  $secure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
+  session_set_cookie_params([
+    'lifetime' => 0,
+    'path'     => '/',                    // IMPORTANT
+    'domain'   => $_SERVER['HTTP_HOST'],
+    'secure'   => $secure,
+    'httponly' => true,
+    'samesite' => 'Lax'
+  ]);
+  session_start();
+ }
 $userName   = $_SESSION['user_name'] ?? 'User';
 $rawProfile = $_SESSION['profile_image'] ?? '';
 $profileImage = !empty($rawProfile)

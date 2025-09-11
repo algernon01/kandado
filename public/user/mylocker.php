@@ -137,7 +137,7 @@ $SERVER_NOW_MS = (int) round(microtime(true) * 1000);
             </div>
 
         <div class="locker__actions">
-          <button id="saveBtn" class="btn btn-secondary">💾 Save QR</button>
+      <button id="saveBtn" class="btn btn-gray">💾 Save QR</button>
           <button id="terminateBtn" class="btn btn-danger">🔚 Terminate My Locker</button>
         </div>
           </div>

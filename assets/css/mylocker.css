@@ -202,3 +202,34 @@ body{
 
 
 
+/* Mobile-specific tweaks for Extend button */
+@media (max-width:520px) {
+  .btn-primary {
+    width: 100%;              /* full width on small screens */
+    height: 50px;             /* taller for thumb-friendly tap */
+    font-size: 16px;          /* slightly bigger text */
+    border-radius: 12px;      /* smoother corners */
+    margin-top: 6px;          /* spacing from elements above */
+  }
+
+  /* Optional: add subtle shadow to make it pop */
+  .btn-primary {
+    box-shadow: 0 4px 10px rgba(37, 99, 235, 0.25);
+  }
+
+  .btn-primary:active {
+    transform: scale(0.98);   /* tap feedback */
+  }
+}
+
+.btn-gray {
+  background:#f3f4f6;        /* light gray (same family as your bg) */
+  color:#4d5c76;             /* slate/dark gray text */
+  border:1px solid #d1d5db;  /* soft border */
+}
+.btn-gray:hover {
+  background:#e5e7eb;        /* hover slightly darker */
+}
+.btn-gray:active {
+  background:#d1d5db;        /* pressed state */
+}
