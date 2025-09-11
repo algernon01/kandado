@@ -341,6 +341,12 @@ body > main#content{
         <i class="fas fa-credit-card"></i> <span>Payments</span>
       </a>
     </li>
+    <li>
+      <a href="wallet.php" class="<?= isActive('wallet.php') ?>" aria-current="<?= $currentPage === 'wallet.php' ? 'page' : 'false' ?>">
+        <i class="fas fa-wallet"></i> <span>Wallet</span>
+      </a>
+    </li>
+
     <!-- /NEW -->
   </ul>
 
