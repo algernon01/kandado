@@ -216,7 +216,7 @@
   @media(max-width:860px){main{margin-left:0}}
   .container{max-width:1440px;margin:0 auto}
   .headerbar{display:flex;align-items:center;justify-content:space-between;margin:0 0 .8rem}
-  .title{display:flex;gap:.6rem;align-items:center;font-weight:900;font-size:28px;color:#0b1b3a}
+  .title{display:flex;gap:.6rem;align-items:center;font-weight:800;font-size:28px;color:#223b8f}
   .tabs{display:flex;gap:8px}
   .tab{border:1px solid var(--border);background:var(--surface);padding:.5rem .9rem;border-radius:999px;font-weight:800;color:#334155;text-decoration:none}
   .tab.active{background:linear-gradient(135deg,var(--brand-1),var(--brand-2));color:#fff;border-color:transparent}

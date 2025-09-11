@@ -513,9 +513,9 @@ main#content{
 <main id="content" aria-label="Admin dashboard">
   <!-- Page Header -->
   <div class="page-head">
-    <h1 class="page-title" style="color:#23325A">Admin Dashboard</h1>
+    <h1 class="page-title" style="color:#223b8f">Admin Dashboard</h1>
     <div class="page-actions">
-      <span class="tag" style="color:#23325A"><i class="fa-regular fa-calendar"></i><?= date('M d, Y') ?></span>
+      <span class="tag" style="color:#223b8f"><i class="fa-regular fa-calendar"></i><?= date('M d, Y') ?></span>
     </div>
   </div>
 

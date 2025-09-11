@@ -331,7 +331,7 @@ include '../../includes/admin_header.php';
 <style>
   /* Layout and base buttons */
   main#content .page-head { display:flex; align-items:center; justify-content:space-between; gap:.75rem; margin:.25rem 0 1rem; }
-  .page-title { display:flex; align-items:center; gap:.6rem; font-weight:800; letter-spacing:.2px; color: var(--primary-700); }
+  .page-title { display:flex; align-items:center; gap:.6rem; font-weight:800; letter-spacing:.2px; color: var(--primary-700); font-size:30px; }
   .page-title i { font-size:1.2rem; color:#fff; background: linear-gradient(135deg,var(--brand-1),var(--brand-2));
     border:1px solid rgba(0,0,0,.05); width:36px; height:36px; display:grid; place-items:center; border-radius:10px; }
 
@@ -431,6 +431,21 @@ include '../../includes/admin_header.php';
   /* Empty state */
   .empty { padding: 2.2rem 1rem; text-align:center; color: var(--muted); }
   .empty i { font-size:2rem; margin-bottom:.25rem; color: var(--primary); opacity:.85; }
+  /* Icon button that can show a text label */
+.icon-btn.with-text{
+  width: auto;              /* let it grow */
+  height: auto;
+  padding: .35rem .6rem;    /* space for text */
+  gap: .35rem;
+  white-space: nowrap;      /* keep "View" on one line */
+}
+
+/* Optional: hide labels on small screens */
+@media (max-width: 700px){
+  .icon-btn.with-text .label { display:none; }
+}
+
+  
 </style>
 
 <main id="content" role="main" aria-labelledby="payments-title">
@@ -639,19 +654,20 @@ include '../../includes/admin_header.php';
                 </td>
                 <td data-label="Duration"><?= e($r['duration']) ?></td>
                 <td class="actions" data-label="Actions">
-                  <button class="icon-btn btn-view"
-                          data-id="<?= (int)$r['id'] ?>"
-                          data-date="<?= e(dt_out($r['created_at'])) ?>"
-                          data-user="<?= e($userFull) ?>"
-                          data-email="<?= e($r['email']) ?>"
-                          data-locker="<?= (int)$r['locker_number'] ?>"
-                          data-method="<?= e($r['method']) ?>"
-                          data-amount="<?= e((string)$r['amount']) ?>"
-                          data-ref="<?= e($r['reference_no']) ?>"
-                          data-duration="<?= e($r['duration']) ?>">
-                    <i class="fa-regular fa-eye"></i>
-                  </button>
-                  <button class="icon-btn btn-edit"
+              <button class="icon-btn with-text btn-view" aria-label="View payment"
+                      data-id="<?= (int)$r['id'] ?>"
+                      style ="color:#0000EE"
+                      data-date="<?= e(dt_out($r['created_at'])) ?>"
+                      data-user="<?= e($userFull) ?>"
+                      data-email="<?= e($r['email']) ?>"
+                      data-locker="<?= (int)$r['locker_number'] ?>"
+                      data-method="<?= e($r['method']) ?>"
+                      data-amount="<?= e((string)$r['amount']) ?>"
+                      data-ref="<?= e($r['reference_no']) ?>"
+                      data-duration="<?= e($r['duration']) ?>">
+                  <i class="fa-regular fa-eye"></i><span class="label">View</span>
+              </button>
+                  <button class="icon-btn with-text btn-edit" 
                           data-id="<?= (int)$r['id'] ?>"
                           data-user_id="<?= (int)$r['user_id'] ?>"
                           data-locker="<?= (int)$r['locker_number'] ?>"
@@ -660,13 +676,13 @@ include '../../includes/admin_header.php';
                           data-ref="<?= e($r['reference_no']) ?>"
                           data-duration="<?= e($r['duration']) ?>"
                           data-created_at="<?= e(date('Y-m-d\TH:i', strtotime($r['created_at']))) ?>">
-                    <i class="fa-regular fa-pen-to-square"></i>
+                    <i class="fa-regular fa-pen-to-square"></i><span class="label">Edit</span>
                   </button>
                   <form method="post" class="inline del-form" style="display:inline;">
                     <input type="hidden" name="csrf" value="<?= e($CSRF) ?>">
                     <input type="hidden" name="action" value="delete_payment">
                     <input type="hidden" name="id" value="<?= (int)$r['id'] ?>">
-                    <button type="button" class="icon-btn btn-delete"><i class="fa-regular fa-trash-can"></i></button>
+                    <button type="button" class="icon-btn with-text btn-delete">  <i class="fa-regular fa-trash-can"></i><span class="label">Delete</span></button>
                   </form>
                 </td>
               </tr>

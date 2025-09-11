@@ -440,7 +440,7 @@ if (isset($_GET['partial']) && $_GET['partial']==='detail'){
     /* ===== Page layout ===== */
     .page-wrap{max-width:1200px;margin:0 auto;padding:1rem 1rem 0 1rem;}
     .page-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:.75rem;margin-bottom:1rem;}
-    .title-stack h1{font-size:1.4rem;line-height:1.2;margin-bottom:.2rem;color:var(--primary-700);}
+    .title-stack h1{font-size:25px;line-height:1.2;margin-bottom:.2rem;color:var(--primary-700); font-weight:800;} 
     .title-stack p{color:var(--muted);font-size:.95rem;}
     .page-wrap a{ text-decoration:none !important; }
 
@@ -629,7 +629,6 @@ if (isset($_GET['partial']) && $_GET['partial']==='detail'){
       <div class="page-head">
         <div class="title-stack">
           <h1><i class="fa-solid fa-wallet"></i> Wallets</h1>
-          <p>Manage user balances. Debit & Refund removed — use Top-up or Adjustment.</p>
         </div>
         <form method="get" action="wallet.php" class="toolbar">
           <input class="input" type="text" name="q" value="<?= h($q) ?>" placeholder="Search name or email" aria-label="Search">
