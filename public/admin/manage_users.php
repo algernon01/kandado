@@ -1,6 +1,4 @@
 <?php
-
-
 session_start();
 if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
   header('Location: ../login.php'); exit();
@@ -216,16 +214,20 @@ $hasUndo = !empty($_SESSION['last_archived_ids']);
 @media (max-width: 860px){ #manage-users .mu-main{ margin-left:0; } }
 #manage-users .container-xl{ max-width:1220px; margin:0 auto; }
 
-/* Typography & utilities */
-#manage-users .h1{ font-size: clamp(1.4rem, 1.2rem + 1vw, 2rem); margin:0; font-weight:900; letter-spacing:-.01em; }
+/* Typography & utilities (no explicit weights here) */
+#manage-users .h1{ font-size: clamp(1.4rem, 1.2rem + 1vw, 2rem); margin:0; letter-spacing:-.01em; }
 #manage-users .lead{ color:var(--muted); }
 #manage-users .small{ font-size:.875rem; color:var(--muted); }
 #manage-users .muted{ color:var(--muted); }
-#manage-users .mb-1{ margin-bottom:.5rem; color: #223b8f; font-size: 25px} .mb-2{ margin-bottom:1rem; } .mb-3{ margin-bottom:1.5rem; }
+#manage-users .mb-1{ margin-bottom:.5rem; color:#223b8f; font-size:25px; }
+#manage-users .mb-2{ margin-bottom:1rem; }
+#manage-users .mb-3{ margin-bottom:1.5rem; }
 #manage-users .mt-1{ margin-top:.5rem; }
 #manage-users .gap-1{ gap:.35rem; } .gap-2{ gap:.6rem; } .gap-3{ gap:.9rem; }
 #manage-users .d-flex{ display:flex; } .align-center{ align-items:center; } .justify-between{ justify-content:space-between; } .wrap{ flex-wrap:wrap; }
 #manage-users .w-100{ width:100%; }
+#manage-users .text-end{ text-align:right; }
+#manage-users .text-center{ text-align:center; }
 
 /* Cards */
 #manage-users .card{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:var(--shadow-md); overflow:hidden; }
@@ -236,22 +238,25 @@ $hasUndo = !empty($_SESSION['last_archived_ids']);
 /* Buttons */
 #manage-users .btn{
   --bg:#fff; --bd:var(--border); --fg:var(--ink);
-  display:inline-flex; align-items:center; gap:.5rem; padding:.56rem .9rem; font-weight:800; letter-spacing:.01em;
+  display:inline-flex; align-items:center; justify-content:center; gap:.5rem;
+  padding:.56rem .9rem; letter-spacing:.01em;
   border-radius:var(--radius-sm); border:1px solid var(--bd); color:var(--fg); background:var(--bg);
-  text-decoration:none; cursor:pointer; user-select:none;
-  transition: transform .04s ease, background .2s ease, border-color .2s ease, color .2s ease, box-shadow .2s ease;
+  text-decoration:none; cursor:pointer; user-select:none; white-space:nowrap;
+  transition: transform .04s ease, background .2s ease, border-color .2s ease, color .2s ease, box-shadow .2s ease, filter .2s ease;
 }
-#manage-users .btn:hover{ box-shadow:var(--shadow-sm); }
+#manage-users .btn:hover{ box-shadow:var(--shadow-sm); filter:brightness(.98); }
 #manage-users .btn:active{ transform: translateY(1px); }
 #manage-users .btn:focus-visible{ outline:3px solid rgba(37,99,235,.35); outline-offset:2px; }
 #manage-users .btn-sm{ padding:.35rem .6rem; font-size:.9rem; border-radius:10px; }
 #manage-users .btn-lg{ padding:.7rem 1rem; }
 #manage-users .btn-primary{ --bg:var(--brand); --bd:var(--brand); --fg:#fff; box-shadow:0 4px 14px rgba(37,99,235,.18); }
 #manage-users .btn-ghost{ --bg:#fff; --bd:var(--border); --fg:var(--ink); }
-#manage-users .btn-warning{ --bg:#fff7ed; --bd:#fed7aa; }
-#manage-users .btn-danger{ --bg:#fff1f2; --bd:#fecdd3; }
-#manage-users .btn-success{ --bg:#ecfdf5; --bd:#bbf7d0; }
-#manage-users .btn-pill{ border-radius:999px; padding:.55rem .95rem; }
+
+/* Friendly colors */
+#manage-users .btn-view{    --bg:#eef2ff; --bd:#c7d2fe; --fg:#1d4ed8; }
+#manage-users .btn-warning{ --bg:#fff7ed; --bd:#fed7aa; --fg:#b45309; }
+#manage-users .btn-success{ --bg:#ecfdf5; --bd:#bbf7d0; --fg:#166534; }
+#manage-users .btn-danger{  --bg:#fff1f2; --bd:#fecdd3; --fg:#b91c1c; }
 
 /* Segmented control */
 #manage-users .segmented{
@@ -260,12 +265,12 @@ $hasUndo = !empty($_SESSION['last_archived_ids']);
 }
 #manage-users .segmented a{
   display:inline-flex; align-items:center; gap:.4rem; padding:.45rem .85rem; border-radius:999px;
-  text-decoration:none; font-weight:800; color:var(--ink); transition:background .2s ease, color .2s ease;
+  text-decoration:none; color:var(--ink); transition:background .2s ease, color .2s ease;
 }
 #manage-users .segmented a.active{ background:linear-gradient(180deg,#5da1ff,#2b6ffb); color:#fff; }
 
 /* Inputs */
-#manage-users .form-label{ font-weight:900; font-size:.9rem; margin-bottom:.35rem; color:#334155; }
+#manage-users .form-label{ font-size:.9rem; margin-bottom:.35rem; color:#334155; }
 #manage-users .form-control, #manage-users .form-select{
   appearance:none; width:100%; border:1px solid var(--border); border-radius:12px; padding:.6rem .8rem;
   background:#fff; color:var(--ink); outline:none; transition: box-shadow .15s ease, border-color .15s ease;
@@ -295,11 +300,11 @@ $hasUndo = !empty($_SESSION['last_archived_ids']);
 #manage-users .menu.open{ display:block; }
 #manage-users .menu .form-check{ display:flex; align-items:center; gap:.5rem; margin:.35rem 0; font-size:.95rem; }
 
-/* Filters row (compact on desktop, stacked on mobile) */
+/* Filters row */
 #manage-users .filters.card{ border:none; box-shadow:none; background:transparent; }
 #manage-users details.filters > summary{
   list-style:none; cursor:pointer; display:inline-flex; align-items:center; gap:.5rem; padding:.45rem .8rem;
-  border:1px solid var(--border); border-radius:999px; background:#fff; font-weight:800; color:var(--ink);
+  border:1px solid var(--border); border-radius:999px; background:#fff; color:var(--ink);
 }
 #manage-users details.filters[open] > summary{ background:#f8fbff; }
 #manage-users .filters-grid{ display:grid; grid-template-columns: 1fr; gap:.75rem; margin-top:.75rem; }
@@ -318,16 +323,16 @@ $hasUndo = !empty($_SESSION['last_archived_ids']);
 #manage-users table{ width:100%; border-collapse:separate; border-spacing:0; }
 #manage-users thead th{
   position:sticky; top:0; z-index:1;
-  text-align:left; background:#f1f5fd; color:#334155; font-weight:900; font-size:.9rem; padding:.7rem .8rem; letter-spacing:.01em; border-bottom:1px solid var(--border);
+  text-align:left; background:#f1f5fd; color:#334155; font-size:.9rem; padding:.7rem .8rem; letter-spacing:.01em; border-bottom:1px solid var(--border);
 }
+#manage-users thead th:last-child{ text-align:center; }
 #manage-users tbody td{ padding:.7rem .8rem; border-top:1px solid var(--border); vertical-align:middle; }
 #manage-users tbody tr:nth-child(odd){ background:#ffffff; }
 #manage-users tbody tr:nth-child(even){ background:#fbfdff; }
 #manage-users .table-hover tbody tr:hover{ background:#f8fbff; }
-#manage-users .text-end{ text-align:right; }
 
 /* Badges */
-#manage-users .badge{ display:inline-flex; align-items:center; gap:.35rem; padding:.35rem .6rem; font-weight:900; border-radius:999px; font-size:.78rem; }
+#manage-users .badge{ display:inline-flex; align-items:center; gap:.35rem; padding:.35rem .6rem; border-radius:999px; font-size:.78rem; }
 #manage-users .badge-admin{ background:var(--brand); color:#fff; }
 #manage-users .badge-user{ background:#e2e8f0; color:#1e293b; }
 #manage-users .badge-active{ background:#e9f7ee; color:#166534; border:1px solid #cdebd8; }
@@ -340,8 +345,8 @@ $hasUndo = !empty($_SESSION['last_archived_ids']);
 #manage-users .avatar-ring .ring{ position:absolute; inset:-2px; border:2px solid var(--brand); border-radius:50%; pointer-events:none; }
 
 /* Actions */
-#manage-users .btn-list{ display:flex; flex-wrap:wrap; gap:.45rem; align-items:center; }
-#manage-users .compact .btn{ padding:.5rem .7rem; }
+#manage-users .btn-list{ display:flex; align-items:center; gap:.45rem; flex-wrap:nowrap; justify-content:center; }
+#manage-users .btn-list .btn{ white-space:nowrap; }
 
 /* Mobile table → cards */
 @media (max-width: 860px){
@@ -349,14 +354,16 @@ $hasUndo = !empty($_SESSION['last_archived_ids']);
   #manage-users table tbody tr{ display:block; margin:12px 12px; border:1px solid var(--border); border-radius:14px; overflow:hidden; background:#fff; box-shadow:var(--shadow-sm); }
   #manage-users table tbody td{ display:flex; align-items:center; justify-content:space-between; padding:.7rem .9rem; border-bottom:1px dashed var(--border); font-size:.95rem; }
   #manage-users table tbody td:last-child{ border-bottom:none; }
-  #manage-users table tbody td:before{ content: attr(data-label); font-weight:900; color:#475569; margin-right:1rem; font-size:.82rem; }
+  #manage-users table tbody td:before{ content: attr(data-label); color:#475569; margin-right:1rem; font-size:.82rem; }
+
+  #manage-users table tbody td[data-label="Actions"]{ justify-content:center; }
   #manage-users .btn .txt{ display:none; }
-  #manage-users .btn-list{ gap:.4rem !important; }
+  #manage-users .btn-list{ gap:.4rem !important; flex-wrap:nowrap; overflow-x:auto; }
 }
 
 /* Sticky bulk bar (mobile) */
 #manage-users #bulkBar{
-  display:none; position:fixed; left:50%; transform:translateX(-50%); bottom: max(12px, env(safe-area-inset-bottom));
+  display:none; position:fixed; left:50%; transform:translateX(-50%); bottom:max(12px, env(safe-area-inset-bottom));
   background:#fff; border:1px solid var(--border); border-radius:999px; box-shadow:var(--shadow-md); padding:.25rem .35rem; z-index:1000; gap:.25rem;
 }
 #manage-users #bulkBar .btn{ border-radius:999px; padding:.45rem .6rem; }
@@ -374,25 +381,54 @@ $hasUndo = !empty($_SESSION['last_archived_ids']);
 #manage-users .mu-modal .mu-close{ position:absolute; right:14px; top:10px; border:none; background:transparent; font-size:1.4rem; cursor:pointer; color:#475569; }
 #manage-users .archived-chip{
   position:absolute; right:10px; top:10px; background:#fff7ed; color:#b45309; border:1px solid #fed7aa;
-  border-radius:999px; padding:.25rem .55rem; font-size:.75rem; font-weight:900; display:none;
+  border-radius:999px; padding:.25rem .55rem; font-size:.75rem; display:none;
 }
 
 /* Accessibility & polish */
 #manage-users *:focus-visible{ outline:3px solid rgba(37,99,235,.35); outline-offset:2px; }
 @media (prefers-reduced-motion: reduce){
   #manage-users *, #manage-users *::before, #manage-users *::after{ animation:none !important; transition:none !important; }
-
-  /* spacing utilities for LTR/RTL */
-#manage-users .me-1 { margin-inline-end: .25rem; }
-#manage-users .me-2 { margin-inline-end: .5rem; }
-#manage-users .ms-1 { margin-inline-start: .25rem; }
-#manage-users .ms-2 { margin-inline-start: .5rem; }
-
-/* icon spacing (from earlier) */
-#manage-users .me-2 { margin-inline-end: .5rem; }
-
-
 }
+
+/* Spacing utilities */
+#manage-users .me-1 { margin-inline-end:.25rem; }
+#manage-users .me-2 { margin-inline-end:.5rem; }
+#manage-users .ms-1 { margin-inline-start:.25rem; }
+#manage-users .ms-2 { margin-inline-start:.5rem; }
+
+/* ====================================================
+   GLOBAL: make ALL text semibold (weight 600)
+   ==================================================== */
+#manage-users,
+#manage-users *,
+#manage-users *::before,
+#manage-users *::after{
+  font-weight:600 !important; /* <- matches your screenshot */
+}
+
+/* Placeholders also 600 */
+#manage-users input::placeholder,
+#manage-users textarea::placeholder{ font-weight:600 !important; }
+
+/* ====================================================
+   EXCEPTIONS for Font Awesome icons
+   (icons use weight to pick style)
+   ==================================================== */
+#manage-users .fa-solid,
+#manage-users .fas,
+#manage-users .fa-solid::before,
+#manage-users .fas::before{ font-weight:900 !important; }   /* solid icons */
+
+#manage-users .fa-regular,
+#manage-users .far,
+#manage-users .fa-regular::before,
+#manage-users .far::before{ font-weight:400 !important; }   /* regular icons */
+
+#manage-users .fa-brands,
+#manage-users .fab,
+#manage-users .fa-brands::before,
+#manage-users .fab::before{ font-weight:400 !important; }   /* brands */
+
 </style>
 </head>
 <body>
@@ -408,8 +444,6 @@ $hasUndo = !empty($_SESSION['last_archived_ids']);
       <i class="fas fa-users me-2" style="color:var(--brand)" aria-hidden="true"></i>
       Manage Users
     </h1>
-
-
         </div>
 
         <div class="right">
@@ -557,7 +591,7 @@ $hasUndo = !empty($_SESSION['last_archived_ids']);
                 <th class="col-created">Created</th>
                 <th class="col-status">Status</th>
                 <th class="col-locker">Locker</th>
-                <th class="text-end">Actions</th>
+                <th class="text-center">Actions</th><!-- centered -->
               </tr>
             </thead>
             <tbody>
@@ -614,27 +648,40 @@ $hasUndo = !empty($_SESSION['last_archived_ids']);
                   <?php endif; ?>
                 </td>
                 <td data-label="Locker" class="col-locker"><?= htmlspecialchars($locker, ENT_QUOTES, 'UTF-8') ?></td>
-                <td class="text-end" data-label="Actions">
+
+                <!-- ACTIONS: centered + 3 inline + friendly colors -->
+                <td class="text-center" data-label="Actions">
                   <div class="btn-list compact">
-                    <button type="button" class="btn btn-ghost btn-sm viewBtn" title="View" style ="color:#0000EE"><i class="fa-regular fa-eye"></i> <span class="txt ms-1">View</span></button>
+                    <button type="button" class="btn btn-view btn-sm viewBtn" title="View">
+                      <i class="fa-regular fa-eye"></i> <span class="txt ms-1">View</span>
+                    </button>
+
                     <?php if ($uid !== (int)$sessionUserId): ?>
-                    <form method="post" class="d-inline">
-                      <input type="hidden" name="csrf" value="<?= htmlspecialchars($csrf_token) ?>">
-                      <input type="hidden" name="user_id" value="<?= $uid ?>">
-                      <input type="hidden" name="action" value="<?= $isArchived ? 'unarchive' : 'archive' ?>">
-                      <button class="btn <?= $isArchived ? 'btn-success' : 'btn-warning' ?> btn-sm" onclick="return confirmRow(this.form, '<?= $isArchived ? 'Restore this user?' : 'Archive this user?' ?>')" title="<?= $isArchived?'Unarchive':'Archive' ?>">
-                        <i class="<?= $isArchived ? 'fas fa-rotate-left' : 'fa-solid fa-box-archive' ?>"></i> <span class="txt ms-1"><?= $isArchived ? 'Unarchive' : 'Archive' ?></span>
-                      </button>
-                    </form>
-                    <form method="post" class="d-inline">
-                      <input type="hidden" name="csrf" value="<?= htmlspecialchars($csrf_token) ?>">
-                      <input type="hidden" name="user_id" value="<?= $uid ?>">
-                      <input type="hidden" name="action" value="delete">
-                      <button class="btn btn-danger btn-sm" onclick="return confirmRow(this.form, 'Delete this user permanently?')" title="Delete">
-                        <i class="fas fa-trash"></i> <span class="txt ms-1">Delete</span>
-                      </button>
-                    </form>
-                    <?php else: ?><span class="small">(You)</span><?php endif; ?>
+                      <form method="post" class="d-inline">
+                        <input type="hidden" name="csrf" value="<?= htmlspecialchars($csrf_token) ?>">
+                        <input type="hidden" name="user_id" value="<?= $uid ?>">
+                        <input type="hidden" name="action" value="<?= $isArchived ? 'unarchive' : 'archive' ?>">
+                        <button class="btn <?= $isArchived ? 'btn-success' : 'btn-warning' ?> btn-sm"
+                                onclick="return confirmRow(this.form, '<?= $isArchived ? 'Restore this user?' : 'Archive this user?' ?>')"
+                                title="<?= $isArchived?'Unarchive':'Archive' ?>">
+                          <i class="<?= $isArchived ? 'fas fa-rotate-left' : 'fa-solid fa-box-archive' ?>"></i>
+                          <span class="txt ms-1"><?= $isArchived ? 'Unarchive' : 'Archive' ?></span>
+                        </button>
+                      </form>
+
+                      <form method="post" class="d-inline">
+                        <input type="hidden" name="csrf" value="<?= htmlspecialchars($csrf_token) ?>">
+                        <input type="hidden" name="user_id" value="<?= $uid ?>">
+                        <input type="hidden" name="action" value="delete">
+                        <button class="btn btn-danger btn-sm"
+                                onclick="return confirmRow(this.form, 'Delete this user permanently?')"
+                                title="Delete">
+                          <i class="fas fa-trash"></i> <span class="txt ms-1">Delete</span>
+                        </button>
+                      </form>
+                    <?php else: ?>
+                      <span class="small">(You)</span>
+                    <?php endif; ?>
                   </div>
                 </td>
               </tr>

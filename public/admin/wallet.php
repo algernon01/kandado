@@ -6,7 +6,7 @@
 // • Ellipsis pagination for Users & Transactions
 // • No horizontal scroll on mobile
 // • Debit & Refund removed (Top-up + Adjustment only)
-// • FIX: Actions column right-aligned
+// • FIX: Actions column centered
 // • FIX: Stat numbers render clean on mobile (no wrap/tabular)
 // --------------------------------------------------
 session_start();
@@ -335,8 +335,7 @@ function render_user_detail_fragment($ctx){
           <?php else: foreach($tx as $row): ?>
             <?php
               $chipClass = ($row['type']==='debit') ? 'red' : 'green'; // historic debits render red
-              $sign = ($row['type']==='debit') ? '-' : '+';
-            ?>
+              $sign = ($row['type']==='debit') ? '-' : '+'; ?>
             <tr>
               <td data-th="Date"><?= h(date('Y-m-d H:i', strtotime($row['created_at']))) ?></td>
               <td data-th="Type"><span class="chip <?= $chipClass ?>"><?= ucfirst($row['type']) ?></span></td>
@@ -478,8 +477,8 @@ if (isset($_GET['partial']) && $_GET['partial']==='detail'){
     .table-wrap code{font-size:.85rem;}
     table{width:100%;border-collapse:separate;border-spacing:0;table-layout:auto;min-width:0;}
     thead th{position:sticky;top:0;background:#f8faff;border-bottom:1px solid var(--border);text-align:left;font-size:.85rem;color:var(--muted);padding:.7rem .8rem;z-index:3;}
-    /* FIX: Actions header right side */
-    thead th.t-right{ text-align:right; }
+    /* FIX: Actions header centered */
+    thead th.t-right{ text-align:center; }
     tbody td{padding:.75rem .8rem;border-bottom:1px solid var(--border);}
     tbody tr:hover{background:#fbfdff;}
     .t-num{text-align:right;font-variant-numeric:tabular-nums;}
@@ -487,10 +486,18 @@ if (isset($_GET['partial']) && $_GET['partial']==='detail'){
     .chip.green{background:var(--active-green-bg);border-color:var(--active-green-border);color:var(--active-green-1);}
     .chip.gray{background:#eef2ff;border-color:#dfe6ff;color:#374151;}
     .chip.red{background:#fee2e2;border-color:#fecaca;color:#991b1b;}
-    .row-actions{display:flex;gap:.35rem;flex-wrap:wrap; justify-content:flex-end;} /* FIX: right align actions */
+    .row-actions{display:flex;gap:.35rem;flex-wrap:wrap; justify-content:center;} /* centered actions */
     .muted{color:var(--muted);overflow-wrap:break-word;}
     .email{font-size:.9rem;color:#475569;overflow-wrap:anywhere;}
     .avatar{width:40px;height:40px;border-radius:50%;object-fit:cover;border:1px solid #e6e9f6;background:#f2f6ff;display:block;}
+
+    /* Button action colors (View = soft blue, Top-up = green) */
+    td.actions-cell .row-actions .btn.small:first-child{
+      background:#eef2ff; border-color:#c7d2fe; color:#1d4ed8;
+    }
+    td.actions-cell .row-actions .btn.small:last-child{
+      background:#ecfdf5; border-color:#bbf7d0; color:#166534;
+    }
 
     .filters{display:flex;flex-wrap:wrap;gap:.5rem;margin:.4rem 0 .8rem;min-width:0;}
     .filters .group{display:flex;gap:.4rem;align-items:center;min-width:0;}
@@ -605,7 +612,7 @@ if (isset($_GET['partial']) && $_GET['partial']==='detail'){
         flex:0 0 auto;
       }
       .t-num{text-align:left;}
-      .row-actions{gap:.5rem; justify-content:flex-end;} /* keep actions right on mobile cards too */
+      .row-actions{gap:.5rem; justify-content:center;} /* centered on mobile cards */
       .btn.small{padding:.5rem .8rem;}
       .avatar{width:36px;height:36px;}
       td.actions-cell::before{ display:none; }
@@ -678,7 +685,7 @@ if (isset($_GET['partial']) && $_GET['partial']==='detail'){
                 <th>User</th>
                 <th>Email</th>
                 <th class="t-num">Balance</th>
-                <th class="t-right">Actions</th> <!-- FIX: right side -->
+                <th class="t-right">Actions</th> <!-- centered -->
               </tr>
               </thead>
               <tbody>
@@ -698,7 +705,7 @@ if (isset($_GET['partial']) && $_GET['partial']==='detail'){
                   </td>
                   <td class="email" data-th="Email"><?= h($row['email']) ?></td>
                   <td class="t-num" data-th="Balance"><span class="chip <?= ((float)$row['balance']>=0)?'green':'red' ?>"><span class="num"><?= peso($row['balance']) ?></span></span></td>
-                  <td class="actions-cell" data-th="Actions" style="text-align:right;">
+                  <td class="actions-cell" data-th="Actions" style="text-align:center;">
                     <div class="row-actions">
                       <a class="btn small js-view-user"
                          href="wallet.php?user_id=<?= (int)$row['id'] ?>#user-detail"

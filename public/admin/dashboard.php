@@ -1,12 +1,19 @@
 <?php
 // ===============================
 // Admin Dashboard (Maintenance + Auto-Expire + Activity Pagination + Mobile UX)
+//  + Sales Report (Pro-grade, responsive, interactive)
 // ===============================
 session_start();
 if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
     header("Location: ../login.php");
     exit();
 }
+
+/**
+ * FIX #1 (part A): start output buffering so any early HTML can be cleared
+ * before returning JSON/CSV from the micro‑API handlers below.
+ */
+ob_start();
 
 /**
  * Timezone alignment
@@ -35,6 +42,243 @@ if ($conn->connect_error) {
 // Make MySQL's NOW() match PHP time (prevents "stale until logout" issue)
 $tzOffset = (new DateTime())->format('P'); // e.g. +08:00
 $conn->query("SET time_zone = '{$conn->real_escape_string($tzOffset)}'");
+
+/** ============================================================
+ *  MICRO‑API: Sales JSON + CSV (additive, does not affect UI)
+ *  ------------------------------------------------------------
+ *  GET ?sales_json=1&start=YYYY-MM-DD&end=YYYY-MM-DD&method=all|GCash|Maya|Wallet
+ *  GET ?sales_csv=1&start=YYYY-MM-DD&end=YYYY-MM-DD&method=...
+ * ============================================================ */
+function _ymd($s){
+  $d = DateTime::createFromFormat('Y-m-d', $s);
+  return ($d && $d->format('Y-m-d') === $s) ? $s : null;
+}
+function _range_default(){
+  $end = new DateTime('today');
+  $start = (clone $end)->modify('-29 days');
+  return [$start->format('Y-m-d'), $end->format('Y-m-d')];
+}
+function _bind_range_method(mysqli_stmt $stmt, $startDT, $endDT, $method){
+  if ($method === 'all') $stmt->bind_param('ss', $startDT, $endDT);
+  else $stmt->bind_param('sss', $startDT, $endDT, $method);
+}
+function _fetch_all_stmt(mysqli_stmt $stmt){
+  $res = $stmt->get_result();
+  $rows = [];
+  if ($res) { while($row = $res->fetch_assoc()) $rows[] = $row; }
+  return $rows;
+}
+
+if (isset($_GET['sales_json'])) {
+  /**
+   * FIX #1 (part B): remove any buffered HTML and send clean JSON.
+   * This prevents "Failed to load sales data" (JSON parse) in the browser.
+   */
+  while (ob_get_level()) { ob_end_clean(); }
+
+  header('Content-Type: application/json; charset=utf-8');
+
+  $allowed = ['all','GCash','Maya','Wallet'];
+  $method  = isset($_GET['method']) ? $_GET['method'] : 'all';
+  $method  = in_array($method, $allowed, true) ? $method : 'all';
+
+  $start = _ymd($_GET['start'] ?? '') ?: null;
+  $end   = _ymd($_GET['end'] ?? '') ?: null;
+  if (!$start || !$end) list($start, $end) = _range_default();
+
+  // Build datetime bounds (inclusive days)
+  $startDT = $start . ' 00:00:00';
+  $endDT   = $end   . ' 23:59:59';
+
+  $mCond = ($method === 'all') ? '' : ' AND method = ? ';
+
+  // KPIs
+  $stmt = $conn->prepare("SELECT COUNT(*) AS orders, COALESCE(SUM(amount),0) AS revenue, COALESCE(AVG(amount),0) AS aov FROM payments WHERE created_at BETWEEN ? AND ? {$mCond}");
+  _bind_range_method($stmt, $startDT, $endDT, $method);
+  $stmt->execute();
+  $kpis = $stmt->get_result()->fetch_assoc() ?: ['orders'=>0,'revenue'=>0,'aov'=>0];
+  $stmt->close();
+
+  $stmt = $conn->prepare("SELECT COUNT(DISTINCT user_id) AS users FROM payments WHERE created_at BETWEEN ? AND ? {$mCond}");
+  _bind_range_method($stmt, $startDT, $endDT, $method);
+  $stmt->execute();
+  $uc = $stmt->get_result()->fetch_assoc();
+  $kpis['unique_customers'] = (int)($uc['users'] ?? 0);
+  $stmt->close();
+
+  // Daily (zero-filled)
+  $stmt = $conn->prepare("
+    SELECT DATE(created_at) AS day, COALESCE(SUM(amount),0) AS revenue, COUNT(*) AS orders
+    FROM payments
+    WHERE created_at BETWEEN ? AND ? {$mCond}
+    GROUP BY DATE(created_at)
+    ORDER BY DATE(created_at) ASC
+  ");
+  _bind_range_method($stmt, $startDT, $endDT, $method);
+  $stmt->execute();
+  $dailyRows = _fetch_all_stmt($stmt);
+  $stmt->close();
+
+  // Zero fill
+  $dailyMap = [];
+  foreach ($dailyRows as $r) $dailyMap[$r['day']] = ['revenue'=>(float)$r['revenue'], 'orders'=>(int)$r['orders']];
+  $daily = [];
+  $iter = new DatePeriod(new DateTime($start), new DateInterval('P1D'), (new DateTime($end))->modify('+1 day'));
+  foreach ($iter as $d) {
+    $k = $d->format('Y-m-d');
+    $daily[] = [
+      'day' => $k,
+      'revenue' => isset($dailyMap[$k]) ? $dailyMap[$k]['revenue'] : 0.0,
+      'orders' => isset($dailyMap[$k]) ? $dailyMap[$k]['orders'] : 0
+    ];
+  }
+
+  // By method
+  $stmt = $conn->prepare("
+    SELECT method, COUNT(*) AS cnt, COALESCE(SUM(amount),0) AS revenue
+    FROM payments
+    WHERE created_at BETWEEN ? AND ? {$mCond}
+    GROUP BY method
+  ");
+  _bind_range_method($stmt, $startDT, $endDT, $method);
+  $stmt->execute();
+  $by_method = _fetch_all_stmt($stmt);
+  $stmt->close();
+
+  // By duration
+  $stmt = $conn->prepare("
+    SELECT duration, COUNT(*) AS cnt, COALESCE(SUM(amount),0) AS revenue
+    FROM payments
+    WHERE created_at BETWEEN ? AND ? {$mCond}
+    GROUP BY duration
+    ORDER BY revenue DESC
+  ");
+  _bind_range_method($stmt, $startDT, $endDT, $method);
+  $stmt->execute();
+  $by_duration = _fetch_all_stmt($stmt);
+  $stmt->close();
+
+  // Top customers
+  $stmt = $conn->prepare("
+    SELECT u.id AS user_id,
+           CONCAT(u.first_name,' ',u.last_name) AS name,
+           u.email,
+           COUNT(p.id) AS orders,
+           COALESCE(SUM(p.amount),0) AS revenue
+    FROM payments p
+    JOIN users u ON u.id = p.user_id
+    WHERE p.created_at BETWEEN ? AND ? {$mCond}
+    GROUP BY u.id
+    ORDER BY revenue DESC
+    LIMIT 5
+  ");
+  _bind_range_method($stmt, $startDT, $endDT, $method);
+  $stmt->execute();
+  $top_customers = _fetch_all_stmt($stmt);
+  $stmt->close();
+
+  // Top lockers
+  $stmt = $conn->prepare("
+    SELECT locker_number, COUNT(*) AS orders, COALESCE(SUM(amount),0) AS revenue
+    FROM payments
+    WHERE created_at BETWEEN ? AND ? {$mCond}
+    GROUP BY locker_number
+    ORDER BY revenue DESC
+    LIMIT 5
+  ");
+  _bind_range_method($stmt, $startDT, $endDT, $method);
+  $stmt->execute();
+  $top_lockers = _fetch_all_stmt($stmt);
+  $stmt->close();
+
+  // Recent payments (last 100 within range)
+  $stmt = $conn->prepare("
+    SELECT p.id, p.reference_no, p.method, p.amount, p.duration, p.locker_number, p.created_at,
+           u.first_name, u.last_name, u.email
+    FROM payments p
+    LEFT JOIN users u ON u.id = p.user_id
+    WHERE p.created_at BETWEEN ? AND ? {$mCond}
+    ORDER BY p.created_at DESC
+    LIMIT 100
+  ");
+  _bind_range_method($stmt, $startDT, $endDT, $method);
+  $stmt->execute();
+  $recent = _fetch_all_stmt($stmt);
+  $stmt->close();
+
+  echo json_encode([
+    'success' => true,
+    'range' => ['start'=>$start, 'end'=>$end, 'method'=>$method],
+    'kpis' => [
+      'revenue' => (float)($kpis['revenue'] ?? 0),
+      'orders' => (int)($kpis['orders'] ?? 0),
+      'aov' => (float)($kpis['aov'] ?? 0),
+      'unique_customers' => (int)($kpis['unique_customers'] ?? 0)
+    ],
+    'daily' => $daily,
+    'by_method' => $by_method,
+    'by_duration' => $by_duration,
+    'top_customers' => $top_customers,
+    'top_lockers' => $top_lockers,
+    'recent' => $recent
+  ]);
+  exit();
+}
+
+if (isset($_GET['sales_csv'])) {
+  /**
+   * FIX #1 (part C): ensure the CSV download isn’t prefixed by any HTML.
+   */
+  while (ob_get_level()) { ob_end_clean(); }
+
+  $allowed = ['all','GCash','Maya','Wallet'];
+  $method  = isset($_GET['method']) ? $_GET['method'] : 'all';
+  $method  = in_array($method, $allowed, true) ? $method : 'all';
+
+  $start = _ymd($_GET['start'] ?? '') ?: null;
+  $end   = _ymd($_GET['end'] ?? '') ?: null;
+  if (!$start || !$end) list($start, $end) = _range_default();
+
+  $startDT = $start . ' 00:00:00';
+  $endDT   = $end   . ' 23:59:59';
+  $mCond = ($method === 'all') ? '' : ' AND p.method = ? ';
+
+  header('Content-Type: text/csv; charset=utf-8');
+  header('Content-Disposition: attachment; filename="sales_'.$start.'_to_'.$end.($method !== 'all' ? '_'.$method : '').'.csv"');
+
+  $out = fopen('php://output', 'w');
+  fputcsv($out, ['Payment ID','Date/Time','User ID','Name','Email','Method','Reference #','Duration','Locker #','Amount']);
+
+  $stmt = $conn->prepare("
+    SELECT p.id, p.created_at, u.id AS user_id, CONCAT(u.first_name,' ',u.last_name) AS name, u.email,
+           p.method, p.reference_no, p.duration, p.locker_number, p.amount
+    FROM payments p
+    LEFT JOIN users u ON u.id = p.user_id
+    WHERE p.created_at BETWEEN ? AND ? {$mCond}
+    ORDER BY p.created_at ASC
+  ");
+  _bind_range_method($stmt, $startDT, $endDT, $method);
+  $stmt->execute();
+  $res = $stmt->get_result();
+  if ($res) {
+    while ($r = $res->fetch_assoc()) {
+      fputcsv($out, [
+        $r['id'],
+        date('Y-m-d H:i:s', strtotime($r['created_at'])),
+        $r['user_id'],
+        $r['name'],
+        $r['email'],
+        $r['method'],
+        $r['reference_no'],
+        $r['duration'],
+        $r['locker_number'],
+        number_format((float)$r['amount'], 2, '.', '')
+      ]);
+    }
+  }
+  fclose($out);
+  exit();
+}
 
 /* -----------------------------------------------------------
    AUTO-CLEAR EXPIRED LOCKERS (so refresh reflects real state)
@@ -135,6 +379,7 @@ $maint      = $maintenance_lockers;
    Modern Admin UI (Mobile-first)
    - Added auto-expire, maintenance, activity pager
    - Desktop design preserved; mobile improved
+   - + Sales Report (below analytics)
 ========================================= */
 :root{
   --brand-700:#1f46ff;
@@ -162,6 +407,9 @@ $maint      = $maintenance_lockers;
   --r-sm:10px;
   --shadow-1: 0 6px 18px rgba(16, 24, 40, .08);
   --shadow-2: 0 10px 30px rgba(16, 24, 40, .12);
+
+  /* ===== SIZE TWEAK: make charts medium ===== */
+  --chart-h: 240px; /* adjust this if you want a bit larger/smaller */
 }
 *{box-sizing:border-box}
 html,body{height:100%}
@@ -231,10 +479,10 @@ main#content{
 
 .kpi--total .ico{ background:var(--brand-50); color:var(--brand-600); }
 .kpi--occupied .ico{ background:#fef2f2; color:var(--danger-600); }
-.kpi--available .ico{ background:#ecfdf5; color:var(--ok-600); }
+.kpi--available .ico{ background:#ecfdf5; color:#0f766e; }
 .kpi--users .ico{ background:#eef2ff; color:#4338ca; }
 .kpi--hold .ico{ background:#fffbeb; color:var(--warn-600); }
-.kpi--maint .ico{ background:#eef2ff; color:var(--indigo-600); }
+.kpi--maint .ico{ background:#eef2ff; color:#4f46e5; }
 
 @media (max-width: 1200px){ .kpi{ grid-column: span 6; } }
 @media (max-width: 680px){ .kpi{ grid-column: span 12; } }
@@ -439,7 +687,14 @@ main#content{
   padding: 14px; box-shadow:var(--shadow-1);
 }
 .chart-title{ font-weight:800; margin: 6px 0 12px; color:#23324a; text-align:left; }
-.chart-card canvas{ width:100% !important; max-height: 300px; }
+
+/* ===== SIZE TWEAK: smaller/medium charts ===== */
+.chart-card canvas{
+  width:100% !important;
+  height: var(--chart-h) !important;
+  max-height: var(--chart-h) !important;
+}
+
 @media (max-width: 980px){ .chart-card{ grid-column: span 12; } }
 
 /* Activity list */
@@ -506,6 +761,65 @@ main#content{
   }
 }
 
+/* =======================================================
+   SALES REPORT (Pro design; responsive; interactive)
+   ======================================================= */
+.sales-head .panel-title i{ margin-right:6px; }
+.sales-controls{
+  display:flex; flex-wrap:wrap; gap:10px; align-items:center; padding:12px 16px; background:#fbfdff; border-bottom:1px solid var(--stroke);
+}
+.sales-chip{
+  @extend .filter-chip; /* for readability (conceptually) */
+}
+.sales-chip{
+  display:inline-flex; align-items:center; gap:8px;
+  padding:8px 12px; border-radius:999px; border:1px solid #dbe3f3; background:#fff;
+  font-weight:800; font-size:13px; cursor:pointer; white-space:nowrap; transition: all .2s ease;
+}
+.sales-chip[aria-pressed="true"]{
+  background:var(--brand-600); color:#fff; border-color:var(--brand-600); box-shadow:var(--shadow-1);
+}
+.sales-controls .input, .sales-controls .select{ height:40px; padding:8px 12px; }
+.sales-apply{
+  background:linear-gradient(135deg, var(--brand-600), var(--brand-400)); color:#fff; border:none; border-radius:10px; padding:10px 12px; font-weight:800; cursor:pointer; box-shadow:var(--shadow-1);
+}
+.sales-apply:hover{ transform: translateY(-1px); box-shadow:var(--shadow-2); }
+
+.sales-kpis{ display:grid; grid-template-columns: repeat(12,1fr); gap:12px; margin:12px 0; }
+.sales-kpis .kpi{ grid-column: span 3; }
+@media (max-width: 1200px){ .sales-kpis .kpi{ grid-column: span 6; } }
+@media (max-width: 680px){ .sales-kpis .kpi{ grid-column: span 12; } }
+.kpi--revenue .ico{ background:#ecfdf5; color:#0f766e; }
+.kpi--orders .ico{ background:#fff7ed; color:#9a3412; }
+.kpi--aov .ico{ background:#eef2ff; color:#4338ca; }
+.kpi--customers .ico{ background:#fef2f2; color:#b91c1c; }
+
+.sales-grid{
+  display:grid; grid-template-columns: repeat(12, 1fr); gap:12px;
+}
+.sales-grid .chart-card{ grid-column: span 6; }
+@media (max-width: 980px){ .sales-grid .chart-card{ grid-column: span 12; } }
+
+.sales-tables{
+  display:grid; grid-template-columns: repeat(12,1fr); gap:12px; margin-top:12px;
+}
+.sales-tables .table-card{
+  grid-column: span 6;
+  background:var(--card); border:1px solid var(--stroke); border-radius:var(--r-lg);
+  padding: 14px; box-shadow:var(--shadow-1);
+}
+@media (max-width: 980px){ .sales-tables .table-card{ grid-column: span 12; } }
+.table-title{ font-weight:800; margin:0 0 8px; color:#23324a; }
+.table-viewport.small{ max-height: 220px; }
+
+.sales-actions{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+
+/* Recent payments list */
+#salesActivityPagination{ margin-top:8px; display:flex; gap:6px; flex-wrap:wrap; justify-content:center; }
+#salesActivityPagination button{
+  border:1px solid #d1dcff; background:#fff; padding:6px 10px; border-radius:8px; font-weight:800; cursor:pointer;
+}
+#salesActivityPagination button.active{ background:#2c5cff; color:#fff; border-color:#2c5cff; }
 </style>
 </head>
 
@@ -795,6 +1109,129 @@ main#content{
       </div>
     </div>
   </section>
+
+  <!-- ==========================
+       SALES REPORT (new section)
+       ========================== -->
+  <section style="margin-top:16px;">
+    <div class="panel">
+      <div class="panel-head sales-head">
+        <div class="panel-title"><i class="fa-solid fa-peso-sign"></i> Sales Report</div>
+        <div class="sales-actions">
+
+        </div>
+      </div>
+
+      <!-- Controls -->
+      <div class="sales-controls" role="toolbar" aria-label="Sales filters">
+        <button class="sales-chip" data-range="7d" aria-pressed="false"><i class="fa-solid fa-calendar-week"></i> 7D</button>
+        <button class="sales-chip" data-range="30d" aria-pressed="true"><i class="fa-solid fa-calendar-days"></i> 30D</button>
+        <button class="sales-chip" data-range="mtd" aria-pressed="false"><i class="fa-solid fa-calendar-check"></i> MTD</button>
+        <button class="sales-chip" data-range="qtd" aria-pressed="false"><i class="fa-solid fa-calendar"></i> QTD</button>
+        <button class="sales-chip" data-range="ytd" aria-pressed="false"><i class="fa-solid fa-calendar"></i> YTD</button>
+        <button class="sales-chip" data-range="all" aria-pressed="false"><i class="fa-solid fa-infinity"></i> All</button>
+
+        <div style="flex:1"></div>
+
+        <label class="small" for="salesStart" style="min-width:80px;color:#223b8f;font-weight:800;">Start</label>
+        <input type="date" id="salesStart" class="input" style="max-width:170px;">
+        <label class="small" for="salesEnd" style="min-width:60px;color:#223b8f;font-weight:800;">End</label>
+        <input type="date" id="salesEnd" class="input" style="max-width:170px;">
+
+        <select id="salesMethod" class="select" style="max-width:160px;">
+          <option value="all">All Methods</option>
+          <option value="GCash">GCash</option>
+          <option value="Maya">Maya</option>
+          <option value="Wallet">Wallet</option>
+        </select>
+
+        <button id="applySales" class="sales-apply"><i class="fa-solid fa-filter"></i> Apply</button>
+      </div>
+
+      <!-- KPIs -->
+      <div class="panel-body">
+        <div class="sales-kpis" aria-label="Sales KPIs">
+          <div class="kpi kpi--revenue">
+            <div class="ico"><i class="fa-solid fa-coins"></i></div>
+            <div class="meta">
+              <div class="val" id="kpiRevenue">₱0.00</div>
+              <div class="lbl">Total Revenue</div>
+            </div>
+          </div>
+          <div class="kpi kpi--orders">
+            <div class="ico"><i class="fa-solid fa-receipt"></i></div>
+            <div class="meta">
+              <div class="val" id="kpiOrders">0</div>
+              <div class="lbl">Transactions</div>
+            </div>
+          </div>
+          <div class="kpi kpi--aov">
+            <div class="ico"><i class="fa-solid fa-scale-balanced"></i></div>
+            <div class="meta">
+              <div class="val" id="kpiAOV">₱0.00</div>
+              <div class="lbl">Avg. Order Value</div>
+            </div>
+          </div>
+          <div class="kpi kpi--customers">
+            <div class="ico"><i class="fa-solid fa-user-check"></i></div>
+            <div class="meta">
+              <div class="val" id="kpiCustomers">0</div>
+              <div class="lbl">Unique Customers</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Charts -->
+        <div class="sales-grid">
+          <div class="chart-card">
+            <h4 class="chart-title">Revenue Over Time</h4>
+            <canvas id="salesTimeChart" aria-label="Revenue over time" role="img"></canvas>
+          </div>
+          <div class="chart-card">
+            <h4 class="chart-title">Sales by Method</h4>
+            <canvas id="salesMethodChart" aria-label="Sales by method" role="img"></canvas>
+          </div>
+          <div class="chart-card">
+            <h4 class="chart-title">Revenue by Duration</h4>
+            <canvas id="salesDurationChart" aria-label="Revenue by duration" role="img"></canvas>
+          </div>
+        </div>
+
+        <!-- Tables -->
+        <div class="sales-tables">
+          <div class="table-card">
+            <h4 class="table-title"><i class="fa-solid fa-user-tie"></i> Top Customers</h4>
+            <div class="table-viewport small">
+              <table class="user-table" id="topCustomersTable">
+                <thead><tr><th>User</th><th>Email</th><th>Orders</th><th>Total Spend</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="table-card">
+            <h4 class="table-title"><i class="fa-solid fa-box-archive"></i> Top Lockers (by Revenue)</h4>
+            <div class="table-viewport small">
+              <table class="user-table" id="topLockersTable">
+                <thead><tr><th>Locker #</th><th>Orders</th><th>Total Revenue</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Recent payments -->
+        <div class="panel" style="margin-top:12px;">
+          <div class="panel-head">
+            <div class="panel-title"><i class="fa-solid fa-clock-rotate-left"></i> Recent Payments</div>
+          </div>
+          <div class="panel-body">
+            <div class="activity-list" id="salesRecentList"></div>
+            <div id="salesActivityPagination" aria-label="Sales activity pagination"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
 </main>
 
 <!-- Scripts -->
@@ -988,7 +1425,7 @@ if (unlockAll) {
 }
 
 // ==================
-// Charts
+// Charts (Usage)
 // ==================
 const dailyCtx = document.getElementById('dailyUsageChart').getContext('2d');
 new Chart(dailyCtx, {
@@ -1009,6 +1446,7 @@ new Chart(dailyCtx, {
   },
   options:{
     responsive:true,
+    maintainAspectRatio:false, /* SIZE TWEAK */
     plugins:{ legend:{ display:true, position:'top' }, tooltip:{ mode:'index', intersect:false } },
     scales:{ y:{ beginAtZero:true, ticks:{ precision:0 } } }
   }
@@ -1025,7 +1463,7 @@ new Chart(statusCtx, {
       hoverOffset:10
     }]
   },
-  options:{ responsive:true, cutout:'65%', plugins:{ legend:{ position:'bottom' } } }
+  options:{ responsive:true, maintainAspectRatio:false, cutout:'65%', plugins:{ legend:{ position:'bottom' } } } /* SIZE TWEAK */
 });
 
 // ============================
@@ -1239,6 +1677,331 @@ document.addEventListener('DOMContentLoaded', () => {
 
   renderList();
 });
+
+/* ====================================================
+   SALES REPORT: Frontend logic (fetch, charts, tables)
+   ==================================================== */
+(function(){
+  const peso = new Intl.NumberFormat('en-PH', { style:'currency', currency:'PHP', maximumFractionDigits:2 });
+  const numberFmt = new Intl.NumberFormat('en-US');
+
+  const salesStart = document.getElementById('salesStart');
+  const salesEnd   = document.getElementById('salesEnd');
+  const salesMethod= document.getElementById('salesMethod');
+  const chips = document.querySelectorAll('.sales-chip');
+  const applyBtn = document.getElementById('applySales');
+
+  const kpiRevenue   = document.getElementById('kpiRevenue');
+  const kpiOrders    = document.getElementById('kpiOrders');
+  const kpiAOV       = document.getElementById('kpiAOV');
+  const kpiCustomers = document.getElementById('kpiCustomers');
+
+  const tcBody = document.querySelector('#topCustomersTable tbody');
+  const tlBody = document.querySelector('#topLockersTable tbody');
+  const recentList = document.getElementById('salesRecentList');
+  const recentPager = document.getElementById('salesActivityPagination');
+
+  // Default range: 30D
+  const today = new Date();
+  const defEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const defStart = new Date(defEnd); defStart.setDate(defEnd.getDate() - 29);
+  salesStart.value = toYMD(defStart);
+  salesEnd.value   = toYMD(defEnd);
+
+  chips.forEach(c => c.setAttribute('aria-pressed', c.dataset.range === '30d' ? 'true' : 'false'));
+
+  // Charts
+  let salesTimeChart, salesMethodChart, salesDurationChart;
+  const timeCtx = document.getElementById('salesTimeChart').getContext('2d');
+  const methodCtx = document.getElementById('salesMethodChart').getContext('2d');
+  const durationCtx = document.getElementById('salesDurationChart').getContext('2d');
+
+  function initCharts(){
+    if (salesTimeChart) salesTimeChart.destroy();
+    if (salesMethodChart) salesMethodChart.destroy();
+    if (salesDurationChart) salesDurationChart.destroy();
+
+    salesTimeChart = new Chart(timeCtx, {
+      type: 'line',
+      data: { labels: [], datasets:[{
+        label: 'Revenue',
+        data: [],
+        fill: true,
+        backgroundColor:'rgba(16, 185, 129, 0.15)',
+        borderColor:'rgba(16, 185, 129, 1)',
+        borderWidth:2,
+        pointRadius:3,
+        pointHoverRadius:5,
+        tension:0.35
+      }]},
+      options:{
+        responsive:true,
+        maintainAspectRatio:false, /* SIZE TWEAK */
+        plugins:{ legend:{ display:true, position:'top' } },
+        scales:{ y:{ beginAtZero:true, ticks:{ callback:(v)=>'₱'+numberFmt.format(v) } } }
+      }
+    });
+
+    salesMethodChart = new Chart(methodCtx, {
+      type: 'doughnut',
+      data: {
+        labels: ['GCash','Maya','Wallet'],
+        datasets: [{
+          data: [0,0,0],
+          backgroundColor:['#0ea5e9','#8b5cf6','#f59e0b'],
+          hoverOffset:10
+        }]
+      },
+      options:{ responsive:true, maintainAspectRatio:false, cutout:'65%', plugins:{ legend:{ position:'bottom' } } } /* SIZE TWEAK */
+    });
+
+    salesDurationChart = new Chart(durationCtx, {
+      type: 'bar',
+      data: { labels: [], datasets:[{
+        label:'Revenue',
+        data: [],
+        backgroundColor:'rgba(79, 70, 229, 0.6)'
+      }]},
+      options:{
+        responsive:true,
+        maintainAspectRatio:false, /* SIZE TWEAK */
+        plugins:{ legend:{ display:false } },
+        scales:{
+          y:{ beginAtZero:true, ticks:{ callback:(v)=>'₱'+numberFmt.format(v) } },
+          x:{ ticks:{ autoSkip:false, maxRotation: 25, minRotation: 0 } }
+        }
+      }
+    });
+  }
+  initCharts();
+
+  // Quick ranges
+  chips.forEach(ch => ch.addEventListener('click', () => {
+    chips.forEach(c => c.setAttribute('aria-pressed','false'));
+    ch.setAttribute('aria-pressed','true');
+    const now = new Date();
+    const end = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    let start = new Date(end);
+
+    switch (ch.dataset.range) {
+      case '7d':
+        start.setDate(end.getDate() - 6);
+        break;
+      case '30d':
+        start.setDate(end.getDate() - 29);
+        break;
+      case 'mtd':
+        start = new Date(end.getFullYear(), end.getMonth(), 1);
+        break;
+      case 'qtd': {
+        const q = Math.floor(end.getMonth()/3);
+        const sm = q*3;
+        start = new Date(end.getFullYear(), sm, 1);
+        break;
+      }
+      case 'ytd':
+        start = new Date(end.getFullYear(), 0, 1);
+        break;
+      case 'all':
+        start = new Date(2000,0,1); // safe lower bound for TIMESTAMP
+        break;
+    }
+    salesStart.value = toYMD(start);
+    salesEnd.value   = toYMD(end);
+    loadSales();
+  }));
+
+  applyBtn.addEventListener('click', () => loadSales());
+
+  function toYMD(d){
+    const y=d.getFullYear();
+    const m=('0'+(d.getMonth()+1)).slice(-2);
+    const D=('0'+d.getDate()).slice(-2);
+    return `${y}-${m}-${D}`;
+  }
+
+  function loadSales(){
+    const start = salesStart.value;
+    const end   = salesEnd.value;
+    const method= salesMethod.value || 'all';
+
+    const url = new URL(window.location.origin + window.location.pathname);
+    url.searchParams.set('sales_json','1');
+    url.searchParams.set('start', start);
+    url.searchParams.set('end', end);
+    url.searchParams.set('method', method);
+
+    fetch(url.toString())
+      .then(r => {
+        if (!r.ok) throw new Error('HTTP '+r.status);
+        return r.json();
+      })
+      .then(updateSalesUI)
+      .catch(err => {
+        console.error(err);
+        Swal.fire('Error', 'Failed to load sales data.', 'error');
+      });
+  }
+
+  function updateSalesUI(data){
+    if (!data || !data.success) return;
+
+    // KPIs
+    kpiRevenue.textContent = peso.format(data.kpis.revenue || 0);
+    kpiOrders.textContent = numberFmt.format(data.kpis.orders || 0);
+    kpiAOV.textContent = peso.format(data.kpis.aov || 0);
+    kpiCustomers.textContent = numberFmt.format(data.kpis.unique_customers || 0);
+
+    // Time chart
+    const labels = data.daily.map(d=>d.day);
+    const revs   = data.daily.map(d=>+(d.revenue||0));
+    salesTimeChart.data.labels = labels;
+    salesTimeChart.data.datasets[0].data = revs;
+    salesTimeChart.update();
+
+    // Method chart
+    const map = {GCash:0, Maya:0, Wallet:0};
+    (data.by_method||[]).forEach(m => { map[m.method] = +m.revenue || 0; });
+    const arr = [map.GCash||0, map.Maya||0, map.Wallet||0];
+    const total = arr.reduce((a,b)=>a+(+b||0),0);
+
+    /**
+     * FIX #2: show a neutral ring when all values are zero,
+     * so the doughnut "circle" is visible even with no data.
+     */
+    if (total <= 0){
+      salesMethodChart.data.labels = ['No data'];
+      salesMethodChart.data.datasets[0].data = [1];
+      salesMethodChart.data.datasets[0].backgroundColor = ['#e5e7eb']; // neutral gray
+    } else {
+      salesMethodChart.data.labels = ['GCash','Maya','Wallet'];
+      salesMethodChart.data.datasets[0].data = arr;
+      salesMethodChart.data.datasets[0].backgroundColor = ['#0ea5e9','#8b5cf6','#f59e0b'];
+    }
+    salesMethodChart.update();
+
+    // Duration chart (top 8 + Others)
+    const durations = (data.by_duration||[]).slice();
+    const top = durations.slice(0,8);
+    const othersSum = durations.slice(8).reduce((s,x)=>s+(+x.revenue||0),0);
+    let dLabels = top.map(x=>x.duration||'Unknown');
+    let dData   = top.map(x=>+(x.revenue||0));
+    if (othersSum>0){ dLabels.push('Others'); dData.push(othersSum); }
+    salesDurationChart.data.labels = dLabels;
+    salesDurationChart.data.datasets[0].data = dData;
+    salesDurationChart.update();
+
+    // Top customers
+    tcBody.innerHTML = '';
+    if ((data.top_customers||[]).length === 0){
+      tcBody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:#64748b;">No data.</td></tr>`;
+    } else {
+      data.top_customers.forEach(c=>{
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${escapeHTML(c.name||'Unknown')}</td>
+          <td><span class="mono">${escapeHTML(c.email||'')}</span></td>
+          <td>${numberFmt.format(c.orders||0)}</td>
+          <td><strong>${peso.format(c.revenue||0)}</strong></td>
+        `;
+        tcBody.appendChild(tr);
+      });
+    }
+
+    // Top lockers
+    tlBody.innerHTML = '';
+    if ((data.top_lockers||[]).length === 0){
+      tlBody.innerHTML = `<tr><td colspan="3" style="text-align:center;color:#64748b;">No data.</td></tr>`;
+    } else {
+      data.top_lockers.forEach(l=>{
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>Locker ${escapeHTML(l.locker_number)}</td>
+          <td>${numberFmt.format(l.orders||0)}</td>
+          <td><strong>${peso.format(l.revenue||0)}</strong></td>
+        `;
+        tlBody.appendChild(tr);
+      });
+    }
+
+    // Recent payments (with pagination)
+    renderRecentPayments(data.recent||[]);
+  }
+
+  function escapeHTML(s){
+    return (''+s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  }
+
+  function renderRecentPayments(items){
+    recentList.innerHTML = '';
+    if (!items.length){
+      recentList.innerHTML = `<div class="activity-item" style="justify-content:center;"><div class="activity-meta"><div class="sub">No payments found for this range.</div></div></div>`;
+      recentPager.innerHTML = '';
+      return;
+    }
+    // Build items
+    items.forEach(p=>{
+      const dt = new Date(p.created_at);
+      const when = dt.toLocaleString();
+      const name = (p.first_name||p.last_name) ? `${p.first_name||''} ${p.last_name||''}`.trim() : 'Unknown User';
+      const li = document.createElement('div');
+      li.className = 'activity-item';
+      li.setAttribute('data-sp', '1');
+      li.innerHTML = `
+        <div class="activity-ico"><i class="fa-solid fa-peso-sign"></i></div>
+        <div class="activity-meta">
+          <div class="title">${escapeHTML(name)} paid <strong>${peso.format(p.amount||0)}</strong> via ${escapeHTML(p.method||'')}</div>
+          <div class="sub">Ref: <span class="mono">${escapeHTML(p.reference_no||'')}</span> • Locker ${escapeHTML(p.locker_number||'')}</div>
+        </div>
+        <div class="activity-time">${escapeHTML(when)}</div>
+      `;
+      recentList.appendChild(li);
+    });
+
+    // Pagination (8/page)
+    const rowsPerPage = 8;
+    const all = Array.from(recentList.querySelectorAll('[data-sp="1"]'));
+    let currentPage = 1;
+
+    function drawPage(){
+      all.forEach(el => el.style.display = 'none');
+      const start = (currentPage-1)*rowsPerPage;
+      const slice = all.slice(start, start+rowsPerPage);
+      slice.forEach(el => el.style.display = '');
+      drawPager();
+    }
+    function drawPager(){
+      recentPager.innerHTML = '';
+      const totalPages = Math.ceil(all.length / rowsPerPage);
+      if (totalPages <= 1) return;
+      const groupSize = 3;
+      const gi = Math.floor((currentPage - 1) / groupSize);
+      const gs = gi * groupSize + 1;
+      const ge = Math.min(gs + groupSize - 1, totalPages);
+
+      if (gs > 1){
+        const prev = document.createElement('button'); prev.textContent = '«';
+        prev.onclick = ()=>{ currentPage = Math.max(1, gs - groupSize); drawPage(); };
+        recentPager.appendChild(prev);
+      }
+      for (let i=gs; i<=ge; i++){
+        const b = document.createElement('button'); b.textContent = i;
+        if (i===currentPage) b.classList.add('active');
+        b.onclick = ()=>{ currentPage=i; drawPage(); };
+        recentPager.appendChild(b);
+      }
+      if (ge < totalPages){
+        const next = document.createElement('button'); next.textContent = '»';
+        next.onclick = ()=>{ currentPage = ge + 1; drawPage(); };
+        recentPager.appendChild(next);
+      }
+    }
+    drawPage();
+  }
+
+  // Initial load
+  loadSales();
+})();
 </script>
 </body>
 </html>

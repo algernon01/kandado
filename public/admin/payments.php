@@ -1,6 +1,6 @@
 <?php
 /**
- * payments.php — Admin payments panel (fixed + searchable user picker)
+ * payments.php — Admin payments panel (fixed + searchable user picker + inline copy + friendly action colors)
  */
 
 if (session_status() === PHP_SESSION_NONE) session_start();
@@ -268,7 +268,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $users = $pdo->query("SELECT id, first_name, last_name, email FROM users WHERE archived = 0 ORDER BY first_name, last_name")->fetchAll(PDO::FETCH_ASSOC);
 $lockers = $pdo->query("SELECT locker_number FROM locker_qr ORDER BY locker_number")->fetchAll(PDO::FETCH_COLUMN);
 
-// Build a small array for the JS user picker (id + label)
+// Build small array for the JS user picker (id + label)
 $usersForJs = array_map(function ($u) {
   return [
     'id'    => (int)$u['id'],
@@ -294,8 +294,8 @@ $countStmt->execute($params);
 $totalRows  = (int)$countStmt->fetchColumn();
 $totalPages = max(1, (int)ceil($totalRows / $perPage));
 
-$limit = (int)$perPage;       // safe to inline after casting
-$off   = (int)$offset;        // DO NOT use placeholders for LIMIT/OFFSET
+$limit = (int)$perPage;
+$off   = (int)$offset;
 
 $listSql = "
   SELECT p.id, p.user_id, p.locker_number, p.method, p.amount, p.reference_no, p.duration, p.created_at,
@@ -307,9 +307,6 @@ $listSql = "
   LIMIT $limit OFFSET $off
 ";
 $listStmt = $pdo->prepare($listSql);
-foreach ($params as $i => $v) { $listStmt->bindValue($i+1, $v); }
-$listStmt->bindValue(':limit',  $perPage, PDO::PARAM_INT);
-$listStmt->bindValue(':offset', $offset,  PDO::PARAM_INT);
 $listStmt->execute($params);
 $rows = $listStmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -357,8 +354,7 @@ include '../../includes/admin_header.php';
   /* Filters */
   .filter-bar { background: var(--surface); border:1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-2); padding: .85rem; display:grid; gap:.7rem; }
   .filter-row { display:grid; grid-template-columns: 1.2fr .8fr .8fr .7fr .7fr .9fr .7fr; gap:.6rem; }
-  /* Critical fix for your first screenshot: prevent grid children from overflowing */
-  .filter-row > .field { min-width: 0; } 
+  .filter-row > .field { min-width: 0; } /* prevent overflow */
   @media (max-width: 1100px) { .filter-row{ grid-template-columns: 1fr 1fr 1fr 1fr; } }
   @media (max-width: 700px)  { .filter-row{ grid-template-columns: 1fr 1fr; } }
 
@@ -374,7 +370,7 @@ include '../../includes/admin_header.php';
   .table-toolbar .left { display:flex; align-items:center; gap:.5rem; color:var(--muted); font-weight:700; }
   .table-toolbar .right { display:flex; align-items:center; gap:.45rem; flex-wrap:wrap; }
   table.payments { width:100%; border-collapse: collapse; }
-  table.payments th, table.payments td { padding:.7rem .8rem; text-align:left; }
+  table.payments th, table.payments td { padding:.7rem .8rem; text-align:left; vertical-align: middle; }
   table.payments thead th { background: var(--surface-2); border-bottom:1px solid var(--border); font-size:.8rem; color: var(--muted); }
   table.payments tbody tr + tr td { border-top:1px dashed var(--border); }
   table.payments tbody tr:hover { background: #fafcff; }
@@ -384,8 +380,27 @@ include '../../includes/admin_header.php';
   .method-gcash { background:#e9f2ff; color:#1d4ed8; border:1px solid #dbe7ff; }
   .method-maya  { background:#eef0ff; color:#4338ca; border:1px solid #e1e4ff; margin-top:2px; }
 
+  /* Reference # + Copy (inline) */
+  .ref-inline{ display:inline-flex; align-items:center; gap:.4rem; white-space:nowrap; }
+  .ref-inline code{ background:#f6f8ff; border:1px solid var(--border); padding:.15rem .4rem; border-radius:6px; display:inline-block; max-width: clamp(140px, 28vw, 320px); overflow:hidden; text-overflow:ellipsis; }
+  .copy-btn{ width:30px; height:30px; border-radius:8px; border:1px solid #e2e8f0; background:#f8fafc; color:#475569; display:inline-flex; align-items:center; justify-content:center; }
+  .copy-btn:hover{ background:#eef2ff; border-color:#c7d2fe; color:#3730a3; }
+  .copy-btn:focus-visible{ outline:2px solid #3730a3; outline-offset:2px; }
+
+  /* Actions (friendlier colors) */
   .actions { display:flex; gap:.4rem; align-items:center; }
-  .icon-btn { width:34px; height:34px; display:inline-flex; align-items:center; justify-content:center; border-radius:10px; border:1px solid var(--border); background:#fff; cursor:pointer; }
+  .icon-btn { display:inline-flex; align-items:center; justify-content:center; border-radius:10px; border:1px solid var(--border); background:#fff; cursor:pointer; width:34px; height:34px; font-weight:700; }
+  .icon-btn:focus-visible { outline:2px solid currentColor; outline-offset:2px; }
+  .icon-btn.with-text{ width:auto; height:auto; padding:.35rem .6rem; gap:.35rem; white-space:nowrap; }
+  /* View = Blue */
+  .icon-btn.view { background:#eef6ff; border-color:#dbeafe; color:#1d4ed8; }
+  .icon-btn.view:hover { background:#dbeafe; }
+  /* Edit = Amber */
+  .icon-btn.edit { background:#fff7ed; border-color:#ffedd5; color:#b45309; }
+  .icon-btn.edit:hover { background:#ffedd5; }
+  /* Delete = Red */
+  .icon-btn.delete { background:#fee2e2; border-color:#fecaca; color:#b91c1c; }
+  .icon-btn.delete:hover { background:#fecaca; }
 
   /* Responsive table -> cards */
   @media (max-width: 760px) {
@@ -394,9 +409,10 @@ include '../../includes/admin_header.php';
     table.payments tr { border-bottom:1px dashed var(--border); padding:.6rem .5rem; }
     table.payments td { padding:.35rem .4rem; }
     table.payments td::before { content: attr(data-label); display:block; font-size:.75rem; color:var(--muted); margin-bottom:.1rem; }
-    /* Critical fix for your 3rd screenshot: keep actions horizontal on phones */
     table.payments td[data-label="Actions"] .actions { display:flex; flex-wrap:nowrap; gap:.35rem; white-space:nowrap; }
     table.payments td[data-label="Actions"] .icon-btn { display:inline-flex; }
+    /* Keep reference + copy icon inline on mobile too */
+    table.payments td[data-label="Reference #"] .ref-inline{ display:inline-flex; }
   }
 
   /* Pagination */
@@ -412,7 +428,7 @@ include '../../includes/admin_header.php';
   .modal-head { display:flex; align-items:center; justify-content:space-between; gap:.6rem; padding:.9rem 1rem; background: var(--surface-2); border-bottom:1px solid var(--border); }
   .modal-body { padding: 1rem; display:grid; gap:.7rem; }
   .modal-grid { display:grid; gap:.6rem; grid-template-columns: 1fr 1fr; }
-  .modal-grid > .field { min-width:0; } /* Fix overflow in modal (your 2nd screenshot) */
+  .modal-grid > .field { min-width:0; } /* Fix overflow in modal */
   @media (max-width: 700px) { .modal-grid{ grid-template-columns: 1fr; } }
   .modal-foot { display:flex; justify-content:flex-end; gap:.5rem; padding: .8rem 1rem; border-top:1px solid var(--border); background: #fff; }
 
@@ -431,21 +447,32 @@ include '../../includes/admin_header.php';
   /* Empty state */
   .empty { padding: 2.2rem 1rem; text-align:center; color: var(--muted); }
   .empty i { font-size:2rem; margin-bottom:.25rem; color: var(--primary); opacity:.85; }
-  /* Icon button that can show a text label */
-.icon-btn.with-text{
-  width: auto;              /* let it grow */
-  height: auto;
-  padding: .35rem .6rem;    /* space for text */
-  gap: .35rem;
-  white-space: nowrap;      /* keep "View" on one line */
+  /* Center the column titles */
+table.payments thead th { 
+  text-align: center;
 }
 
-/* Optional: hide labels on small screens */
-@media (max-width: 700px){
-  .icon-btn.with-text .label { display:none; }
+/* (optional) ensure the sortable header link centers nicely */
+table.payments thead th .th-sort {
+  margin: 0 auto;            /* centers the inline element */
 }
 
-  
+/* Center selected columns (3rd → 8th) */
+table.payments th:nth-child(3),
+table.payments td:nth-child(3),
+table.payments th:nth-child(4),
+table.payments td:nth-child(4),
+table.payments th:nth-child(5),
+table.payments td:nth-child(5),
+table.payments th:nth-child(6),
+table.payments td:nth-child(6),
+table.payments th:nth-child(7),
+table.payments td:nth-child(7),
+table.payments th:nth-child(8),
+table.payments td:nth-child(8) {
+  text-align: center;
+}
+
 </style>
 
 <main id="content" role="main" aria-labelledby="payments-title">
@@ -454,7 +481,6 @@ include '../../includes/admin_header.php';
       <i class="fa-solid fa-credit-card"></i> Payments
     </h1>
     <div class="filter-actions">
-
       <button class="btn btn-primary" id="open-create"><i class="fa-solid fa-plus"></i> Add Payment</button>
     </div>
   </div>
@@ -626,7 +652,7 @@ include '../../includes/admin_header.php';
               <th><?= sort_link('amount','Amount', $sort,$order) ?></th>
               <th><?= sort_link('reference','Reference #', $sort,$order) ?></th>
               <th>Duration</th>
-              <th style="width:160px;">Actions</th>
+              <th style="width:200px;">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -648,26 +674,36 @@ include '../../includes/admin_header.php';
                   <span class="method-chip <?= $methodClass ?>"><i class="fa-solid fa-wallet"></i> <?= e($r['method']) ?></span>
                 </td>
                 <td data-label="Amount" class="amount">₱ <?= money($r['amount']) ?></td>
+
+                <!-- Reference # + Copy inline -->
                 <td data-label="Reference #">
-                  <code id="ref-<?= (int)$r['id'] ?>" style="background:#f6f8ff; border:1px solid var(--border); padding:.15rem .35rem; border-radius:6px;"><?= e($r['reference_no']) ?></code>
-                  <button class="icon-btn" title="Copy reference" data-copy="#ref-<?= (int)$r['id'] ?>"><i class="fa-regular fa-copy"></i></button>
+                  <div class="ref-inline">
+                    <code id="ref-<?= (int)$r['id'] ?>"><?= e($r['reference_no']) ?></code>
+                    <button class="icon-btn copy-btn" title="Copy reference" aria-label="Copy reference"
+                            data-copy="#ref-<?= (int)$r['id'] ?>">
+                      <i class="fa-regular fa-copy"></i>
+                    </button>
+                  </div>
                 </td>
+
                 <td data-label="Duration"><?= e($r['duration']) ?></td>
+
                 <td class="actions" data-label="Actions">
-              <button class="icon-btn with-text btn-view" aria-label="View payment"
-                      data-id="<?= (int)$r['id'] ?>"
-                      style ="color:#0000EE"
-                      data-date="<?= e(dt_out($r['created_at'])) ?>"
-                      data-user="<?= e($userFull) ?>"
-                      data-email="<?= e($r['email']) ?>"
-                      data-locker="<?= (int)$r['locker_number'] ?>"
-                      data-method="<?= e($r['method']) ?>"
-                      data-amount="<?= e((string)$r['amount']) ?>"
-                      data-ref="<?= e($r['reference_no']) ?>"
-                      data-duration="<?= e($r['duration']) ?>">
-                  <i class="fa-regular fa-eye"></i><span class="label">View</span>
-              </button>
-                  <button class="icon-btn with-text btn-edit" 
+                  <button class="icon-btn with-text view btn-view"
+                          aria-label="View payment"
+                          data-id="<?= (int)$r['id'] ?>"
+                          data-date="<?= e(dt_out($r['created_at'])) ?>"
+                          data-user="<?= e($userFull) ?>"
+                          data-email="<?= e($r['email']) ?>"
+                          data-locker="<?= (int)$r['locker_number'] ?>"
+                          data-method="<?= e($r['method']) ?>"
+                          data-amount="<?= e((string)$r['amount']) ?>"
+                          data-ref="<?= e($r['reference_no']) ?>"
+                          data-duration="<?= e($r['duration']) ?>">
+                    <i class="fa-regular fa-eye"></i><span class="label">View</span>
+                  </button>
+
+                  <button class="icon-btn with-text edit btn-edit"
                           data-id="<?= (int)$r['id'] ?>"
                           data-user_id="<?= (int)$r['user_id'] ?>"
                           data-locker="<?= (int)$r['locker_number'] ?>"
@@ -678,11 +714,14 @@ include '../../includes/admin_header.php';
                           data-created_at="<?= e(date('Y-m-d\TH:i', strtotime($r['created_at']))) ?>">
                     <i class="fa-regular fa-pen-to-square"></i><span class="label">Edit</span>
                   </button>
+
                   <form method="post" class="inline del-form" style="display:inline;">
                     <input type="hidden" name="csrf" value="<?= e($CSRF) ?>">
                     <input type="hidden" name="action" value="delete_payment">
                     <input type="hidden" name="id" value="<?= (int)$r['id'] ?>">
-                    <button type="button" class="icon-btn with-text btn-delete">  <i class="fa-regular fa-trash-can"></i><span class="label">Delete</span></button>
+                    <button type="button" class="icon-btn with-text delete btn-delete">
+                      <i class="fa-regular fa-trash-can"></i><span class="label">Delete</span>
+                    </button>
                   </form>
                 </td>
               </tr>
@@ -923,7 +962,7 @@ include '../../includes/admin_header.php';
   }
   $('#gen-ref')?.addEventListener('click', () => genRef($('#c_reference_no')));
 
-  // Copy to clipboard
+  // Copy to clipboard (inline button)
   $$('[data-copy]').forEach(btn => {
     btn.addEventListener('click', () => {
       const sel = btn.getAttribute('data-copy');
