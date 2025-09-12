@@ -96,7 +96,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $mail->isHTML(true);
             $mail->Subject = 'Verify your Kandado account (expires in 30 minutes)';
 
-            $verificationLink = "https://longhorn-settling-precisely.ngrok-free.app/kandado/auth/verify_process.php?token=" . rawurlencode($token);
+            $verificationLink = "https://192.168.1.104/kandado/auth/verify_process.php?token=" . rawurlencode($token);
 
             // Polished, responsive email (inline styles for broad client support) — with bulletproof centered button
             $brandColor = '#3353bb';

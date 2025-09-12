@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Sep 09, 2025 at 06:48 PM
+-- Generation Time: Sep 12, 2025 at 10:11 AM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -117,6 +117,18 @@ INSERT INTO `users` (`id`, `first_name`, `last_name`, `email`, `password`, `prof
 (1, 'Admin', 'Account', 'admin@gmail.com', '$2y$10$xKFGP/npVtBPdlTawWWTsO9sbjrBk1NlOz9ULvCYbXHnpX.nsY/fW', 'default.jpg', NULL, NULL, '2025-08-03 11:45:11', 'admin', 0, NULL, NULL),
 (2, 'Alger', 'Angeles', 'algernonangeles3022@gmail.com', '$2y$10$tjUZpF82svItsmczNGqH7e/Gz0q2d.vfUrdb19679m/XfS/mXy9mS', '40d4bc2db30dac01f5fe56ad68daf04d.jpg', NULL, NULL, '2025-08-26 13:16:35', 'user', 0, NULL, NULL),
 
+
+--
+-- Triggers `users`
+--
+DELIMITER $$
+CREATE TRIGGER `users_after_insert` AFTER INSERT ON `users` FOR EACH ROW BEGIN
+  INSERT IGNORE INTO user_wallets (user_id, balance)
+  VALUES (NEW.id, 0.00);
+END
+$$
+DELIMITER ;
+
 -- --------------------------------------------------------
 
 --
@@ -128,6 +140,13 @@ CREATE TABLE `user_wallets` (
   `balance` decimal(12,2) NOT NULL DEFAULT 0.00,
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `user_wallets`
+--
+
+INSERT INTO `user_wallets` (`user_id`, `balance`, `updated_at`) VALUES
+
 
 -- --------------------------------------------------------
 
@@ -146,6 +165,12 @@ CREATE TABLE `wallet_transactions` (
   `meta` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`meta`)),
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `wallet_transactions`
+--
+
+INSERT INTO `wallet_transactions` (`id`, `user_id`, `type`, `method`, `amount`, `reference_no`, `notes`, `meta`, `created_at`) VALUES
 
 --
 -- Indexes for dumped tables
@@ -173,7 +198,8 @@ ALTER TABLE `locker_qr`
 ALTER TABLE `payments`
   ADD PRIMARY KEY (`id`),
   ADD KEY `user_id` (`user_id`),
-  ADD KEY `locker_number` (`locker_number`);
+  ADD KEY `locker_number` (`locker_number`),
+  ADD KEY `idx_created_at` (`created_at`);
 
 --
 -- Indexes for table `users`
@@ -196,7 +222,8 @@ ALTER TABLE `wallet_transactions`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `uniq_ref` (`reference_no`),
   ADD UNIQUE KEY `uniq_wallet_user_ref` (`user_id`,`reference_no`),
-  ADD KEY `idx_user_created` (`user_id`,`created_at`);
+  ADD KEY `idx_user_created` (`user_id`,`created_at`),
+  ADD KEY `idx_created_at` (`created_at`);
 
 --
 -- AUTO_INCREMENT for dumped tables
@@ -224,13 +251,13 @@ ALTER TABLE `payments`
 -- AUTO_INCREMENT for table `users`
 --
 ALTER TABLE `users`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=45;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=46;
 
 --
 -- AUTO_INCREMENT for table `wallet_transactions`
 --
 ALTER TABLE `wallet_transactions`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- Constraints for dumped tables
@@ -273,6 +300,12 @@ CREATE DEFINER=`root`@`localhost` EVENT `cleanup_expired_verification_tokens` ON
       verification_expires_at = NULL
   WHERE verification_expires_at IS NOT NULL
     AND verification_expires_at < NOW()$$
+
+CREATE DEFINER=`root`@`localhost` EVENT `delete_old_payments` ON SCHEDULE EVERY 1 DAY STARTS '2025-09-12 12:38:10' ON COMPLETION NOT PRESERVE ENABLE DO DELETE FROM payments
+    WHERE created_at < (UTC_TIMESTAMP() - INTERVAL 7 DAY)$$
+
+CREATE DEFINER=`root`@`localhost` EVENT `delete_old_wallet_transactions` ON SCHEDULE EVERY 1 DAY STARTS '2025-09-12 12:43:10' ON COMPLETION NOT PRESERVE ENABLE DO DELETE FROM wallet_transactions
+    WHERE created_at < (UTC_TIMESTAMP() - INTERVAL 7 DAY)$$
 
 DELIMITER ;
 COMMIT;
