@@ -820,6 +820,39 @@ main#content{
   border:1px solid #d1dcff; background:#fff; padding:6px 10px; border-radius:8px; font-weight:800; cursor:pointer;
 }
 #salesActivityPagination button.active{ background:#2c5cff; color:#fff; border-color:#2c5cff; }
+
+/* Global Power Alert button */
+.global-power-toggle{
+  margin-bottom: 12px;          /* space below button */
+  margin-left: auto;            /* push to the right when in flex */
+  border: none; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 10px 14px; border-radius: 12px;
+
+  background: linear-gradient(135deg, #f59e0b, #f97316);
+  color: #fff; font-weight: 900;
+  box-shadow: var(--shadow-1);
+  transition: transform .15s ease, box-shadow .15s ease;
+}
+.global-power-toggle:hover{ transform: translateY(-1px); box-shadow: var(--shadow-2); }
+.global-power-toggle i{ font-size: 16px; }
+
+/* Make the right column ('Quick Controls') stick while scrolling */
+/* Make Quick Controls stick, but not scroll inside */
+.panel--sticky{
+  position: sticky;
+  position: -webkit-sticky; /* Safari */
+  top: calc(var(--header-h, 60px) + 16px);  /* stick below header */
+  align-self: start;
+}
+
+/* On small screens, disable sticky (stacked layout) */
+@media (max-width: 1200px){
+  .panel--sticky{
+    position: static;
+  }
+}
+
 </style>
 </head>
 
@@ -879,6 +912,13 @@ main#content{
       </div>
 
       <div class="panel-body">
+   <!-- Flex wrapper for right alignment -->
+  <div style="display:flex; justify-content:flex-end; width:100%;">
+    <button id="globalPowerAlert" class="global-power-toggle" type="button">
+      <i class="fa-solid fa-bolt"></i> Power Notice to Users
+    </button>
+  </div>
+
         <div class="locker-grid" id="lockerGrid">
           <?php while($locker = $locker_result->fetch_assoc()): ?>
             <?php
@@ -906,6 +946,9 @@ main#content{
               }
               $displayStatus = $isMaintenance ? 'maintenance' : ($status ?: 'unknown');
             ?>
+
+                          <!-- Power Alert toggle (top-left) -->
+
             <article
               class="locker-card <?= $displayStatus ?>"
               data-status="<?= $status ?>"
@@ -965,14 +1008,15 @@ main#content{
       </div>
     </section>
 
-    <!-- Right: Quick Controls + Assign -->
-    <section class="panel" aria-label="Force unlock and assign">
-      <div class="panel-head">
-        <div class="panel-title"><i class="fa-solid fa-key"></i> Quick Controls</div>
-      </div>
+<!-- Right: Quick Controls + Assign -->
+<section class="panel panel--sticky" aria-label="Force unlock and assign">
+  <div class="panel-head">
+    <div class="panel-title"><i class="fa-solid fa-key"></i> Quick Controls</div>
+  </div>
       <div class="panel-body">
         <!-- Force Unlock -->
         <h3 class="small" style="margin:0 0 8px;">Force Unlock</h3>
+        
         <div class="force-grid">
           <?php for($i=1;$i<=4;$i++): ?>
             <div class="unlock-tile">
@@ -1998,6 +2042,46 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     drawPage();
   }
+/* ============ Global Power Alert (email all current occupants) ============ */
+const globalBtn = document.getElementById('globalPowerAlert');
+if (globalBtn) {
+  globalBtn.addEventListener('click', () => {
+    Swal.fire({
+      icon: 'warning',
+      title: 'Send power notice to all active users?',
+      html: `This will email <b>everyone currently using a locker</b> asking them to
+             retrieve their items within <b>1 hour</b> because the site is on backup power.`,
+      showCancelButton: true,
+      confirmButtonText: 'Send notices',
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: '#f59e0b'
+    }).then(result => {
+      if (!result.isConfirmed) return;
+
+      fetch('/kandado/api/power_alert_all.php')
+        .then(r => r.json())
+        .then(data => {
+          if (data && data.success) {
+            const sent = data.sent || 0;
+            const skipped = data.skipped || 0;
+            const list = (data.recipients || [])
+              .map(r => `<li><span class="mono">${r.name} &lt;${r.email}&gt;</span> — Locker #${r.locker}</li>`)
+              .join('');
+            Swal.fire({
+              icon: 'success',
+              title: `Notices sent: ${sent}`,
+              html: `${skipped ? `${skipped} skipped.<br>` : ''}${sent ? `<ul style="text-align:left;margin:8px 0 0 18px;">${list}</ul>` : 'No occupied lockers found.'}`
+            });
+          } else {
+            const msg = (data && (data.message || data.error)) || 'Failed to send notices.';
+            Swal.fire('Error', msg, 'error');
+          }
+        })
+        .catch(err => Swal.fire('Error', err.message || 'Request failed', 'error'));
+    });
+  });
+}
+
 
   // Initial load
   loadSales();

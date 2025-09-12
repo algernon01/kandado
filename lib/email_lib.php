@@ -189,3 +189,54 @@
             return false;
         }
     }
+
+
+/** Power outage / backup power warning (admin-triggered) */
+function email_power_alert($to, $name, int $locker, string $deadline_human): bool {
+    if (!$to) return false;
+    try {
+        $mail = kandado_mailer();
+        $mail->addAddress($to, $name ?: $to);
+
+        // Use only ASCII in subject line to prevent encoding issues
+        $mail->Subject = "Important: Locker #{$locker} - Please retrieve within 1 hour";
+
+        $safeName = htmlspecialchars($name ?: $to, ENT_QUOTES, 'UTF-8');
+
+        $mail->Body = "
+<html><body style='font-family:Arial,Helvetica,sans-serif;background:#f6f7fb;padding:24px;'>
+  <div style='max-width:600px;margin:auto;background:#ffffff;border-radius:12px;
+              box-shadow:0 6px 18px rgba(0,0,0,.06);padding:24px;'>
+    <h2 style='margin:0 0 8px;color:#111827;'>Heads up about your locker</h2>
+    <p style='margin:8px 0;color:#374151;'>Hi <strong>{$safeName}</strong>,</p>
+    <p style='margin:8px 0;color:#374151;'>
+      We’re currently running on backup power. To make sure everyone can retrieve their items safely,
+      please collect your belongings from <strong>Locker #{$locker}</strong> within the next
+      <strong>1 hour</strong>.
+    </p>
+    <p style='margin:8px 0;color:#374151;'>
+      After <strong>{$deadline_human}</strong>, backup power may shut down and the locker electronics
+      could be unavailable until mains power is restored.
+    </p>
+    <p style='margin:16px 0;color:#374151;'>
+      If you’ve already picked up your item, you can ignore this message.
+      If you need help, reply to this email or contact the admin desk.
+    </p>
+    <p style='margin-top:16px;color:#6b7280;font-size:12px;'>
+      Thanks for your understanding — Kandado Team
+    </p>
+  </div>
+</body></html>";
+        $mail->isHTML(true);
+        return $mail->send();
+    } catch (Exception $e) {
+        error_log("Mailer Error (Power Alert): ".$e->getMessage());
+        return false;
+    }
+}
+
+
+    
+
+
+
