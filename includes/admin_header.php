@@ -34,6 +34,7 @@ function isActive($file) {
   return $currentPage === $file ? 'active' : '';
 }
 ?>
+<link rel="icon" href="../../assets/icon/icon_tab.png" sizes="any">
 <!-- Meta -->
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 
