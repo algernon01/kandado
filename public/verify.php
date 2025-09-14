@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Email Verification • Kandado</title>
   <link rel="stylesheet" href="../assets/css/verify.css" />
+  <link rel="icon" href="../assets/icon/icon_tab.png" sizes="any">
 </head>
 <body>
   <div class="verify-container info">

@@ -55,9 +55,17 @@ function isActive($file) {
     <button class="hamburger" id="hamburger" aria-label="Toggle sidebar" aria-controls="sidebar" aria-expanded="false">
       <i class="fas fa-bars"></i>
     </button>
-    <a href="dashboard.php" class="logo-text" aria-label="Go to dashboard">
-      <i class="fa-solid fa-lock"></i> &nbsp;
-    </a>
+<a href="dashboard.php" class="logo" aria-label="Go to dashboard" style = "background-color: white;">
+  <img
+    src="/kandado/assets/icon/kandado.png"
+    alt="Kandado logo"
+    width="36"
+    height="36"
+    decoding="async"
+    loading="eager"
+  />
+</a>
+
   </div>
 </header>
 

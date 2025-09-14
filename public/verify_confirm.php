@@ -8,6 +8,7 @@ $message = $_GET['msg'] ?? 'Something went wrong.';
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Email Verification - Kandado</title>
+  <link rel="icon" href="../assets/icon/icon_tab.png" sizes="any">
   <style>
     /* === Reset === */
     * {

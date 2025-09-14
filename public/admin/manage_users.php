@@ -171,13 +171,13 @@ $hasUndo = !empty($_SESSION['last_archived_ids']);
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Manage Users — Admin</title>
+<title>Manage Users · Admin</title>
 
 <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-
+<link rel="icon" href="../../assets/icon/icon_tab.png" sizes="any">
 <!-- External CSS (moved from inline) -->
 <link rel="stylesheet" href="../../assets/css/manage_users.css">
 </head>

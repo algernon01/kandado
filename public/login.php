@@ -13,6 +13,9 @@ unset($_SESSION['login_error']);
   <link rel="stylesheet" href="../assets/css/style.css" />
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11" defer></script>
   <script src="../assets/js/auth.js" defer></script>
+
+  <link rel="icon" href="../assets/icon/icon_tab.png" sizes="any">
+
 </head>
 
 <body class="auth-body">

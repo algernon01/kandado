@@ -46,6 +46,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Password Reset Confirmation • Kandado</title>
+  <link rel="icon" href="../assets/icon/icon_tab.png" sizes="any">
   <style>
     /* =============== Reset & Tokens =============== */
     * { box-sizing: border-box; margin: 0; padding: 0; }

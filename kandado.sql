@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Sep 12, 2025 at 10:11 AM
+-- Generation Time: Sep 14, 2025 at 01:32 PM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -109,14 +109,15 @@ CREATE TABLE `users` (
   `reset_token_expires` datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
---
+--  
 -- Dumping data for table `users`
 --
 
-INSERT INTO `users` (`id`, `first_name`, `last_name`, `email`, `password`, `profile_image`, `verification_token`, `verification_expires_at`, `created_at`, `role`, `archived`, `reset_token`, `reset_token_expires`) VALUES
-(1, 'Admin', 'Account', 'admin@gmail.com', '$2y$10$xKFGP/npVtBPdlTawWWTsO9sbjrBk1NlOz9ULvCYbXHnpX.nsY/fW', 'default.jpg', NULL, NULL, '2025-08-03 11:45:11', 'admin', 0, NULL, NULL),
-(2, 'Alger', 'Angeles', 'algernonangeles3022@gmail.com', '$2y$10$tjUZpF82svItsmczNGqH7e/Gz0q2d.vfUrdb19679m/XfS/mXy9mS', '40d4bc2db30dac01f5fe56ad68daf04d.jpg', NULL, NULL, '2025-08-26 13:16:35', 'user', 0, NULL, NULL),
-
+  INSERT INTO `users` (`id`, `first_name`, `last_name`, `email`, `password`, `profile_image`, `verification_token`, `verification_expires_at`, `created_at`, `role`, `archived`, `reset_token`, `reset_token_expires`) VALUES
+  (1, 'Admin', 'Account', 'admin@gmail.com', '$2y$10$xKFGP/npVtBPdlTawWWTsO9sbjrBk1NlOz9ULvCYbXHnpX.nsY/fW', 'default.jpg', NULL, NULL, '2025-08-03 11:45:11', 'admin', 0, NULL, NULL),
+  (2, 'Al', 'Angeles', 'algernonangeles3022@gmail.com', '$2y$10$V49cXAPFny9OtCKnjNaTg.fZnESOVz4vmBOlq6kE5wggAUQkX27FC', '1e612a14619e89f82fbdff0fda46386f.jpg', NULL, NULL, '2025-08-26 13:16:35', 'user', 0, NULL, NULL),
+  (3, 'Angelica', 'Enobio', 'enobioangelica@gmail.com', '$2y$10$T5LYdZWRWcSfwNEhwxNybuufHdmpoJflESfDl5.6Cl0q2QhN4gYTW', NULL, NULL, NULL, '2025-09-02 05:35:05', 'user', 0, NULL, NULL),
+  (4, 'Allen', 'Sanchez', 'allensanchez1628@gmail.com', '$2y$10$TvopwIdtOSR48dIrSNShP.utTv8zyrC0zhHC8HToWpva8/LJSLhj6', NULL, NULL, NULL, '2025-09-09 06:33:38', 'user', 0, NULL, NULL)
 
 --
 -- Triggers `users`
@@ -141,13 +142,6 @@ CREATE TABLE `user_wallets` (
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
---
--- Dumping data for table `user_wallets`
---
-
-INSERT INTO `user_wallets` (`user_id`, `balance`, `updated_at`) VALUES
-
-
 -- --------------------------------------------------------
 
 --
@@ -165,12 +159,6 @@ CREATE TABLE `wallet_transactions` (
   `meta` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`meta`)),
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Dumping data for table `wallet_transactions`
---
-
-INSERT INTO `wallet_transactions` (`id`, `user_id`, `type`, `method`, `amount`, `reference_no`, `notes`, `meta`, `created_at`) VALUES
 
 --
 -- Indexes for dumped tables
@@ -251,13 +239,13 @@ ALTER TABLE `payments`
 -- AUTO_INCREMENT for table `users`
 --
 ALTER TABLE `users`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=46;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=49;
 
 --
 -- AUTO_INCREMENT for table `wallet_transactions`
 --
 ALTER TABLE `wallet_transactions`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- Constraints for dumped tables

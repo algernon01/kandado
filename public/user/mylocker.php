@@ -63,10 +63,10 @@ $SERVER_NOW_MS = (int) round(microtime(true) * 1000);
 <meta http-equiv="x-ua-compatible" content="ie=edge" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>My Locker · Kandado</title>
-
+  
 <!-- SweetAlert2 -->
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-
+<link rel="icon" href="../../assets/icon/icon_tab.png" sizes="any">
 <!-- Styles -->
 <link rel="stylesheet" href="/kandado/assets/css/mylocker.css?v=9">
 

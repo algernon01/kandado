@@ -10,7 +10,7 @@ unset($_SESSION['forgot_success'], $_SESSION['forgot_error']);
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Forgot Password • Kandado</title>
-
+  <link rel="icon" href="../assets/icon/icon_tab.png" sizes="any">
   <link rel="stylesheet" href="../assets/css/style.css" />
 
   <style>

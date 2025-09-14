@@ -1,6 +1,9 @@
 <?php
 /**
  * payments.php — Admin payments panel (fixed + searchable user picker + inline copy + friendly action colors)
+ *
+ * NOTE: Duration is now entered as a human string like "2d 3h 15m" and is stored as total minutes.
+ *       It is displayed as "Xd Yh Zm" (omitting zero parts, e.g., "7d 20m", "1h 5m", "30m").
  */
 
 if (session_status() === PHP_SESSION_NONE) session_start();
@@ -41,6 +44,58 @@ function redirect_with(array $override = []): void {
   header('Location: ' . $url . ($qs ? ('?' . $qs) : ''));
   exit();
 }
+
+
+function duration_to_minutes(string $raw): ?int {
+  $s = strtolower(trim($raw));
+  if ($s === '') return null;
+
+  // Legacy format DD:HH:MM
+  if (preg_match('/^(\d+):([0-1]?\d|2[0-3]):([0-5]?\d)$/', $s, $m)) {
+    $d = (int)$m[1]; $h = (int)$m[2]; $min = (int)$m[3];
+    return $d * 1440 + $h * 60 + $min;
+  }
+
+  // "2d 3h 15m" (order-insensitive)
+  if (preg_match_all('/(\d+)\s*([dhm])/i', $s, $matches, PREG_SET_ORDER)) {
+    $total = 0;
+    foreach ($matches as $part) {
+      $n = (int)$part[1];
+      switch (strtolower($part[2])) {
+        case 'd': $total += $n * 1440; break;
+        case 'h': $total += $n * 60;   break;
+        case 'm': $total += $n;        break;
+      }
+    }
+    return $total;
+  }
+
+  // Plain digits -> treat as minutes
+  if (ctype_digit($s)) return (int)$s;
+
+  return null;
+}
+
+/** Convert minutes (or any supported string) to "Xd Yh Zm", omitting zeros. */
+function minutes_to_human($value): string {
+  if ($value === null || $value === '') return '';
+  $mins = is_numeric($value) ? (int)$value : duration_to_minutes((string)$value);
+  if ($mins === null || $mins < 0) return '';
+
+  $d = intdiv($mins, 1440);
+  $mins -= $d * 1440;
+  $h = intdiv($mins, 60);
+  $m = $mins - $h * 60;
+
+  $parts = [];
+  if ($d > 0) $parts[] = $d . 'd';
+  if ($h > 0) $parts[] = $h . 'h';
+  // Always show minutes (even if 0) when everything else is 0
+  if ($m > 0 || !$parts) $parts[] = $m . 'm';
+
+  return implode(' ', $parts);
+}
+/* ----------------------------------------------------------------------- */
 
 // ---------------- Parse Filters/Sorting/Pagination ----------------
 $allowedSorts = [
@@ -145,7 +200,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
     fputcsv($out, [
       $r['id'], $r['created_at'],
       trim($r['first_name'].' '.$r['last_name']), $r['email'],
-      $r['locker_number'], $r['method'], $r['amount'], $r['reference_no'], $r['duration']
+      $r['locker_number'], $r['method'], $r['amount'], $r['reference_no'], minutes_to_human($r['duration'])
     ]);
   }
   fclose($out);
@@ -176,10 +231,19 @@ function validate_payment(array $in, bool $forUpdate = false): array {
   if (strlen($ref) > 50) $errors['reference_no'] = 'Reference number is too long.';
   $clean['reference_no'] = $ref;
 
-  $duration = trim((string)($in['duration'] ?? ''));
-  if ($duration === '') $errors['duration'] = 'Duration is required.';
-  if (strlen($duration) > 20) $errors['duration'] = 'Duration is too long.';
-  $clean['duration'] = $duration;
+  // --------- Duration (ONLY change): accept "2d 3h 15m" and store minutes ---------
+  $durationRaw = trim((string)($in['duration'] ?? ''));
+  if ($durationRaw === '') {
+    $errors['duration'] = 'Duration is required.';
+  } else {
+    $mins = duration_to_minutes($durationRaw);
+    if ($mins === null) {
+      $errors['duration'] = 'Invalid duration. Use e.g., "2d 3h 15m", "1h", or "30m".';
+    } else {
+      $clean['duration'] = (string)$mins; // store as minutes
+    }
+  }
+  // ---------------------------------------------------------------------------
 
   $created_at = $in['created_at'] ?? '';
   $clean['created_at'] = $created_at ? dt_to_mysql($created_at) : null;
@@ -343,7 +407,8 @@ window.APP = {
 
 <!-- external script (deferred) -->
 <script src="../../assets/js/payments.js" defer></script>
-
+<title>Payments · Admin</title>
+<link rel="icon" type="image/png" sizes="any" href="../../assets/icon/icon_tab.png">
 <main id="content" role="main" aria-labelledby="payments-title">
   <div class="page-head">
     <h1 class="page-title" id="payments-title">
@@ -496,7 +561,7 @@ window.APP = {
         <i class="fa-regular fa-face-smile"></i>
         <div style="font-weight:800; margin:.2rem 0;">No payments found</div>
         <div>Try changing filters or add a new payment.</div>
-        <div style="margin-top:.7rem;"><button class="btn btn-primary" id="open-create-2"><i class="fa-solid fa-plus"></i> Add Payment</button></div>
+        <div style="margin-top:.7rem;"><button class="btn btn-primary" id="open-create-2"><i class="fa-solid fa-plus" style ="color:white;"></i> Add Payment</button></div>
       </div>
     <?php else: ?>
       <div style="overflow:auto;">
@@ -555,7 +620,7 @@ window.APP = {
                   </div>
                 </td>
 
-                <td data-label="Duration"><?= e($r['duration']) ?></td>
+                <td data-label="Duration"><?= e(minutes_to_human($r['duration'])) ?></td>
 
                 <td class="actions" data-label="Actions">
                   <button class="icon-btn with-text view btn-view"
@@ -568,7 +633,7 @@ window.APP = {
                           data-method="<?= e($r['method']) ?>"
                           data-amount="<?= e((string)$r['amount']) ?>"
                           data-ref="<?= e($r['reference_no']) ?>"
-                          data-duration="<?= e($r['duration']) ?>">
+                          data-duration="<?= e(minutes_to_human($r['duration'])) ?>">
                     <i class="fa-regular fa-eye"></i><span class="label">View</span>
                   </button>
 
@@ -579,7 +644,7 @@ window.APP = {
                           data-method="<?= e($r['method']) ?>"
                           data-amount="<?= e((string)$r['amount']) ?>"
                           data-ref="<?= e($r['reference_no']) ?>"
-                          data-duration="<?= e($r['duration']) ?>"
+                          data-duration="<?= e(minutes_to_human($r['duration'])) ?>"
                           data-created_at="<?= e(date('Y-m-d\TH:i', strtotime($r['created_at']))) ?>">
                     <i class="fa-regular fa-pen-to-square"></i><span class="label">Edit</span>
                   </button>
@@ -695,10 +760,12 @@ window.APP = {
         </div>
 
         <div class="field">
-          <label for="c_duration">Duration</label>
-          <input type="text" id="c_duration" name="duration" value="<?= e((string)($form_old['duration'] ?? '1h')) ?>" required list="duration-presets" placeholder="e.g., 30m, 1h, 2h">
+          <label for="c_duration">Duration (e.g., 2d 3h 15m)</label>
+          <input type="text" id="c_duration" name="duration"
+                 value="<?= e((string)(isset($form_old['duration']) && $form_old['duration'] !== '' ? minutes_to_human($form_old['duration']) : '1h')) ?>"
+                 required list="duration-presets" placeholder="e.g., 30m, 1h, 2d 3h 15m">
           <datalist id="duration-presets">
-            <option value="30m"><option value="1h"><option value="2h"><option value="6h"><option value="12h"><option value="24h">
+            <option value="30m"><option value="1h"><option value="2h"><option value="6h"><option value="12h"><option value="1d"><option value="7d">
           </datalist>
           <?php if(isset($form_errs['duration'])): ?><div class="error"><?= e($form_errs['duration']) ?></div><?php endif; ?>
         </div>
@@ -774,8 +841,8 @@ window.APP = {
         </div>
 
         <div class="field">
-          <label for="e_duration">Duration</label>
-          <input type="text" id="e_duration" name="duration" required list="duration-presets">
+          <label for="e_duration">Duration (e.g., 2d 3h 15m)</label>
+          <input type="text" id="e_duration" name="duration" required list="duration-presets" placeholder="e.g., 30m, 1h, 2d 3h 15m">
           <?php if(isset($edit_errs['duration'])): ?><div class="error"><?= e($edit_errs['duration']) ?></div><?php endif; ?>
         </div>
 

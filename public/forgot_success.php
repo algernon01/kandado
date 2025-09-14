@@ -10,6 +10,7 @@ unset($_SESSION['forgot_success'], $_SESSION['forgot_error']);
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Password Reset • Kandado</title>
+  <link rel="icon" href="../assets/icon/icon_tab.png" sizes="any">
   <style>
     /* =============== Reset & Tokens =============== */
     * { box-sizing: border-box; margin: 0; padding: 0; }

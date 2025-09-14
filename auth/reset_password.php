@@ -25,7 +25,7 @@ if (empty($token)) {
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Reset Password • Kandado</title>
-
+  <link rel="icon" href="../assets/icon/icon_tab.png" sizes="any">
   <!-- Shared auth styles with card, inputs, primary button, etc. -->
   <link rel="stylesheet" href="../assets/css/style.css" />
 

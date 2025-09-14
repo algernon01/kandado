@@ -21,14 +21,21 @@ button{font:inherit}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 
 /* Header shell */
-.pro-header{position:sticky;top:0;z-index:1000;background:linear-gradient(180deg,rgba(46,91,255,.98),rgba(27,61,179,.96));backdrop-filter:saturate(120%) blur(6px);box-shadow:0 2px 14px rgba(16,24,40,.18);transition:box-shadow .2s ease}
+.pro-header{
+  position:sticky;top:0;z-index:1000;
+  background:linear-gradient(180deg,rgba(46,91,255,.98),rgba(27,61,179,.96));
+  backdrop-filter:saturate(120%) blur(6px);
+  box-shadow:0 2px 14px rgba(16,24,40,.18);
+  transition:box-shadow .2s ease;
+  isolation:isolate; /* prevent page-level blend/filters from affecting header contents */
+}
 .pro-header.elevated{box-shadow:0 12px 32px rgba(16,24,40,.22)}
 .pro-header .container{max-width:1280px;margin:0 auto;padding:0 clamp(.75rem,2vw,1rem)}
 
 .pro-nav{display:flex;align-items:center;justify-content:space-between;min-height:74px;gap:1rem}
 
 .brand{display:flex;align-items:center;gap:.7rem}
-.brand img{width:40px;height:40px;object-fit:contain;border-radius:10px;box-shadow:0 6px 16px rgba(0,0,0,.18);background:#fff}
+.brand img{width:40px;height:40px;object-fit:contain;border-radius:10px;}
 
 .nav-center{display:flex;align-items:center;justify-content:center;gap:.6rem;flex:1}
 .link{--pad-x:1rem;--pad-y:.55rem;position:relative;display:inline-flex;align-items:center;justify-content:center;padding:var(--pad-y) var(--pad-x);border-radius:999px;color:#eaf1ff;font-weight:800;letter-spacing:.25px;transition:transform .12s ease,color .12s ease,background-color .12s ease,box-shadow .12s ease,border-color .12s ease;border:1px solid rgba(255,255,255,.18);background:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.03));box-shadow:inset 0 1px 0 rgba(255,255,255,.25),0 8px 18px rgba(0,0,0,.06)}
@@ -124,4 +131,23 @@ button{font:inherit}
 .drawer-spacer{flex:1}
 .drawer-footer{padding:1rem calc(1rem + env(safe-area-inset-right));border-top:1px solid #eef2f7;color:#94a3b8;font-size:.82rem}
 
-@media (prefers-reduced-motion: reduce){ *{transition:none !important;animation:none !important} }
+@media (prefers-reduced-motion: reduce){
+  *{transition:none !important;animation:none !important}
+}
+
+/* === FIX: Keep brand logo identical on every page === */
+.pro-header .pro-nav .brand > img{
+  display:block;
+  width:40px;
+  height:40px;
+  object-fit:contain;
+  border-radius:10px;
+  background:#fff;
+  padding:3px;
+  box-shadow:0 1px 2px rgba(0,0,0,.06);
+  /* neutralize any page-level effects */
+  filter:none !important;
+  mix-blend-mode:normal !important;
+  opacity:1 !important;
+}
+.pro-header .brand img{max-width:none !important;}

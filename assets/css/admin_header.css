@@ -236,3 +236,25 @@ body > main#content{
   body > main#content{margin-left:0;}
 }
 @media (min-width: 861px){ .overlay{display:none !important;} }
+/* Replace the button-like styling for the logo anchor */
+.logo {
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  height: 42px;            /* matches the hamburger height for visual rhythm */
+  width: 42px;
+  border-radius: 10px;
+  background: rgba(255,255,255,.14);
+  border: 1px solid rgba(255,255,255,.25);
+  text-decoration: none;
+}
+
+/* Size and align the image cleanly */
+.logo img {
+  display:block;
+  height: 28px;            /* inside a 42px box, gives nice breathing room */
+  width: auto;
+}
+
+/* If you keep .logo-text elsewhere, make sure it doesn't affect the logo */
+.logo-text { all: unset; }

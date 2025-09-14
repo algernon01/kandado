@@ -47,6 +47,7 @@ try {
 
 // ---------------- Helpers ----------------
 function h($v){ return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
+
 function toLabelDate($dt){
   $ts = strtotime($dt);
   $today = date('Y-m-d');
@@ -56,6 +57,7 @@ function toLabelDate($dt){
   if ($d === $yest)  return 'Yesterday - '.date('l, F j, Y', $ts);
   return date('l, F j, Y', $ts);
 }
+
 function groupByDateLabel($rows){
   $g = [];
   foreach ($rows as $r) {
@@ -64,7 +66,42 @@ function groupByDateLabel($rows){
   }
   return $g;
 }
+
 function redirect($url){ header('Location: '.$url); exit(); }
+
+/**
+ * Format a duration in minutes as compact d/h/m.
+ * Examples: 2d 3h 5m · 1h 00m · 37m · 1d 4h
+ * Rules:
+ *  - If days > 0, show days, then hours if >0, then minutes if >0.
+ *  - Else if hours > 0, show hours and minutes (even 0m).
+ *  - Else show minutes (even 0m).
+ */
+function formatDurationMinutes($minutes): string {
+  $minutes = max(0, (int)$minutes);
+  $d = intdiv($minutes, 1440);            // 60 * 24
+  $rem = $minutes % 1440;
+  $h = intdiv($rem, 60);
+  $m = $rem % 60;
+
+  $parts = [];
+  if ($d > 0) {
+    $parts[] = $d.'d';
+    if ($h > 0) $parts[] = $h.'h';
+    if ($m > 0) $parts[] = str_pad((string)$m, 1, '0', STR_PAD_LEFT).'m';
+    return implode(' ', $parts);
+  }
+
+  if ($h > 0) {
+    // Show hours and minutes even if minutes is 0, to mirror old behavior
+    $parts[] = $h.'h';
+    $parts[] = str_pad((string)$m, 2, '0', STR_PAD_LEFT).'m';
+    return implode(' ', $parts);
+  }
+
+  // Only minutes
+  return $m.'m';
+}
 
 // ---------------- Inputs (GET) ----------------
 $view = isset($_GET['view']) && $_GET['view']==='archived' ? 'archived' : 'active';
@@ -203,6 +240,7 @@ include '../../includes/admin_header.php';
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 <link rel="stylesheet" href="../../assets/css/locker_history.css">
+<link rel="icon" href="../../assets/icon/icon_tab.png" sizes="any">
 </head>
 <body>
 <main>
@@ -364,7 +402,8 @@ include '../../includes/admin_header.php';
                   $user=h($r['user_fullname']??'');
                   $email=h($r['user_email']??'');
                   $code=h($r['code']??'');
-                  $mins=(int)($r['duration_minutes']??0); $hH=floor($mins/60); $m=$mins%60; $dur=$hH>0? ("{$hH}h {$m}m") : ("{$m}m");
+                  $mins=(int)($r['duration_minutes']??0);
+                  $dur=formatDurationMinutes($mins); // <-- FIXED: day/hour/min formatting
                   $exp=$r['expires_at']? date('M d, Y h:i A', strtotime($r['expires_at'])) : '-';
                   $used=date('M d, Y h:i A', strtotime($r['used_at']));
                 ?>

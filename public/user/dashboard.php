@@ -41,7 +41,7 @@ if (isset($_SESSION['on_hold'])) {
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/kandado/assets/css/users_dashboard.css">
-
+  <link rel="icon" href="../../assets/icon/icon_tab.png" sizes="any">
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
   <!-- Minimal additions for hold mode visuals (no new libs) -->

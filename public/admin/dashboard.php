@@ -1,27 +1,14 @@
 <?php
-// ===============================
-// Admin Dashboard (Maintenance + Auto-Expire + Activity Pagination + Mobile UX)
-//  + Sales Report (Pro-grade, responsive, interactive)
-// ===============================
+
 session_start();
 if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
     header("Location: ../login.php");
     exit();
 }
 
-/**
- * FIX #1 (part A): start output buffering so any early HTML can be cleared
- * before returning JSON/CSV from the micro-API handlers below.
- */
+
 ob_start();
 
-/**
- * Timezone alignment
- * ------------------
- * The most common reason "expired" lockers still look occupied after refresh
- * is a PHP ⇄ MySQL timezone mismatch. We set both to the same zone here.
- * Adjust 'Asia/Manila' if your deployment uses a different zone.
- */
 date_default_timezone_set('Asia/Manila');
 
 // Include your header + sidebar (unchanged)
@@ -43,12 +30,7 @@ if ($conn->connect_error) {
 $tzOffset = (new DateTime())->format('P'); // e.g. +08:00
 $conn->query("SET time_zone = '{$conn->real_escape_string($tzOffset)}'");
 
-/** ============================================================
- *  MICRO-API: Sales JSON + CSV (additive, does not affect UI)
- *  ------------------------------------------------------------
- *  GET ?sales_json=1&start=YYYY-MM-DD&end=YYYY-MM-DD&method=all|GCash|Maya|Wallet
- *  GET ?sales_csv=1&start=YYYY-MM-DD&end=YYYY-MM-DD&method=...
- * ============================================================ */
+
 function _ymd($s){
   $d = DateTime::createFromFormat('Y-m-d', $s);
   return ($d && $d->format('Y-m-d') === $s) ? $s : null;
@@ -280,11 +262,7 @@ if (isset($_GET['sales_csv'])) {
   exit();
 }
 
-/* -----------------------------------------------------------
-   AUTO-CLEAR EXPIRED LOCKERS (so refresh reflects real state)
-   - If expires_at <= NOW() and not under maintenance:
-     set locker back to available + clear user/code/item/timers
------------------------------------------------------------ */
+
 $clear_sql = "
   UPDATE locker_qr
   SET
@@ -373,11 +351,10 @@ $maint      = $maintenance_lockers;
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-
+<link rel="icon" href="/kandado/assets/icon/icon_tab.png" sizes="any">
 <!-- Externalized CSS -->
 <link rel="stylesheet" href="../../assets/css/admin_dashboard.css">
 </head>
-
 <body>
 <main id="content" aria-label="Admin dashboard">
   <!-- Page Header -->

@@ -29,9 +29,9 @@ $logoPng = '../../assets/img/logo-temp.png';
 <header class="pro-header" id="proHeader" role="banner">
   <a class="sr-only" href="#main">Skip to content</a>
   <div class="container">
-    <nav class="pro-nav" aria-label="Main">
+    <nav class="pro-nav" aria-label="Main">   
       <a class="brand" href="dashboard.php" title="Go to dashboard">
-        <img src="<?= htmlspecialchars($logoPng, ENT_QUOTES, 'UTF-8') ?>" alt="Company logo (PNG)">
+        <img src="../../assets/icon/kandado.png " alt="Company logo (PNG)">
       </a>
 
       <div class="nav-center" role="navigation" aria-label="Primary">
