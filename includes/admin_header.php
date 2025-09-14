@@ -112,7 +112,7 @@ function isActive($file) {
     </li>
     <li>
       <a href="wallet.php" class="<?= isActive('wallet.php') ?>" aria-current="<?= $currentPage === 'wallet.php' ? 'page' : 'false' ?>">
-        <i class="fas fa-wallet"></i> <span>Wallet</span>
+        <i class="fas fa-wallet"></i> <span>Wallets</span>
       </a>
     </li>
 
