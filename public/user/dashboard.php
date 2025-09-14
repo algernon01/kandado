@@ -7,13 +7,6 @@ if (!isset($_SESSION['user_id'])) {
 
 $TOTAL_LOCKERS = 4;
 
-/**
- * HOLD MODE
- * ----------
- * Prefer the session flag from login; if missing, fall back to a lightweight DB check.
- * User can still view the dashboard, but all interactions will be disabled client-side,
- * and should also be guarded server-side (see section 2).
- */
 $IS_ON_HOLD = null;
 if (isset($_SESSION['on_hold'])) {
   $IS_ON_HOLD = (bool)$_SESSION['on_hold'];
@@ -309,7 +302,7 @@ if (isset($_SESSION['on_hold'])) {
       };
 
       // 6) Visually mark the lockable regions
-      document.querySelectorAll('[data-lockable]').forEach(el=> el.setAttribute('inert','')); // hint to AT / browsers
+      document.querySelectorAll('[data-lockable]').forEach(el=> el.setAttribute('inert','')); 
     })();
   </script>
 

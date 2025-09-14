@@ -11,10 +11,8 @@ unset($_SESSION['forgot_success'], $_SESSION['forgot_error']);
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Forgot Password • Kandado</title>
 
-  <!-- Reuse your main auth styles -->
   <link rel="stylesheet" href="../assets/css/style.css" />
 
-  <!-- Minimal additions for success/info notes (uses the same tokens) -->
   <style>
     .note{
       background: #ecfdf5;
@@ -66,7 +64,7 @@ unset($_SESSION['forgot_success'], $_SESSION['forgot_error']);
   </div>
 
   <script>
-    // Prevent double submit & give quick feedback
+
     (function () {
       const form = document.getElementById('forgotForm');
       const btn  = document.getElementById('submitBtn');

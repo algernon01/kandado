@@ -325,155 +325,24 @@ unset($_SESSION['flash']);
 include '../../includes/admin_header.php';
 ?>
 
-<style>
-  /* Layout and base buttons */
-  main#content .page-head { display:flex; align-items:center; justify-content:space-between; gap:.75rem; margin:.25rem 0 1rem; }
-  .page-title { display:flex; align-items:center; gap:.6rem; font-weight:800; letter-spacing:.2px; color: var(--primary-700); font-size:30px; }
-  .page-title i { font-size:1.2rem; color:#fff; background: linear-gradient(135deg,var(--brand-1),var(--brand-2));
-    border:1px solid rgba(0,0,0,.05); width:36px; height:36px; display:grid; place-items:center; border-radius:10px; }
+<!-- external styles -->
+<link rel="stylesheet" href="../../assets/css/payments.css">
 
-  .btn { display:inline-flex; align-items:center; gap:.45rem; padding:.6rem .9rem; border-radius:12px; font-weight:700; text-decoration:none; cursor:pointer; border:1px solid transparent; }
-  .btn i { font-size: .95rem; }
-  .btn-primary { background: linear-gradient(135deg,var(--brand-1),var(--brand-2)); color:#fff; box-shadow: var(--shadow-1); }
-  .btn-outline  { background: #fff; color: var(--primary-700); border-color: var(--border); }
-  .btn-soft     { background: var(--surface-2); color: var(--text); border-color: var(--border); }
-  .btn-danger   { background: var(--danger); color:#fff; }
-  .btn:focus-visible { outline:2px solid var(--primary); outline-offset:2px; }
+<!-- bootstrap app data for external JS -->
+<script>
+window.APP = {
+  USERS: <?= json_encode($usersForJs, JSON_HEX_TAG|JSON_HEX_APOS|JSON_HEX_AMP|JSON_HEX_QUOT) ?>,
+  FLASH: <?= json_encode($flash ? [
+    'type'  => ($flash['type']==='success' ? 'success' : 'error'),
+    'title' => ($flash['type']==='success' ? 'Success' : 'Oops'),
+    'msg'   => ($flash['msg'] ?? '')
+  ] : null, JSON_HEX_TAG|JSON_HEX_APOS|JSON_HEX_AMP|JSON_HEX_QUOT) ?>,
+  CSRF: <?= json_encode($CSRF) ?>
+};
+</script>
 
-  /* Metrics */
-  .metrics { display:grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: .9rem; margin-bottom: 1rem; }
-  @media (max-width: 1000px) { .metrics{ grid-template-columns: repeat(2, minmax(0,1fr)); } }
-  @media (max-width: 520px)  { .metrics{ grid-template-columns: 1fr; } }
-  .metric-card { background: var(--surface); border:1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-2); padding: .9rem .95rem; }
-  .metric-top { display:flex; align-items:center; justify-content:space-between; }
-  .metric-top .label { color: var(--muted); font-size:.85rem; font-weight:700; letter-spacing:.02em; }
-  .metric-top .chip  { font-size:.72rem; padding:.2rem .5rem; border-radius:999px; border:1px solid var(--border); background: var(--surface-2); color: var(--muted); }
-  .metric-value { font-size:1.4rem; font-weight:800; margin-top:.3rem; }
-  .metric-trend { font-size:.8rem; color: var(--muted); margin-top:.2rem; }
-
-  /* Filters */
-  .filter-bar { background: var(--surface); border:1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-2); padding: .85rem; display:grid; gap:.7rem; }
-  .filter-row { display:grid; grid-template-columns: 1.2fr .8fr .8fr .7fr .7fr .9fr .7fr; gap:.6rem; }
-  .filter-row > .field { min-width: 0; } /* prevent overflow */
-  @media (max-width: 1100px) { .filter-row{ grid-template-columns: 1fr 1fr 1fr 1fr; } }
-  @media (max-width: 700px)  { .filter-row{ grid-template-columns: 1fr 1fr; } }
-
-  .field { display:flex; flex-direction:column; gap:.25rem; }
-  .field label { font-size:.8rem; font-weight:700; color:var(--muted); }
-  .field input, .field select { border:1px solid var(--border); border-radius:10px; padding:.55rem .65rem; background:#fff; font: inherit; color: var(--text); width:100%; min-width:0; }
-
-  .filter-actions { display:flex; align-items:center; gap:.45rem; flex-wrap:wrap; }
-
-  /* Table */
-  .table-wrap { background: var(--surface); border:1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-2); margin-top: 1rem; overflow: hidden; }
-  .table-toolbar { display:flex; align-items:center; justify-content:space-between; padding:.7rem .8rem; border-bottom:1px solid var(--border); background: var(--surface-2); }
-  .table-toolbar .left { display:flex; align-items:center; gap:.5rem; color:var(--muted); font-weight:700; }
-  .table-toolbar .right { display:flex; align-items:center; gap:.45rem; flex-wrap:wrap; }
-  table.payments { width:100%; border-collapse: collapse; }
-  table.payments th, table.payments td { padding:.7rem .8rem; text-align:left; vertical-align: middle; }
-  table.payments thead th { background: var(--surface-2); border-bottom:1px solid var(--border); font-size:.8rem; color: var(--muted); }
-  table.payments tbody tr + tr td { border-top:1px dashed var(--border); }
-  table.payments tbody tr:hover { background: #fafcff; }
-  .th-sort { display:inline-flex; align-items:center; gap:.25rem; text-decoration:none; color:inherit; }
-  .amount { font-weight:800; }
-  .method-chip { display:inline-flex; align-items:center; gap:.35rem; padding:.25rem .55rem; border-radius:999px; font-weight:800; font-size:.75rem; }
-  .method-gcash { background:#e9f2ff; color:#1d4ed8; border:1px solid #dbe7ff; }
-  .method-maya  { background:#eef0ff; color:#4338ca; border:1px solid #e1e4ff; margin-top:2px; }
-
-  /* Reference # + Copy (inline) */
-  .ref-inline{ display:inline-flex; align-items:center; gap:.4rem; white-space:nowrap; }
-  .ref-inline code{ background:#f6f8ff; border:1px solid var(--border); padding:.15rem .4rem; border-radius:6px; display:inline-block; max-width: clamp(140px, 28vw, 320px); overflow:hidden; text-overflow:ellipsis; }
-  .copy-btn{ width:30px; height:30px; border-radius:8px; border:1px solid #e2e8f0; background:#f8fafc; color:#475569; display:inline-flex; align-items:center; justify-content:center; }
-  .copy-btn:hover{ background:#eef2ff; border-color:#c7d2fe; color:#3730a3; }
-  .copy-btn:focus-visible{ outline:2px solid #3730a3; outline-offset:2px; }
-
-  /* Actions (friendlier colors) */
-  .actions { display:flex; gap:.4rem; align-items:center; }
-  .icon-btn { display:inline-flex; align-items:center; justify-content:center; border-radius:10px; border:1px solid var(--border); background:#fff; cursor:pointer; width:34px; height:34px; font-weight:700; }
-  .icon-btn:focus-visible { outline:2px solid currentColor; outline-offset:2px; }
-  .icon-btn.with-text{ width:auto; height:auto; padding:.35rem .6rem; gap:.35rem; white-space:nowrap; }
-  /* View = Blue */
-  .icon-btn.view { background:#eef6ff; border-color:#dbeafe; color:#1d4ed8; }
-  .icon-btn.view:hover { background:#dbeafe; }
-  /* Edit = Amber */
-  .icon-btn.edit { background:#fff7ed; border-color:#ffedd5; color:#b45309; }
-  .icon-btn.edit:hover { background:#ffedd5; }
-  /* Delete = Red */
-  .icon-btn.delete { background:#fee2e2; border-color:#fecaca; color:#b91c1c; }
-  .icon-btn.delete:hover { background:#fecaca; }
-
-  /* Responsive table -> cards */
-  @media (max-width: 760px) {
-    table.payments thead { display:none; }
-    table.payments, table.payments tbody, table.payments tr, table.payments td { display:block; width:100%; }
-    table.payments tr { border-bottom:1px dashed var(--border); padding:.6rem .5rem; }
-    table.payments td { padding:.35rem .4rem; }
-    table.payments td::before { content: attr(data-label); display:block; font-size:.75rem; color:var(--muted); margin-bottom:.1rem; }
-    table.payments td[data-label="Actions"] .actions { display:flex; flex-wrap:nowrap; gap:.35rem; white-space:nowrap; }
-    table.payments td[data-label="Actions"] .icon-btn { display:inline-flex; }
-    /* Keep reference + copy icon inline on mobile too */
-    table.payments td[data-label="Reference #"] .ref-inline{ display:inline-flex; }
-  }
-
-  /* Pagination */
-  .pagination { display:flex; align-items:center; gap:.25rem; padding:.7rem; justify-content:flex-end; }
-  .page-link { display:inline-flex; align-items:center; justify-content:center; width:34px; height:34px; border-radius:10px; border:1px solid var(--border); background:#fff; text-decoration:none; color:var(--text); font-weight:700; }
-  .page-link.active { background: rgba(34,197,94,.18); border-color: rgba(34,197,94,.35); color: var(--active-green-1); }
-  .page-link:hover { background:#f8fbff; }
-
-  /* Modals */
-  .modal { position:fixed; inset:0; display:none; align-items:center; justify-content:center; z-index:1200; background: rgba(15,23,42,.35); padding:1rem; }
-  .modal.open { display:flex; }
-  .modal-card { width:min(720px, 96vw); background:#fff; border-radius:16px; border:1px solid var(--border); box-shadow: var(--shadow-2); overflow:hidden; }
-  .modal-head { display:flex; align-items:center; justify-content:space-between; gap:.6rem; padding:.9rem 1rem; background: var(--surface-2); border-bottom:1px solid var(--border); }
-  .modal-body { padding: 1rem; display:grid; gap:.7rem; }
-  .modal-grid { display:grid; gap:.6rem; grid-template-columns: 1fr 1fr; }
-  .modal-grid > .field { min-width:0; } /* Fix overflow in modal */
-  @media (max-width: 700px) { .modal-grid{ grid-template-columns: 1fr; } }
-  .modal-foot { display:flex; justify-content:flex-end; gap:.5rem; padding: .8rem 1rem; border-top:1px solid var(--border); background: #fff; }
-
-  .error { color: #dc2626; font-size:.78rem; }
-
-  /* Searchable user picker (combobox) */
-  .combo { position:relative; }
-  .combo input[type="text"] { padding-right:2.2rem; }
-  .combo .clear { position:absolute; right:.4rem; top:50%; transform:translateY(-50%); border:1px solid var(--border);
-    width:28px; height:28px; border-radius:8px; background:#fff; display:grid; place-items:center; cursor:pointer; }
-  .combo .list { position:absolute; top:calc(100% + 6px); left:0; right:0; background:#fff; border:1px solid var(--border);
-    border-radius:12px; box-shadow:var(--shadow-2); max-height:260px; overflow:auto; z-index:1300; }
-  .combo .item { padding:.5rem .65rem; cursor:pointer; }
-  .combo .item:hover, .combo .item.active { background:#f6f8ff; }
-
-  /* Empty state */
-  .empty { padding: 2.2rem 1rem; text-align:center; color: var(--muted); }
-  .empty i { font-size:2rem; margin-bottom:.25rem; color: var(--primary); opacity:.85; }
-  /* Center the column titles */
-table.payments thead th { 
-  text-align: center;
-}
-
-/* (optional) ensure the sortable header link centers nicely */
-table.payments thead th .th-sort {
-  margin: 0 auto;            /* centers the inline element */
-}
-
-/* Center selected columns (3rd → 8th) */
-table.payments th:nth-child(3),
-table.payments td:nth-child(3),
-table.payments th:nth-child(4),
-table.payments td:nth-child(4),
-table.payments th:nth-child(5),
-table.payments td:nth-child(5),
-table.payments th:nth-child(6),
-table.payments td:nth-child(6),
-table.payments th:nth-child(7),
-table.payments td:nth-child(7),
-table.payments th:nth-child(8),
-table.payments td:nth-child(8) {
-  text-align: center;
-}
-
-</style>
+<!-- external script (deferred) -->
+<script src="../../assets/js/payments.js" defer></script>
 
 <main id="content" role="main" aria-labelledby="payments-title">
   <div class="page-head">
@@ -489,7 +358,7 @@ table.payments td:nth-child(8) {
   <section class="metrics" aria-label="Payment metrics">
     <div class="metric-card">
       <div class="metric-top">
-        <div class="label">Total Revenue (All‑time)</div>
+        <div class="label">Total Revenue (All-time)</div>
         <span class="chip"><i class="fa-regular fa-circle-check"></i> Up</span>
       </div>
       <div class="metric-value">₱ <?= money($stats['total'] ?? 0) ?></div>
@@ -503,7 +372,7 @@ table.payments td:nth-child(8) {
     <div class="metric-card">
       <div class="metric-top"><div class="label">Revenue (Last 7 days)</div></div>
       <div class="metric-value">₱ <?= money($last7Revenue) ?></div>
-      <div class="metric-trend">rolling 7‑day window</div>
+      <div class="metric-trend">rolling 7-day window</div>
     </div>
     <div class="metric-card">
       <div class="metric-top"><div class="label">By Method</div></div>
@@ -567,7 +436,7 @@ table.payments td:nth-child(8) {
           </select>
         </div>
         <div class="field">
-          <label for="min">Amount (min‑max)</label>
+          <label for="min">Amount (min-max)</label>
           <div style="display:flex; gap:.4rem;">
             <input style="width:50%;" type="number" step="0.01" id="min" name="min" value="<?= e((string)$filters['min']) ?>" placeholder="Min">
             <input style="width:50%;" type="number" step="0.01" id="max" name="max" value="<?= e((string)$filters['max']) ?>" placeholder="Max">
@@ -757,7 +626,7 @@ table.payments td:nth-child(8) {
   <div class="modal-card">
     <div class="modal-head">
       <strong id="view-title"><i class="fa-regular fa-eye"></i> Payment Details</strong>
-      <button class="icon-btn" data-close="#view-modal" aria-label="Close"><i class="fa-regular fa-xmark"></i></button>
+      <button class="icon-btn" data-close="#view-modal" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
     </div>
     <div class="modal-body" id="view-body"></div>
     <div class="modal-foot">
@@ -771,7 +640,7 @@ table.payments td:nth-child(8) {
   <div class="modal-card">
     <div class="modal-head">
       <strong id="create-title"><i class="fa-solid fa-plus"></i> Add Payment</strong>
-      <button class="icon-btn" data-close="#create-modal" aria-label="Close"><i class="fa-regular fa-xmark"></i></button>
+      <button class="icon-btn" data-close="#create-modal" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
     </div>
     <form method="post" class="modal-body" id="create-form" novalidate>
       <input type="hidden" name="csrf" value="<?= e($CSRF) ?>">
@@ -783,7 +652,7 @@ table.payments td:nth-child(8) {
           <div class="combo" id="c_combo">
             <input type="text" id="c_user_input" placeholder="Search name or email" autocomplete="off" value="<?= e((string)($form_old['c_user_label'] ?? '')) ?>">
             <input type="hidden" id="c_user_id" name="user_id" value="<?= e((string)($form_old['user_id'] ?? '')) ?>">
-            <button class="clear" type="button" title="Clear"><i class="fa-regular fa-xmark"></i></button>
+            <button class="clear" type="button" title="Clear"><i class="fa-solid fa-xmark"></i></button>
             <div class="list" id="c_user_list" hidden></div>
           </div>
           <?php if(isset($form_errs['user_id'])): ?><div class="error"><?= e($form_errs['user_id']) ?></div><?php endif; ?>
@@ -853,7 +722,7 @@ table.payments td:nth-child(8) {
   <div class="modal-card">
     <div class="modal-head">
       <strong id="edit-title"><i class="fa-regular fa-pen-to-square"></i> Edit Payment</strong>
-      <button class="icon-btn" data-close="#edit-modal" aria-label="Close"><i class="fa-regular fa-xmark"></i></button>
+      <button class="icon-btn" data-close="#edit-modal" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
     </div>
     <form method="post" class="modal-body" id="edit-form" novalidate>
       <input type="hidden" name="csrf" value="<?= e($CSRF) ?>">
@@ -866,7 +735,7 @@ table.payments td:nth-child(8) {
           <div class="combo" id="e_combo">
             <input type="text" id="e_user_input" placeholder="Search name or email" autocomplete="off">
             <input type="hidden" id="e_user_id" name="user_id">
-            <button class="clear" type="button" title="Clear"><i class="fa-regular fa-xmark"></i></button>
+            <button class="clear" type="button" title="Clear"><i class="fa-solid fa-xmark"></i></button>
             <div class="list" id="e_user_list" hidden></div>
           </div>
           <?php if(isset($edit_errs['user_id'])): ?><div class="error"><?= e($edit_errs['user_id']) ?></div><?php endif; ?>
@@ -922,199 +791,3 @@ table.payments td:nth-child(8) {
     </form>
   </div>
 </div>
-
-<script>
-(function () {
-  const $  = (sel, ctx=document) => ctx.querySelector(sel);
-  const $$ = (sel, ctx=document) => Array.from(ctx.querySelectorAll(sel));
-
-  // Flash
-  <?php if ($flash): ?>
-  Swal.fire({
-    icon: <?= json_encode($flash['type']==='success' ? 'success' : 'error') ?>,
-    title: <?= json_encode($flash['type']==='success' ? 'Success' : 'Oops') ?>,
-    text: <?= json_encode($flash['msg'] ?? '') ?>,
-    confirmButtonColor: getComputedStyle(document.documentElement).getPropertyValue('--brand-1').trim() || '#3353bb'
-  });
-  <?php endif; ?>
-
-  // Open/Close Modals
-  const open = (id) => $(id)?.classList.add('open');
-  const close = (id) => $(id)?.classList.remove('open');
-  $$('#open-create, #open-create-2').forEach(b => b?.addEventListener('click', () => {
-    // Auto-fill reference if empty
-    const ref = $('#c_reference_no');
-    if (ref && !ref.value) genRef(ref);
-    open('#create-modal');
-  }));
-  $$('[data-close]').forEach(b => b.addEventListener('click', () => close(b.getAttribute('data-close'))));
-  $$('.modal').forEach(m => {
-    m.addEventListener('click', (e) => { if (e.target === m) close('#'+m.id); });
-    window.addEventListener('keydown', (e) => { if (e.key === 'Escape') close('#'+m.id); }, { once: true });
-  });
-
-  // Reference generator
-  function genRef(inputEl) {
-    const d = new Date();
-    const pad = n => n.toString().padStart(2,'0');
-    const val = `PAY-${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
-    inputEl.value = val;
-  }
-  $('#gen-ref')?.addEventListener('click', () => genRef($('#c_reference_no')));
-
-  // Copy to clipboard (inline button)
-  $$('[data-copy]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const sel = btn.getAttribute('data-copy');
-      const el = $(sel);
-      if (!el) return;
-      const text = el.textContent.trim();
-      navigator.clipboard.writeText(text).then(() => {
-        Swal.fire({ icon:'success', title:'Copied', text:'Reference copied to clipboard', timer:1200, showConfirmButton:false });
-      });
-    });
-  });
-
-  // Delete confirm
-  $$('.btn-delete').forEach(btn => {
-    btn.addEventListener('click', () => {
-      Swal.fire({
-        title: 'Delete payment?',
-        text: 'This action cannot be undone.',
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: getComputedStyle(document.documentElement).getPropertyValue('--brand-1').trim() || '#3353bb',
-        cancelButtonColor: '#dc2626',
-        confirmButtonText: 'Yes, delete',
-      }).then((res) => { if (res.isConfirmed) btn.closest('form').submit(); });
-    });
-  });
-
-  // View modal fill
-  $$('.btn-view').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const body = $('#view-body'); body.innerHTML = '';
-      const row = {
-        Date: btn.dataset.date,
-        User: btn.dataset.user,
-        Email: btn.dataset.email,
-        'Locker #': '#'+btn.dataset.locker,
-        Method: btn.dataset.method,
-        Amount: '₱ ' + (parseFloat(btn.dataset.amount || '0').toFixed(2)),
-        'Reference #': btn.dataset.ref,
-        Duration: btn.dataset.duration
-      };
-      const frag = document.createDocumentFragment();
-      Object.entries(row).forEach(([k,v]) => {
-        const wrap = document.createElement('div'); wrap.className = 'field';
-        const lab = document.createElement('label'); lab.textContent = k;
-        const val = document.createElement('div'); val.textContent = v; val.style.fontWeight = '800';
-        wrap.append(lab,val); frag.append(wrap);
-      });
-      body.append(frag);
-      open('#view-modal');
-    });
-  });
-
-  // ---------------- Searchable user picker ----------------
-  const USERS = <?= json_encode($usersForJs, JSON_HEX_TAG|JSON_HEX_APOS|JSON_HEX_AMP|JSON_HEX_QUOT) ?>;
-
-  function initUserPicker(comboId, inputId, listId, hiddenId) {
-    const combo = $(comboId); if (!combo) return;
-    const input = $(inputId), list = $(listId), hidden = $(hiddenId);
-    const clearBtn = combo.querySelector('.clear');
-
-    function render(items) {
-      list.innerHTML = '';
-      if (!items.length) {
-        const d = document.createElement('div');
-        d.className = 'item'; d.textContent = 'No matches'; d.style.color='var(--muted)'; d.style.cursor='default';
-        list.appendChild(d); return;
-      }
-      items.slice(0, 12).forEach((u, idx) => {
-        const div = document.createElement('div');
-        div.className = 'item' + (idx===0 ? ' active' : '');
-        div.setAttribute('role','option');
-        div.dataset.id = u.id; div.textContent = u.label;
-        list.appendChild(div);
-      });
-    }
-
-    function openList() { list.hidden = false; }
-    function closeList() { list.hidden = true; }
-
-    function filter(q) {
-      q = (q||'').toLowerCase().trim();
-      const items = q ? USERS.filter(u => u.label.toLowerCase().includes(q)) : USERS;
-      render(items); openList();
-    }
-
-    function selectByEl(el) {
-      const id = parseInt(el?.dataset.id || '0', 10);
-      if (!id) return;
-      hidden.value = String(id);
-      input.value  = USERS.find(u => u.id === id)?.label || '';
-      closeList();
-    }
-
-    input.addEventListener('input', () => { hidden.value=''; filter(input.value); });
-    input.addEventListener('focus', () => { filter(input.value); });
-    input.addEventListener('keydown', (e) => {
-      const options = Array.from(list.querySelectorAll('.item'));
-      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-        e.preventDefault();
-        const cur = list.querySelector('.item.active');
-        let idx = options.indexOf(cur);
-        if (e.key === 'ArrowDown') idx = Math.min(options.length-1, idx+1);
-        if (e.key === 'ArrowUp')   idx = Math.max(0, idx-1);
-        options.forEach(o => o.classList.remove('active'));
-        if (options[idx]) options[idx].classList.add('active');
-      } else if (e.key === 'Enter') {
-        e.preventDefault();
-        const cur = list.querySelector('.item.active') || options[0];
-        if (cur) selectByEl(cur);
-      } else if (e.key === 'Escape') {
-        closeList();
-      }
-    });
-    list.addEventListener('mousedown', (e) => {
-      const el = e.target.closest('.item'); if (el) selectByEl(el);
-    });
-    document.addEventListener('click', (e) => { if (!combo.contains(e.target)) closeList(); });
-    clearBtn?.addEventListener('click', () => { input.value=''; hidden.value=''; input.focus(); filter(''); });
-
-    // If there is an initial hidden value, show label
-    if (hidden.value) {
-      const id = parseInt(hidden.value, 10);
-      const label = USERS.find(u => u.id === id)?.label || '';
-      if (label) input.value = label;
-    }
-  }
-
-  // Init pickers
-  initUserPicker('#c_combo', '#c_user_input', '#c_user_list', '#c_user_id');
-  initUserPicker('#e_combo', '#e_user_input', '#e_user_list', '#e_user_id');
-
-  // Edit modal prefill
-  function findUserLabel(id) {
-    id = parseInt(id,10);
-    const u = USERS.find(u => u.id===id);
-    return u ? u.label : '';
-  }
-  $$('.btn-edit').forEach(btn => {
-    btn.addEventListener('click', () => {
-      $('#e_id').value = btn.dataset.id;
-      $('#e_user_id').value = btn.dataset.user_id;
-      $('#e_user_input').value = findUserLabel(btn.dataset.user_id);
-      $('#e_locker').value = btn.dataset.locker;
-      $('#e_method').value = btn.dataset.method;
-      $('#e_amount').value = btn.dataset.amount;
-      $('#e_reference_no').value = btn.dataset.ref;
-      $('#e_duration').value = btn.dataset.duration;
-      $('#e_created_at').value = btn.dataset.created_at;
-      open('#edit-modal');
-    });
-  });
-
-})();
-</script>

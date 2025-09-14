@@ -21,7 +21,6 @@ if ($conn->connect_error) {
 }
 $conn->set_charset('utf8mb4');
 
-// Fetch locker QR for this user
 $stmt = $conn->prepare("
     SELECT locker_number, code, expires_at
     FROM locker_qr
@@ -38,7 +37,7 @@ date_default_timezone_set('Asia/Manila');
 $expires_timestamp = null;
 if ($lockerData && !empty($lockerData['expires_at'])) {
     try {
-        // If DB stores UTC, change the second arg to new DateTimeZone('UTC') then $dt = $dt->setTimezone(new DateTimeZone('Asia/Manila'));
+
         $dt = new DateTimeImmutable($lockerData['expires_at'], new DateTimeZone('Asia/Manila'));
         $expires_timestamp = $dt->getTimestamp();
     } catch (Exception $e) {
@@ -47,14 +46,14 @@ if ($lockerData && !empty($lockerData['expires_at'])) {
 }
 $conn->close();
 
-// Safe display vars
+
 $hasLocker        = (bool)$lockerData;
 $lockerNumberSafe = $hasLocker ? (int)$lockerData['locker_number'] : null;
 $lockerCodeSafe   = $hasLocker ? htmlspecialchars($lockerData['code'], ENT_QUOTES, 'UTF-8') : null;
 
 $DEFAULT_DURATION_PHP = '30s';
 
-/* >>> NEW: millisecond-accurate server time to reduce initial skew across devices */
+
 $SERVER_NOW_MS = (int) round(microtime(true) * 1000);
 ?>
 <!DOCTYPE html>
@@ -206,7 +205,7 @@ $SERVER_NOW_MS = (int) round(microtime(true) * 1000);
     };
   </script>
 
-  <!-- Your external JS (put the file at /kandado/assets/js/mylocker.js) -->
+
   <script src="/kandado/assets/js/mylocker.js?v=1"></script>
 <?php endif; ?>
 

@@ -2,9 +2,10 @@
 session_start();
 require_once '../config/db.php';
 require '../vendor/autoload.php';
+require_once $_SERVER['DOCUMENT_ROOT'].'/kandado/lib/email_lib.php';
 
-use PHPMailer\PHPMailer\PHPMailer;
-use PHPMailer\PHPMailer\Exception;
+// Ensure all date()/strtotime() use PH time
+date_default_timezone_set('Asia/Manila');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email = trim($_POST['email']);
@@ -25,59 +26,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    // Generate reset token and expiration
+    // Generate reset token and PH-time expiration (30 minutes from now)
     $token = bin2hex(random_bytes(32));
-    $expires = date('Y-m-d H:i:s', strtotime('+30 minutes'));
+    $tzManila = new DateTimeZone('Asia/Manila');
+    $expires  = (new DateTimeImmutable('now', $tzManila))
+                    ->add(new DateInterval('PT30M'))
+                    ->format('Y-m-d H:i:s'); // store as naive PH local time
 
     // Update user record
     $update = $pdo->prepare("UPDATE users SET reset_token = ?, reset_token_expires = ? WHERE email = ?");
     $update->execute([$token, $expires, $email]);
 
-    // Send reset email
-    $mail = new PHPMailer(true);
-    try {
-        $mail->isSMTP();
-        $mail->Host = 'smtp.gmail.com';
-        $mail->SMTPAuth = true;
-        $mail->Username = 'lockerkandado01@gmail.com';
-        $mail->Password = 'xgzhnjxyapnphnco'; // Use App Password
-        $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
-        $mail->Port = 465;
+    // Send reset email via centralized helper (same design/text)
+    $resetLink = "https://longhorn-settling-precisely.ngrok-free.app/kandado/auth/reset_password.php?token=" . rawurlencode($token);
 
-        $mail->setFrom('lockerkandado01@gmail.com', 'Kandado');
-        $mail->addAddress($email, $user['first_name']);
-
-        $resetLink = "https://longhorn-settling-precisely.ngrok-free.app/kandado/auth/reset_password.php?token=$token";
-
-        $mail->isHTML(true);
-        $mail->Subject = 'Reset your Kandado Password';
-        $mail->Body = "
-          <div style='font-family: Arial, sans-serif; background-color: #f8f8f8; padding: 30px;'>
-            <h2 style='color: #333;'>Password Reset Request</h2>
-            <p style='font-size: 15px;'>Hi {$user['first_name']},</p>
-            <p style='font-size: 15px;'>We received a request to reset your Kandado password. Click the button below to proceed. This link will expire in 30 minutes.</p>
-            <a href='$resetLink' style='
-              display: inline-block;
-              background-color: #3353bb;
-              color: #fff;
-              padding: 12px 20px;
-              border-radius: 5px;
-              text-decoration: none;
-              font-weight: bold;
-              margin-top: 10px;
-            '>Reset Password</a>
-            <p style='font-size: 12px; color: #999; margin-top: 30px;'>If you didn't request this, you can safely ignore this email.</p>
-            <hr style='margin-top: 30px;'>
-            <p style='font-size: 12px; color: #aaa;'>Kandado Support</p>
-          </div>
-        ";
-
-        $mail->send();
-
-        // Success message (plain, not styled HTML)
+    if (email_reset_password($email, $user['first_name'], $resetLink)) {
         $_SESSION['forgot_success'] = 'Check your email for the password reset link.';
-    } catch (Exception $e) {
-        $_SESSION['forgot_error'] = 'Error sending email: ' . htmlspecialchars($mail->ErrorInfo);
+    } else {
+        $_SESSION['forgot_error'] = 'Error sending email. Please try again.';
     }
 
     header('Location: ../public/forgot_success.php');
