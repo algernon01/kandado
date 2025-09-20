@@ -38,7 +38,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $update->execute([$token, $expires, $email]);
 
     // Send reset email via centralized helper (same design/text)
-    $resetLink = "https://longhorn-settling-precisely.ngrok-free.app/kandado/auth/reset_password.php?token=" . rawurlencode($token);
+    $resetLink = "https://192.168.1.106/kandado/auth/reset_password.php?token=" . rawurlencode($token);
 
     if (email_reset_password($email, $user['first_name'], $resetLink)) {
         $_SESSION['forgot_success'] = 'Check your email for the password reset link.';
@@ -49,3 +49,5 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     header('Location: ../public/forgot_success.php');
     exit;
 }
+
+//longhorn-settling-precisely.ngrok-free.app

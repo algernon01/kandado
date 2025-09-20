@@ -390,10 +390,10 @@ function moveExpiredQRs($conn, $qr_folder){
         $item = (int)($itemRow['item'] ?? 0);
 
         if ($item === 1) {
-            // Item left inside → HOLD
+            // Item left inside → HOLD  (CHANGED: KEEP user_id)
             $stmt_update = $conn->prepare("
                 UPDATE locker_qr 
-                SET code=NULL, user_id=NULL, status='hold', expires_at=NULL, duration_minutes=NULL,
+                SET code=NULL, status='hold', expires_at=NULL, duration_minutes=NULL,
                     notify30_sent=0, notify15_sent=0, notify10_sent=0
                 WHERE locker_number=?");
             $stmt_update->bind_param("i", $locker_number);
@@ -707,9 +707,10 @@ if (isset($_GET['terminate'])) {
         insert_history($conn, $locker_number, $code, $user_fullname, $user_email, $expires_at, (int)$duration_minutes);
 
         if ($item === 1) {
+            // CHANGED: keep user_id on HOLD
             $stmt_upd = $conn->prepare("
                 UPDATE locker_qr
-                SET code=NULL, user_id=NULL, status='hold', expires_at=NULL, duration_minutes=NULL,
+                SET code=NULL, status='hold', expires_at=NULL, duration_minutes=NULL,
                     notify30_sent=0, notify15_sent=0, notify10_sent=0
                 WHERE locker_number=?
             ");
@@ -760,12 +761,19 @@ if(isset($_GET['generate'])){
         jexit(['error'=>'under_maintenance','message'=>'This locker is temporarily unavailable due to maintenance.'], 409);
     }
 
-    // Prevent multiple active lockers for same user
-    $stmt = $conn->prepare("SELECT locker_number, code FROM locker_qr WHERE user_id=? AND status='occupied' LIMIT 1");
+    // Prevent multiple active lockers for same user (CHANGED: include HOLD)
+    $stmt = $conn->prepare("SELECT locker_number, code, status FROM locker_qr WHERE user_id=? AND status IN ('occupied','hold') LIMIT 1");
     $stmt->bind_param("i",$user_id);
     $stmt->execute();
     $existing=$stmt->get_result()->fetch_assoc();
     if($existing){
+        if ($existing['status'] === 'hold') {
+            jexit([
+                'error'=>'has_hold',
+                'message'=>'You still have a locker on hold (item detected inside). Please have staff clear it before reserving a new one.',
+                'locker'=>(int)$existing['locker_number']
+            ],409);
+        }
         $existing_code=$existing['code'];
         $existing_file='/kandado/qr_image/qr_'.$existing_code.'.png';
         jexit([
