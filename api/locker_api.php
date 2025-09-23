@@ -746,6 +746,7 @@ if (isset($_GET['terminate'])) {
 }
 
 /* ------------------- GENERATE QR (reserve using WALLET) ------------------- */
+/*  >>> ONLY THIS ENDPOINT CHANGED: lock first + retry ESP32 so different-locker simultaneous requests both succeed <<<  */
 if(isset($_GET['generate'])){
     $user_id = require_login();
 
@@ -770,7 +771,7 @@ if(isset($_GET['generate'])){
         if ($existing['status'] === 'hold') {
             jexit([
                 'error'=>'has_hold',
-                'message'=>'You still have a locker on hold (item detected inside). Please have staff clear it before reserving a new one.',
+                'message'=>'You still have a locker on hold (item detected inside). Please have staff clear it before avail for a new one.',
                 'locker'=>(int)$existing['locker_number']
             ],409);
         }
@@ -795,42 +796,77 @@ if(isset($_GET['generate'])){
     $reserve_time = date('h:i A');
     $expires_at_formatted = date('F j, Y h:i A', strtotime($expires_at));
 
-    // Call ESP32
-    $url = "http://{$esp32_host}/generate?locker=".($locker-1);
-    $ch = curl_init($url);
-    curl_setopt($ch,CURLOPT_RETURNTRANSFER,true);
-    curl_setopt($ch,CURLOPT_TIMEOUT,3);
-    $response=curl_exec($ch);
-    $curl_err=curl_error($ch);
-    $http_code=curl_getinfo($ch,CURLINFO_RESPONSE_CODE);
-    curl_close($ch);
+    // Helper: call ESP32 with retries so parallel calls to DIFFERENT lockers both succeed
+    $callEsp32Generate = function(int $lockerIndex) {
+        $attempts = 5;              // total tries
+        $timeout  = 2;              // seconds per try
+        $backoffMs= 180;            // base backoff between tries
 
-    $data=json_decode($response,true);
-    if(!$data || !isset($data['code'])){
-        jexit([
-            'error'=>'esp32_invalid_response',
-            'http_code'=>$http_code,
-            'raw'=>$response,
-            'curl_error'=>$curl_err
-        ],502);
-    }
+        for ($i=1; $i<=$attempts; $i++) {
+            $url = "http://{$GLOBALS['esp32_host']}/generate?locker=".$lockerIndex;
+            $ch = curl_init($url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
+            $response = curl_exec($ch);
+            $curl_err = curl_error($ch);
+            $http_code = curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+            curl_close($ch);
 
-    $code = $data['code'];
-    $reference_no = $_GET['ref'] ?? uniqid('WAL'); // stable idempotency key
+            // If device says this specific locker already has a QR
+            if ($http_code === 403) {
+                return ['ok'=>false, 'type'=>'locker_unavailable', 'http'=>$http_code, 'raw'=>$response, 'err'=>$curl_err];
+            }
 
-    // Reserve + wallet debit in one transaction
+            $data = json_decode($response, true);
+            if ($http_code === 200 && is_array($data) && isset($data['code'])) {
+                return ['ok'=>true, 'data'=>$data];
+            }
+
+            // transient: retry (e.g., overlapping request to device)
+            usleep(($backoffMs + rand(0,120)) * 1000);
+        }
+
+        // After retries, still failed
+        return ['ok'=>false, 'type'=>'esp32_unreachable', 'http'=>$http_code ?? 0, 'raw'=>$response ?? null, 'err'=>$curl_err ?? null];
+    };
+
+    // NEW ORDER: lock row first (FCFS), then call ESP32 with retries, then debit & update
     try {
         $conn->begin_transaction();
 
-        // Still available?
+        // Hard lock the locker row so only the first requester for THIS locker proceeds
         $stmtLock = $conn->prepare("SELECT status FROM locker_qr WHERE locker_number=? FOR UPDATE");
         $stmtLock->bind_param("i", $locker);
         $stmtLock->execute();
         $rowLock = $stmtLock->get_result()->fetch_assoc();
-        if (!$rowLock || $rowLock['status'] !== 'available') {
+        if (!$rowLock) {
             $conn->rollback();
-            jexit(['error'=>'locker_unavailable'],409);
+            jexit(['error'=>'locker_unavailable','message'=>'This locker was just occupied by another user.'],409);
         }
+        if ($rowLock['status'] !== 'available') {
+            $conn->rollback();
+            jexit(['error'=>'locker_unavailable','message'=>'This locker was just occupied by another user.'],409);
+        }
+
+        // With the lock held, call ESP32 (with retry) to generate a code
+        $gen = $callEsp32Generate($locker-1);
+
+        if (!$gen['ok']) {
+            $conn->rollback();
+            if ($gen['type'] === 'locker_unavailable') {
+                jexit(['error'=>'locker_unavailable','message'=>'This locker was just occupied by another user.'],409);
+            }
+            jexit([
+                'error'=>'esp32_unreachable',
+                'http_code'=>$gen['http'],
+                'raw'=>$gen['raw'],
+                'curl_error'=>$gen['err']
+            ],502);
+        }
+
+        $data = $gen['data'];
+        $code = $data['code'];
+        $reference_no = $_GET['ref'] ?? uniqid('WAL'); // stable idempotency key
 
         // Wallet debit (aggregates into single DEBIT row)
         $deb = wallet_debit($conn, $user_id, round($amount,2), $reference_no, "Reserve locker #$locker ($requested)");
@@ -839,7 +875,7 @@ if(isset($_GET['generate'])){
             if ($deb['error'] === 'insufficient_funds') {
                 jexit([
                     'error'=>'insufficient_balance',
-                    'message'=>'Your wallet balance is not enough to reserve.',
+                    'message'=>'Your wallet balance is not enough to avail.',
                     'balance'=>$deb['balance'],
                     'needed'=>$amount
                 ], 402);

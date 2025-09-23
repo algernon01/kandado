@@ -7,19 +7,43 @@
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
+CREATE DATABASE IF NOT EXISTS `kandado` CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
+USE `kandado`;
+
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
 SET time_zone = "+00:00";
 
-
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
-/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
-/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
-/*!40101 SET NAMES utf8mb4 */;
+ /*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
+ /*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
+ /*!40101 SET NAMES utf8mb4 */;
 
 --
 -- Database: `kandado`
 --
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `users`
+--
+
+CREATE TABLE `users` (
+  `id` int(11) NOT NULL,
+  `first_name` varchar(50) NOT NULL,
+  `last_name` varchar(50) NOT NULL,
+  `email` varchar(100) NOT NULL,
+  `password` varchar(255) NOT NULL,
+  `profile_image` varchar(255) DEFAULT NULL,
+  `verification_token` varchar(255) DEFAULT NULL,
+  `verification_expires_at` datetime DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `role` enum('admin','user') NOT NULL DEFAULT 'user',
+  `archived` tinyint(1) NOT NULL DEFAULT 0,
+  `reset_token` varchar(255) DEFAULT NULL,
+  `reset_token_expires` datetime DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
 
@@ -90,49 +114,6 @@ CREATE TABLE `payments` (
 -- --------------------------------------------------------
 
 --
--- Table structure for table `users`
---
-
-CREATE TABLE `users` (
-  `id` int(11) NOT NULL,
-  `first_name` varchar(50) NOT NULL,
-  `last_name` varchar(50) NOT NULL,
-  `email` varchar(100) NOT NULL,
-  `password` varchar(255) NOT NULL,
-  `profile_image` varchar(255) DEFAULT NULL,
-  `verification_token` varchar(255) DEFAULT NULL,
-  `verification_expires_at` datetime DEFAULT NULL,
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
-  `role` enum('admin','user') NOT NULL DEFAULT 'user',
-  `archived` tinyint(1) NOT NULL DEFAULT 0,
-  `reset_token` varchar(255) DEFAULT NULL,
-  `reset_token_expires` datetime DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---  
--- Dumping data for table `users`
---
-
-  INSERT INTO `users` (`id`, `first_name`, `last_name`, `email`, `password`, `profile_image`, `verification_token`, `verification_expires_at`, `created_at`, `role`, `archived`, `reset_token`, `reset_token_expires`) VALUES
-  (1, 'Admin', 'Account', 'admin@gmail.com', '$2y$10$xKFGP/npVtBPdlTawWWTsO9sbjrBk1NlOz9ULvCYbXHnpX.nsY/fW', 'default.jpg', NULL, NULL, '2025-08-03 11:45:11', 'admin', 0, NULL, NULL),
-  (2, 'Al', 'Angeles', 'algernonangeles3022@gmail.com', '$2y$10$V49cXAPFny9OtCKnjNaTg.fZnESOVz4vmBOlq6kE5wggAUQkX27FC', '1e612a14619e89f82fbdff0fda46386f.jpg', NULL, NULL, '2025-08-26 13:16:35', 'user', 0, NULL, NULL),
-  (3, 'Angelica', 'Enobio', 'enobioangelica@gmail.com', '$2y$10$T5LYdZWRWcSfwNEhwxNybuufHdmpoJflESfDl5.6Cl0q2QhN4gYTW', NULL, NULL, NULL, '2025-09-02 05:35:05', 'user', 0, NULL, NULL),
-  (4, 'Allen', 'Sanchez', 'allensanchez1628@gmail.com', '$2y$10$TvopwIdtOSR48dIrSNShP.utTv8zyrC0zhHC8HToWpva8/LJSLhj6', NULL, NULL, NULL, '2025-09-09 06:33:38', 'user', 0, NULL, NULL)
-
---
--- Triggers `users`
---
-DELIMITER $$
-CREATE TRIGGER `users_after_insert` AFTER INSERT ON `users` FOR EACH ROW BEGIN
-  INSERT IGNORE INTO user_wallets (user_id, balance)
-  VALUES (NEW.id, 0.00);
-END
-$$
-DELIMITER ;
-
--- --------------------------------------------------------
-
---
 -- Table structure for table `user_wallets`
 --
 
@@ -161,8 +142,31 @@ CREATE TABLE `wallet_transactions` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
--- Indexes for dumped tables
+-- Triggers `users` (moved after user_wallets is created)
 --
+DELIMITER $$
+DROP TRIGGER IF EXISTS `users_after_insert`$$
+CREATE TRIGGER `users_after_insert` 
+AFTER INSERT ON `users` FOR EACH ROW 
+BEGIN
+  INSERT IGNORE INTO user_wallets (user_id, balance)
+  VALUES (NEW.id, 0.00);
+END$$
+DELIMITER ;
+
+--  
+-- Dumping data for table `users`
+--
+
+INSERT INTO `users` (`id`, `first_name`, `last_name`, `email`, `password`, `profile_image`, `verification_token`, `verification_expires_at`, `created_at`, `role`, `archived`, `reset_token`, `reset_token_expires`) VALUES
+  (1, 'Admin', 'Account', 'admin@gmail.com', '$2y$10$xKFGP/npVtBPdlTawWWTsO9sbjrBk1NlOz9ULvCYbXHnpX.nsY/fW', 'default.jpg', NULL, NULL, '2025-08-03 11:45:11', 'admin', 0, NULL, NULL),
+  (2, 'Al', 'Angeles', 'algernonangeles3022@gmail.com', '$2y$10$V49cXAPFny9OtCKnjNaTg.fZnESOVz4vmBOlq6kE5wggAUQkX27FC', '1e612a14619e89f82fbdff0fda46386f.jpg', NULL, NULL, '2025-08-26 13:16:35', 'user', 0, NULL, NULL),
+  (3, 'Angelica', 'Enobio', 'enobioangelica@gmail.com', '$2y$10$T5LYdZWRWcSfwNEhwxNybuufHdmpoJflESfDl5.6Cl0q2QhN4gYTW', NULL, NULL, NULL, '2025-09-02 05:35:05', 'user', 0, NULL, NULL),
+  (4, 'Allen', 'Sanchez', 'allensanchez1628@gmail.com', '$2y$10$TvopwIdtOSR48dIrSNShP.utTv8zyrC0zhHC8HToWpva8/LJSLhj6', NULL, NULL, NULL, '2025-09-09 06:33:38', 'user', 0, NULL, NULL);
+
+-- --------------------------------------------------------
+-- Indexes for dumped tables
+-- --------------------------------------------------------
 
 --
 -- Indexes for table `locker_history`
@@ -213,9 +217,9 @@ ALTER TABLE `wallet_transactions`
   ADD KEY `idx_user_created` (`user_id`,`created_at`),
   ADD KEY `idx_created_at` (`created_at`);
 
---
+-- --------------------------------------------------------
 -- AUTO_INCREMENT for dumped tables
---
+-- --------------------------------------------------------
 
 --
 -- AUTO_INCREMENT for table `locker_history`
@@ -247,9 +251,9 @@ ALTER TABLE `users`
 ALTER TABLE `wallet_transactions`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
---
+-- --------------------------------------------------------
 -- Constraints for dumped tables
---
+-- --------------------------------------------------------
 
 --
 -- Constraints for table `locker_qr`
@@ -276,28 +280,50 @@ ALTER TABLE `user_wallets`
 ALTER TABLE `wallet_transactions`
   ADD CONSTRAINT `fk_wallet_tx_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE;
 
+-- --------------------------------------------------------
+-- Events (use CURRENT_USER to avoid definer privilege issues)
+-- --------------------------------------------------------
 DELIMITER $$
---
--- Events
---
-CREATE DEFINER=`root`@`localhost` EVENT `delete_old_locker_history` ON SCHEDULE EVERY 1 DAY STARTS '2025-08-18 22:22:00' ON COMPLETION NOT PRESERVE ENABLE DO DELETE FROM locker_history
+
+CREATE DEFINER=CURRENT_USER EVENT `delete_old_locker_history` 
+ON SCHEDULE EVERY 1 DAY STARTS '2025-08-18 22:22:00' 
+ON COMPLETION NOT PRESERVE ENABLE 
+DO 
+  DELETE FROM locker_history
   WHERE used_at < NOW() - INTERVAL 30 DAY$$
 
-CREATE DEFINER=`root`@`localhost` EVENT `cleanup_expired_verification_tokens` ON SCHEDULE EVERY 5 MINUTE STARTS '2025-09-06 22:42:24' ON COMPLETION NOT PRESERVE ENABLE DO UPDATE users
+CREATE DEFINER=CURRENT_USER EVENT `cleanup_expired_verification_tokens` 
+ON SCHEDULE EVERY 5 MINUTE STARTS '2025-09-06 22:42:24' 
+ON COMPLETION NOT PRESERVE ENABLE 
+DO 
+  UPDATE users
   SET verification_token = NULL,
       verification_expires_at = NULL
   WHERE verification_expires_at IS NOT NULL
     AND verification_expires_at < NOW()$$
 
-CREATE DEFINER=`root`@`localhost` EVENT `delete_old_payments` ON SCHEDULE EVERY 1 DAY STARTS '2025-09-12 12:38:10' ON COMPLETION NOT PRESERVE ENABLE DO DELETE FROM payments
-    WHERE created_at < (UTC_TIMESTAMP() - INTERVAL 7 DAY)$$
+CREATE DEFINER=CURRENT_USER EVENT `delete_old_payments` 
+ON SCHEDULE EVERY 1 DAY STARTS '2025-09-12 12:38:10' 
+ON COMPLETION NOT PRESERVE ENABLE 
+DO 
+  DELETE FROM payments
+  WHERE created_at < (UTC_TIMESTAMP() - INTERVAL 7 DAY)$$
 
-CREATE DEFINER=`root`@`localhost` EVENT `delete_old_wallet_transactions` ON SCHEDULE EVERY 1 DAY STARTS '2025-09-12 12:43:10' ON COMPLETION NOT PRESERVE ENABLE DO DELETE FROM wallet_transactions
-    WHERE created_at < (UTC_TIMESTAMP() - INTERVAL 7 DAY)$$
+CREATE DEFINER=CURRENT_USER EVENT `delete_old_wallet_transactions` 
+ON SCHEDULE EVERY 1 DAY STARTS '2025-09-12 12:43:10' 
+ON COMPLETION NOT PRESERVE ENABLE 
+DO 
+  DELETE FROM wallet_transactions
+  WHERE created_at < (UTC_TIMESTAMP() - INTERVAL 7 DAY)$$
 
 DELIMITER ;
+
 COMMIT;
 
+-- Note: Ensure the event scheduler is enabled on your server:
+-- SET GLOBAL event_scheduler = ON;
+-- This requires appropriate privileges or server configuration.
+
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
-/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
-/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
+ /*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
+ /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;

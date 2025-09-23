@@ -78,7 +78,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         $stmt->execute([$firstName, $lastName, $email, $hashedPassword, $token, $expiresAt]);
 
         // === Send Verification Email (via centralized helper) ===
-        $verificationLink = "https://192.168.1.106/kandado/auth/verify_process.php?token=" . rawurlencode($token);
+        $verificationLink = "https://192.168.1.104/kandado/auth/verify_process.php?token=" . rawurlencode($token);
 
         if (email_verify_account($email, $firstName, $lastName, $verificationLink)) {
             $_SESSION['success_message'] = "Registration successful! Please check your email to verify your account. The link expires in 30 minutes.";

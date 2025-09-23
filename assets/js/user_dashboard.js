@@ -127,8 +127,8 @@ function buildLockerCard(i) {
       <span class="status-text">Available</span>
     </div>
 
-    <button id="btn${i}" class="reserveBtn" type="button" onclick="startCheckout(${i})" aria-label="Reserve locker ${idx}">
-      Reserve
+    <button id="btn${i}" class="reserveBtn" type="button" onclick="startCheckout(${i})" aria-label="Avail locker ${idx}">
+      Avail
     </button>
 
     <div class="meta" id="meta${i}">
@@ -326,7 +326,7 @@ async function fetchActiveLockers(showToast = false) {
         textEl.textContent = 'Available';
         statusClasses(statusDiv, 'available');
         btn.disabled = false;
-        btn.textContent = 'Reserve';
+        btn.textContent = 'Avail';
         btn.removeAttribute('aria-disabled');
         count.available++;
       }
@@ -424,7 +424,7 @@ async function openReserveModal(locker){
   const optionsHtml = durationOptions.map(o => optionCardHTML(o.value, o.text)).join('');
 
   return Swal.fire({
-    title: `Reserve Locker ${locker + 1}`,
+    title: `Avail Locker ${locker + 1}`,
     html: `
       <div class="reserve-modal">
         <div class="wallet-inline" aria-live="polite">
@@ -566,7 +566,7 @@ async function startCheckout(locker) {
     if (window.Swal) Swal.fire({ icon:'error', title:'Network Error', text:'Unable to check locker status.' });
   } finally {
     btn.disabled = false;
-    btn.textContent = 'Reserve';
+    btn.textContent = 'Avail';
     btn.removeAttribute('aria-disabled');
   }
 }
@@ -577,7 +577,7 @@ async function reserveWithWallet(locker, duration) {
   try {
     if (window.Swal) {
       Swal.fire({
-        title: 'Reserving…',
+        title: 'Availing…',
         html: `Debiting your wallet (${labelForDuration(duration)})`,
         didOpen: () => Swal.showLoading(),
         allowOutsideClick: false
@@ -615,7 +615,7 @@ async function reserveWithWallet(locker, duration) {
           });
         }
       } else {
-        if (window.Swal) Swal.fire({ icon:'error', title:'Reservation failed', text: data.message || data.error });
+        if (window.Swal) Swal.fire({ icon:'error', title:'Availing failed', text: data.message || data.error });
       }
       return;
     }
@@ -626,10 +626,10 @@ async function reserveWithWallet(locker, duration) {
     if (window.Swal) {
       Swal.fire({
         icon:'success',
-        title:'Reservation Confirmed',
+        title:'Avail Confirmed',
         html: `
           <div style="text-align:center">
-            <p>Locker ${locker + 1} reserved until <b>${expStr}</b></p>
+            <p>Locker ${locker + 1} availed until <b>${expStr}</b></p>
             <div style="display:flex; justify-content:center; margin-top:12px;">
               <img src="${data.qr_url}" width="150" height="150" alt="Locker QR"
                   style="display:block;" />

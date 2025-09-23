@@ -1,6 +1,7 @@
 <?php
 // ===============================
 // Admin Header + Sidebar (Indigo Sidebar + Green Active)
+// + Security Alerts tab with unread counter
 // ===============================
 
 if (session_status() === PHP_SESSION_NONE) session_start();
@@ -9,11 +10,12 @@ require_once '../../config/db.php';
 // Defaults
 $profileImageName = 'default.jpg';
 $userName = 'Admin';
+$userId = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : null;
 
 // Fetch current user
-if (isset($_SESSION['user_id'])) {
+if ($userId) {
     $stmt = $pdo->prepare("SELECT first_name, last_name, profile_image FROM users WHERE id = ?");
-    $stmt->execute([$_SESSION['user_id']]);
+    $stmt->execute([$userId]);
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if ($user) {
@@ -22,6 +24,23 @@ if (isset($_SESSION['user_id'])) {
         $userName = trim($first . ' ' . $last) ?: 'Admin';
         $profileImageName = !empty($user['profile_image']) ? $user['profile_image'] : 'default.jpg';
     }
+}
+
+// OPTIONAL: Unread security alerts counter
+// Assumes a table `security_alerts` with columns: id, user_id (nullable), is_read (0/1), created_at
+// Alerts addressed to a specific user or global (user_id IS NULL) are counted.
+$unreadAlertCount = 0;
+try {
+    $stmt = $pdo->prepare("
+        SELECT COUNT(*) 
+        FROM security_alerts 
+        WHERE is_read = 0 
+          AND (:uid IS NULL OR user_id = :uid OR user_id IS NULL)
+    ");
+    $stmt->execute([':uid' => $userId]);
+    $unreadAlertCount = (int)$stmt->fetchColumn();
+} catch (Throwable $e) {
+    $unreadAlertCount = 0; // fail safe
 }
 
 // Cache-busting for profile image
@@ -43,7 +62,21 @@ function isActive($file) {
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+<!-- Styles -->
 <link rel="stylesheet" href="../../assets/css/admin_header.css">
+<style>
+  /* tiny pill badge (in case your CSS doesn't already have one) */
+  .pill {
+    display:inline-flex; align-items:center; justify-content:center;
+    min-width: 18px; height: 18px; padding: 0 6px; margin-left: .5rem;
+    border-radius: 999px; font-size: 11px; font-weight: 700;
+    background: #e11d48; color: #fff; line-height: 18px;
+  }
+  .admin-header { display:flex; align-items:center; justify-content:space-between; }
+  .header-right a.alerts-link { position:relative; display:inline-flex; align-items:center; gap:.5rem; padding:.5rem; }
+  .header-right a.alerts-link .pill { position:absolute; top:2px; right:2px; }
+</style>
 
 <!-- SweetAlert2 -->
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -56,17 +89,29 @@ function isActive($file) {
     <button class="hamburger" id="hamburger" aria-label="Toggle sidebar" aria-controls="sidebar" aria-expanded="false">
       <i class="fas fa-bars"></i>
     </button>
-<a href="dashboard.php" class="logo" aria-label="Go to dashboard" style = "background-color: white;">
-  <img
-    src="/kandado/assets/icon/kandado.png"
-    alt="Kandado logo"
-    width="36"
-    height="36"
-    decoding="async"
-    loading="eager"
-  />
-</a>
 
+    <a href="dashboard.php" class="logo" aria-label="Go to dashboard" style="background-color: white;">
+      <img
+        src="/kandado/assets/icon/kandado.png"
+        alt="Kandado logo"
+        width="36"
+        height="36"
+        decoding="async"
+        loading="eager"
+      />
+    </a>
+  </div>
+
+  <!-- Optional quick access to Security Alerts in header -->
+  <div class="header-right">
+    <a class="alerts-link" href="security_alerts.php" aria-label="Open security alerts">
+      <i class="fas fa-bell"></i>
+      <?php if ($unreadAlertCount > 0): ?>
+        <span class="pill" aria-label="<?= (int)$unreadAlertCount ?> unread alerts">
+          <?= $unreadAlertCount > 99 ? '99+' : (int)$unreadAlertCount ?>
+        </span>
+      <?php endif; ?>
+    </a>
   </div>
 </header>
 
@@ -104,21 +149,30 @@ function isActive($file) {
         <i class="fas fa-history"></i> <span>Locker History</span>
       </a>
     </li>
-        <!-- NEW: Payments nav item -->
+
+    <!-- Payments -->
     <li>
       <a href="payments.php" class="<?= isActive('payments.php') ?>" aria-current="<?= $currentPage === 'payments.php' ? 'page' : 'false' ?>">
         <i class="fas fa-credit-card"></i> <span>Payments</span>
       </a>
     </li>
+
+    <!-- Wallets -->
     <li>
       <a href="wallet.php" class="<?= isActive('wallet.php') ?>" aria-current="<?= $currentPage === 'wallet.php' ? 'page' : 'false' ?>">
         <i class="fas fa-wallet"></i> <span>Wallets</span>
       </a>
     </li>
 
-    <!-- /NEW -->
-  </ul>
-
+    <!-- NEW: Security Alerts -->
+    <li>
+      <a href="security_alerts.php" class="<?= isActive('security_alerts.php') ?>" aria-current="<?= $currentPage === 'security_alerts.php' ? 'page' : 'false' ?>">
+        <i class="fas fa-shield-halved"></i> <span>Security Alerts</span>
+        <?php if ($unreadAlertCount > 0): ?>
+          <span class="pill" aria-hidden="true"><?= $unreadAlertCount > 99 ? '99+' : (int)$unreadAlertCount ?></span>
+        <?php endif; ?>
+      </a>
+    </li>
   </ul>
 
   <div class="sidebar-section-label">Account</div>
@@ -133,5 +187,5 @@ function isActive($file) {
 
 <div class="overlay" id="overlay" hidden></div>
 
-<!-- App JS (moved out of inline <script>) -->
+<!-- App JS -->
 <script src="../../assets/js/admin_header.js"></script>

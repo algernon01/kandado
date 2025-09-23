@@ -12,7 +12,7 @@ function kandado_mailer(): PHPMailer {
     $mail->Host = 'smtp.gmail.com';
     $mail->SMTPAuth = true;
     $mail->Username = 'lockerkandado01@gmail.com';
-    $mail->Password = 'xgzhnjxyapnphnco';
+    $mail->Password = 'pzyuqdxojumykxgs';
     $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
     $mail->Port = 465;
     $mail->setFrom('lockerkandado01@gmail.com','Kandado');

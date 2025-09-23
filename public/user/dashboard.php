@@ -178,7 +178,7 @@ $IS_READ_ONLY = $IS_ON_HOLD || $READ_ONLY_BY_NETWORK;
           <?php if ($IS_ON_HOLD): ?>
             <div style="opacity:.8; font-weight:600; margin-top:2px;">Please contact support if you believe this is a mistake.</div>
           <?php else: ?>
-            <div style="opacity:.8; font-weight:600; margin-top:2px;">Connect to the local network to make reservations.</div>
+            <div style="opacity:.8; font-weight:600; margin-top:2px;">Connect to the local network to avail.</div>
           <?php endif; ?>
         </div>
       </div>
@@ -256,7 +256,7 @@ $IS_READ_ONLY = $IS_ON_HOLD || $READ_ONLY_BY_NETWORK;
         <article class="kpi">
           <div class="kpi-title">Available</div>
           <div class="kpi-value" id="kpiAvailable">0</div>
-          <div class="kpi-sub">Ready to reserve</div>
+          <div class="kpi-sub">Ready to avail</div>
         </article>
 
         <article class="kpi">
