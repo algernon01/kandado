@@ -26,13 +26,8 @@ if (empty($token)) {
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Reset Password • Kandado</title>
   <link rel="icon" href="../assets/icon/icon_tab.png" sizes="any">
-  <!-- Shared auth styles with card, inputs, primary button, etc. -->
   <link rel="stylesheet" href="../assets/css/style.css" />
-
-  <!-- SweetAlert (used for friendly validation prompts) -->
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11" defer></script>
-
-  <!-- Your auth helpers (password toggle + strength util for register) -->
   <script src="../assets/js/auth.js" defer></script>
 </head>
 <body class="auth-body">
@@ -51,7 +46,15 @@ if (empty($token)) {
         <a href="/kandado/public/login.php" class="link">Back to login</a>
       </p>
     <?php else: ?>
-      <form id="resetForm" method="POST" action="reset_password_process.php" class="auth-form" novalidate>
+      <!-- data-special-chars is the exact set enforced on the server -->
+      <form
+        id="resetForm"
+        method="POST"
+        action="reset_password_process.php"
+        class="auth-form"
+        novalidate
+        data-special-chars="!@#$%^&*()-_=+{};:,<.>"
+      >
         <input type="hidden" name="token" value="<?= htmlspecialchars($token) ?>" />
 
         <label class="label" for="password">New password</label>
@@ -62,10 +65,20 @@ if (empty($token)) {
               <path d="M7 10V7a5 5 0 0 1 10 0v3" fill="none" stroke="currentColor" stroke-width="2"/>
             </svg>
           </span>
-          <input type="password" name="new_password" id="password" placeholder="At least 8 characters" required autocomplete="new-password" />
-          <!-- Toggle reuses your auth.js "js-toggle-password" behavior -->
+          <input
+            type="password"
+            name="new_password"
+            id="password"
+            placeholder="At least 8 characters"
+            required
+            autocomplete="new-password"
+            aria-describedby="pw-help"
+          />
           <button type="button" class="toggle-btn js-toggle-password" data-target="#password" aria-pressed="false" aria-label="Show password">Show</button>
         </div>
+        <small id="pw-help" class="help">
+          Must be ≥ 8 chars and include at least 1 special character from: <code>! @ # $ % ^ &amp; * ( ) - _ = + { } ; : , &lt; . &gt;</code>
+        </small>
 
         <label class="label" for="confirm_password">Confirm new password</label>
         <div class="input-group">
@@ -75,11 +88,18 @@ if (empty($token)) {
               <path d="M7 10V7a5 5 0 0 1 10 0v3" fill="none" stroke="currentColor" stroke-width="2"/>
             </svg>
           </span>
-          <input type="password" name="confirm_password" id="confirm_password" placeholder="Re-enter password" required autocomplete="new-password" />
+          <input
+            type="password"
+            name="confirm_password"
+            id="confirm_password"
+            placeholder="Re-enter password"
+            required
+            autocomplete="new-password"
+          />
           <button type="button" class="toggle-btn js-toggle-password" data-target="#confirm_password" aria-pressed="false" aria-label="Show password">Show</button>
         </div>
 
-        <!-- Strength meter (styled by style.css tokens) -->
+        <!-- Strength meter -->
         <div class="strength" aria-live="polite">
           <div id="strength-meter"><div id="strength-bar"></div></div>
           <p id="strength-label">Enter a password</p>
@@ -89,32 +109,41 @@ if (empty($token)) {
       </form>
 
       <p class="bottom-text">
-        <a href="login.php" class="link">Back to login</a>
+        <a href="/kandado/public/login.php" class="link">Back to login</a>
       </p>
     <?php endif; ?>
   </div>
 
   <script>
-    // Page-specific validation (independent of register form)
+    // Page-specific validation (aligned with server's exact special-char set)
     (function () {
       const byId = (id) => document.getElementById(id);
+
+      const form   = document.getElementById('resetForm');
+      if (!form) return; // no form when token invalid
 
       const pw     = byId('password');
       const conf   = byId('confirm_password');
       const bar    = byId('strength-bar');
       const label  = byId('strength-label');
-      const form   = byId('resetForm');
       const submit = byId('submitBtn');
 
-      if (!form) return; // no form when token invalid
+      // The exact set the server expects
+      const specials = form.getAttribute('data-special-chars') || "!@#$%^&*()-_=+{};:,<.>";
 
-      // Same scoring logic you’re using elsewhere
+      // Escape chars for use inside a JS character class
+      function escapeForCharClass(s) {
+        return s.replace(/[\\^$.*+?()[\]{}|\-]/g, '\\$&');
+      }
+      const specialRe = new RegExp('[' + escapeForCharClass(specials) + ']');
+
+      // Strength meter uses SAME special set (not [^A-Za-z0-9])
       function strengthInfo(value) {
         let score = 0;
         if (value.length >= 8) score++;
         if (/[A-Z]/.test(value)) score++;
         if (/[0-9]/.test(value)) score++;
-        if (/[^A-Za-z0-9]/.test(value)) score++;
+        if (specialRe.test(value)) score++;
 
         if (score <= 1) return { label: 'Weak', width: '25%', color: '#ef4444', score };
         if (score === 2) return { label: 'Medium', width: '50%', color: '#f59e0b', score };
@@ -137,9 +166,21 @@ if (empty($token)) {
 
       // Submit validation with friendly prompts
       form.addEventListener('submit', (e) => {
-        const pass   = pw?.value || '';
-        const cpass  = conf?.value || '';
-        const s      = strengthInfo(pass);
+        const pass  = pw?.value || '';
+        const cpass = conf?.value || '';
+        const s     = strengthInfo(pass);
+
+        // Must contain at least 1 required special char
+        if (!specialRe.test(pass)) {
+          e.preventDefault();
+          const msg = `Password must include at least one special character: ${specials}`;
+          if (window.Swal) {
+            Swal.fire({ icon: 'error', title: 'Missing special character', text: msg, confirmButtonColor: '#2563EB' });
+          } else {
+            alert(msg);
+          }
+          return;
+        }
 
         // Mismatch
         if (pass !== cpass) {
@@ -164,11 +205,11 @@ if (empty($token)) {
             Swal.fire({
               icon: 'error',
               title: 'Weak password',
-              text: 'Use at least 8 characters with uppercase, number, and a symbol.',
+              text: 'Use at least 8 characters with uppercase, number, and a symbol from the allowed set.',
               confirmButtonColor: '#2563EB'
             });
           } else {
-            alert('Weak password. Use at least 8 chars with uppercase, number, and a symbol.');
+            alert('Weak password. Use at least 8 chars with uppercase, number, and an allowed symbol.');
           }
           return;
         }
@@ -188,16 +229,15 @@ if (empty($token)) {
               cancelButtonColor: '#ef4444'
             }).then((res) => {
               if (res.isConfirmed) {
-                // prevent double submit UI
                 submit?.setAttribute('disabled', 'true');
-                submit && (submit.textContent = 'Submitting…');
+                if (submit) submit.textContent = 'Submitting…';
                 form.submit();
               }
             });
           } else {
             if (confirm('Password is medium. Proceed?')) {
               submit?.setAttribute('disabled', 'true');
-              submit && (submit.textContent = 'Submitting…');
+              if (submit) submit.textContent = 'Submitting…';
               form.submit();
             }
           }
@@ -206,7 +246,7 @@ if (empty($token)) {
 
         // Strong / Very strong: let it submit, disable button
         submit?.setAttribute('disabled', 'true');
-        submit && (submit.textContent = 'Submitting…');
+        if (submit) submit.textContent = 'Submitting…';
       });
     })();
   </script>

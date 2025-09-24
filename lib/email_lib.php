@@ -76,7 +76,7 @@ function email_verify_account(string $to, string $firstName, string $lastName, s
           <tr>
             <td style='padding:16px 24px 8px 24px; font-family:Arial,Helvetica,sans-serif;'>
               <p style='margin:0; font-size:15px; line-height:1.6; color:#6b7280;'>
-                <strong>This verification link expires in 30 minutes.</strong> For your security, you’ll need to request a new link after that.
+                <strong>This verification link expires in 2 hours.</strong> For your security, you’ll need to request a new link after that.
               </p>
             </td>
           </tr>
