@@ -1,893 +1,687 @@
 <?php
-header('Content-Type: application/json; charset=utf-8');
-session_start();
+/* ========================================================================
+   SECURITY ALERTS (Admin)
+   - Medium pill buttons + medium header icon
+   - SweetAlert-like popups (alert + confirm) with pure CSS/JS
+   - Bulk actions: Mark read, Mark unread, **Delete selected**
+   - Responsive: table (desktop) -> card rows (mobile)
+   - PDO + PRG; 7-day window; chips; pagination; unread highlight
+   ======================================================================== */
 
-require '../vendor/autoload.php';
-use PHPMailer\PHPMailer\PHPMailer;
-use PHPMailer\PHPMailer\Exception;
+if (session_status() === PHP_SESSION_NONE) session_start();
 
-// --- CONFIG ---
-$host = 'localhost';
-$dbname = 'kandado';
-$user = 'root';
-$pass = '';
+/* DB (PDO) */
+require_once '../../config/db.php'; // must define $pdo (PDO)
+$pdo->exec("SET time_zone = '+08:00'"); // ensure UTC+8 for display
 
-$esp32_host = 'locker-esp32.local';
-$TOTAL_LOCKERS = 4;
-$esp32_secret = 'MYSECRET123';
+/* ---------------------- POST actions (PRG) ---------------------- */
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+  $action = $_POST['action'] ?? '';
 
-// Include shared email helpers (centralized mail)
-require_once $_SERVER['DOCUMENT_ROOT'] . '/kandado/lib/email_lib.php';
+  // Collect ids (single row or bulk)
+  $ids = [];
+  if (isset($_POST['id'])) {
+    $ids = [(int)$_POST['id']];
+  } elseif (!empty($_POST['ids']) && is_array($_POST['ids'])) {
+    foreach ($_POST['ids'] as $v) $ids[] = (int)$v;
+    $ids = array_values(array_unique(array_filter($ids)));
+  }
 
-// Include phpqrcode
-include_once $_SERVER['DOCUMENT_ROOT'] . '/kandado/phpqrcode/qrlib.php';
-$qr_folder = $_SERVER['DOCUMENT_ROOT'] . '/kandado/qr_image/';
-if (!file_exists($qr_folder)) mkdir($qr_folder, 0777, true);
-
-mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
-
-function jexit($payload, int $code = 200) {
-    http_response_code($code);
-    echo json_encode($payload);
-    exit;
-}
-
-// ------------------- DB CONNECTION -------------------
-try {
-    $conn = new mysqli($host, $user, $pass, $dbname);
-    $conn->set_charset('utf8mb4');
-} catch (mysqli_sql_exception $e) {
-    jexit(['error'=>'db_connect','message'=>$e->getMessage()],500);
-}
-
-/* ---------- Helpers ---------- */
-function duration_minutes_map() {
-    return [
-        '30s'    => 0.5,
-        '20min'  => 20,
-        '30min'  => 30,
-        '1hour'  => 60,
-        '2hours' => 120,
-        '4hours' => 240,
-        '8hours' => 480,
-        '12hours'=> 720,
-        '24hours'=> 1440,
-        '2days'  => 2880,
-        '7days'  => 10080
-    ];
-}
-function price_map_php() {
-    // Keep in sync with /assets/js/user_dashboard.js -> prices
-    return [
-        '30s'    => 0.50,
-        '20min'  => 2.00,
-        '30min'  => 3.00,
-        '1hour'  => 5.00,
-        '2hours' => 10.00,
-        '4hours' => 15.00,
-        '8hours' => 20.00,
-        '12hours'=> 25.00,
-        '24hours'=> 30.00,
-        '2days'  => 50.00,
-        '7days'  => 150.00
-    ];
-}
-function safe_duration_minutes($label) {
-    $map = duration_minutes_map();
-    return isset($map[$label]) ? $map[$label] : 60;
-}
-function safe_price($label) {
-    $p = price_map_php();
-    return isset($p[$label]) ? (float)$p[$label] : (float)$p['1hour'];
-}
-function now_ph() {
-    date_default_timezone_set('Asia/Manila');
-    return time();
-}
-function require_login() {
-    if (!isset($_SESSION['user_id'])) jexit(['error'=>'not_logged_in'],401);
-    return (int)$_SESSION['user_id'];
-}
-
-/* ---------- Wallet helpers ---------- */
-function get_wallet_balance($conn, $user_id) {
-    $stmt = $conn->prepare("SELECT balance FROM user_wallets WHERE user_id=? LIMIT 1");
-    $stmt->bind_param("i", $user_id);
-    $stmt->execute();
-    $row = $stmt->get_result()->fetch_assoc();
-    return $row ? (float)$row['balance'] : 0.0;
-}
-
-/**
- * Credit wallet (TOPUP). If (user_id, reference_no) already exists,
- * MERGE: amount += new amount, method/notes updated. Single row, growing amount.
- */
-function wallet_credit($conn, $user_id, $amount, $method, $reference_no, $notes = null, $meta = null) {
-    if ($amount <= 0) return ['ok'=>false, 'error'=>'invalid_amount'];
-
-    try {
-        $conn->begin_transaction();
-
-        // Ensure wallet row exists & lock it
-        $stmt = $conn->prepare("SELECT balance FROM user_wallets WHERE user_id=? FOR UPDATE");
-        $stmt->bind_param("i", $user_id);
-        $stmt->execute();
-        $row = $stmt->get_result()->fetch_assoc();
-        if (!$row) {
-            $stmtIns = $conn->prepare("INSERT INTO user_wallets (user_id, balance) VALUES (?, 0.00)");
-            $stmtIns->bind_param("i", $user_id);
-            $stmtIns->execute();
-            $current = 0.00;
-        } else {
-            $current = (float)$row['balance'];
-        }
-
-        $delta = round($amount, 2);
-        $newBal = round($current + $delta, 2);
-        $note   = $notes ?: ('Top-up via ' . $method);
-        $metaJson = $meta ? json_encode($meta) : null;
-
-        // Check if same (user_id, reference_no) exists -> MERGE
-        $tx_id = null;
-        if ($reference_no) {
-            $stmtC = $conn->prepare("SELECT id FROM wallet_transactions WHERE user_id=? AND reference_no=? LIMIT 1");
-            $stmtC->bind_param("is", $user_id, $reference_no);
-            $stmtC->execute();
-            $existing = $stmtC->get_result()->fetch_assoc();
-
-            if ($existing) {
-                $tx_id = (int)$existing['id'];
-                $stmtU = $conn->prepare("
-                    UPDATE wallet_transactions
-                       SET method=?, amount=amount+?, notes=?
-                     WHERE id=?");
-                $stmtU->bind_param("sdsi", $method, $delta, $note, $tx_id);
-                $stmtU->execute();
-            }
-        }
-
-        if (!$tx_id) {
-            $type = 'topup';
-            $stmtTx = $conn->prepare("
-                INSERT INTO wallet_transactions
-                    (user_id, type, method, amount, reference_no, notes, meta)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            ");
-            $type = 'topup';
-            $stmtTx->bind_param("issdsss", $user_id, $type, $method, $delta, $reference_no, $note, $metaJson);
-            $stmtTx->execute();
-            $tx_id = $conn->insert_id;
-        }
-
-        // Update wallet balance
-        $stmtUp = $conn->prepare("UPDATE user_wallets SET balance=? WHERE user_id=?");
-        $stmtUp->bind_param("di", $newBal, $user_id);
-        $stmtUp->execute();
-
-        $conn->commit();
-        return ['ok'=>true, 'balance'=>$newBal, 'tx_id'=>$tx_id];
-    } catch (mysqli_sql_exception $e) {
-        $conn->rollback();
-
-        // If unique constraint exists and duplicate happens, respond idempotently
-        if ($e->getCode() === 1062 && $reference_no) {
-            $bal = get_wallet_balance($conn, $user_id);
-            return ['ok'=>true, 'idempotent'=>true, 'balance'=>$bal];
-        }
-        return ['ok'=>false, 'error'=>'wallet_credit_failed', 'message'=>$e->getMessage()];
+  $affected = 0;
+  try {
+    if ($action === 'mark_read' && $ids) {
+      $in = implode(',', array_fill(0, count($ids), '?'));
+      $stmt = $pdo->prepare("UPDATE security_alerts SET is_read = 1 WHERE id IN ($in)");
+      $stmt->execute($ids);
+      $affected = $stmt->rowCount();
+      $_SESSION['flash'] = ["Marked {$affected} alert(s) as read.", "success"];
+    } elseif ($action === 'mark_unread' && $ids) {
+      $in = implode(',', array_fill(0, count($ids), '?'));
+      $stmt = $pdo->prepare("UPDATE security_alerts SET is_read = 0 WHERE id IN ($in)");
+      $stmt->execute($ids);
+      $affected = $stmt->rowCount();
+      $_SESSION['flash'] = ["Marked {$affected} alert(s) as unread.", "success"];
+    } elseif ($action === 'mark_all_read') {
+      $stmt = $pdo->prepare("
+        UPDATE security_alerts
+           SET is_read = 1
+         WHERE is_read = 0
+           AND created_at >= (UTC_TIMESTAMP() - INTERVAL 7 DAY)
+      ");
+      $stmt->execute();
+      $affected = $stmt->rowCount();
+      $_SESSION['flash'] = ["Marked {$affected} recent alert(s) as read.", "success"];
+    } elseif ($action === 'delete' && $ids) {
+      $in = implode(',', array_fill(0, count($ids), '?'));
+      $stmt = $pdo->prepare("DELETE FROM security_alerts WHERE id IN ($in)");
+      $stmt->execute($ids);
+      $affected = $stmt->rowCount();
+      $_SESSION['flash'] = ["Deleted {$affected} alert(s).", "error"];
     }
+  } catch (Throwable $e) {
+    $_SESSION['flash'] = ["Action failed. Please try again.", "error"];
+  }
+
+  // Redirect to GET (PRG pattern)
+  $qs = $_GET ? ('?' . http_build_query($_GET)) : '';
+  header("Location: security_alerts.php{$qs}");
+  exit;
 }
 
-/**
- * Debit wallet (RESERVATION/EXTEND). Idempotency by reference_no (if provided).
- */
-function wallet_debit($conn, $user_id, $amount, $reference_no, $notes = null, $meta = null) {
-    if ($amount <= 0) return ['ok'=>false, 'error'=>'invalid_amount'];
+/* -------------------------- GET side --------------------------- */
+include '../../includes/admin_header.php';
 
-    try {
-        $conn->begin_transaction();
+date_default_timezone_set('Asia/Manila');
 
-        // If same ref exists -> idempotent success (no double debit)
-        if ($reference_no) {
-            $stmt = $conn->prepare("SELECT id FROM wallet_transactions WHERE user_id=? AND reference_no=? LIMIT 1");
-            $stmt->bind_param("is", $user_id, $reference_no);
-            $stmt->execute();
-            if ($stmt->get_result()->fetch_assoc()) {
-                $bal = get_wallet_balance($conn, $user_id);
-                $conn->commit();
-                return ['ok'=>true, 'idempotent'=>true, 'balance'=>$bal];
-            }
-        }
+$allowedCauses = ['all','theft','door_slam','bump','tilt_only','other'];
+$cause = strtolower($_GET['cause'] ?? 'all');
+if (!in_array($cause, $allowedCauses, true)) $cause = 'all';
 
-        // Lock row
-        $stmt = $conn->prepare("SELECT balance FROM user_wallets WHERE user_id=? FOR UPDATE");
-        $stmt->bind_param("i",$user_id);
-        $stmt->execute();
-        $row = $stmt->get_result()->fetch_assoc();
+$onlyUnread   = isset($_GET['only_unread']) && $_GET['only_unread'] == '1' ? 1 : 0;
+$autoRefresh  = isset($_GET['autorefresh']) && $_GET['autorefresh'] == '1' ? 1 : 0;
 
-        if (!$row) {
-            $conn->rollback();
-            return ['ok'=>false, 'error'=>'insufficient_funds', 'balance'=>0.00];
-        }
+$page    = max(1, (int)($_GET['page'] ?? 1));
+$perPage = 20;
+$offset  = ($page - 1) * $perPage;
 
-        $current = (float)$row['balance'];
-        if ($current < $amount) {
-            $conn->rollback();
-            return ['ok'=>false, 'error'=>'insufficient_funds', 'balance'=>$current, 'needed'=>$amount];
-        }
+/* WHERE (last 7 days; +filters) */
+$where  = "created_at >= (UTC_TIMESTAMP() - INTERVAL 7 DAY)";
+$params = [];
+if ($cause !== 'all') { $where .= " AND cause = ?"; $params[] = $cause; }
+if ($onlyUnread)      { $where .= " AND is_read = 0"; }
 
-        $newBal = round($current - $amount, 2);
+/* Count & fetch */
+$stmt = $pdo->prepare("SELECT COUNT(*) FROM security_alerts WHERE $where");
+$stmt->execute($params);
+$total = (int)$stmt->fetchColumn();
 
-        // Insert ledger
-        $type = 'debit';
-        $method = 'Wallet';
-        $metaJson = $meta ? json_encode($meta) : null;
-        $stmtTx = $conn->prepare("
-            INSERT INTO wallet_transactions (user_id, type, method, amount, reference_no, notes, meta)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        ");
-        $stmtTx->bind_param("issdsss", $user_id, $type, $method, $amount, $reference_no, $notes, $metaJson);
-        $stmtTx->execute();
+$sql = "
+  SELECT id, cause, is_read, created_at
+    FROM security_alerts
+   WHERE $where
+   ORDER BY created_at DESC
+   LIMIT $perPage OFFSET $offset
+";
+$stmt = $pdo->prepare($sql);
+$stmt->execute($params);
+$rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$totalPages = max(1, (int)ceil($total / $perPage));
 
-        // Update wallet
-        $stmtUp = $conn->prepare("UPDATE user_wallets SET balance=? WHERE user_id=?");
-        $stmtUp->bind_param("di", $newBal, $user_id);
-        $stmtUp->execute();
+/* Per-cause counts (7d; honor unread filter) */
+$countWhere = "created_at >= (UTC_TIMESTAMP() - INTERVAL 7 DAY)";
+if ($onlyUnread) $countWhere .= " AND is_read = 0";
+$stmt = $pdo->query("
+  SELECT cause, COUNT(*) AS cnt
+    FROM security_alerts
+   WHERE $countWhere
+   GROUP BY cause
+");
+$causeCounts = array_fill_keys($allowedCauses, 0);
+$allTotal = 0;
+foreach ($stmt as $row) {
+  $cc = $row['cause'] ?? 'other';
+  $n = (int)$row['cnt'];
+  $allTotal += $n;
+  if (isset($causeCounts[$cc])) $causeCounts[$cc] = $n;
+}
+$causeCounts['all'] = $allTotal;
 
-        $conn->commit();
-        return ['ok'=>true, 'balance'=>$newBal];
-    } catch (mysqli_sql_exception $e) {
-        $conn->rollback();
-        return ['ok'=>false, 'error'=>'wallet_debit_failed', 'message'=>$e->getMessage()];
+/* Flash (SweetAlert-like) */
+$flash = $_SESSION['flash'] ?? null; // [message, type]
+unset($_SESSION['flash']);
+
+/* Helpers */
+if (!function_exists('sa_esc')) {
+  function sa_esc($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
+}
+if (!function_exists('sa_cause_label')) {
+  function sa_cause_label($c){
+    switch ($c) {
+      case 'theft':     return 'Theft';
+      case 'door_slam': return 'Door Slam';
+      case 'bump':      return 'Bump';
+      case 'tilt_only': return 'Tilt Only';
+      default:          return 'Other';
     }
+  }
+}
+if (!function_exists('sa_time_ago')) {
+  function sa_time_ago($dt){
+    $ts = is_int($dt) ? $dt : strtotime($dt);
+    $d  = time() - $ts;
+    if ($d < 60)   return $d.'s ago';
+    if ($d < 3600) return floor($d/60).'m ago';
+    if ($d < 86400)return floor($d/3600).'h ago';
+    return floor($d/86400).'d ago';
+  }
+}
+if (!function_exists('sa_url_with')) {
+  function sa_url_with($overrides = []) {
+    $p = $_GET;
+    foreach ($overrides as $k=>$v){ if($v===null) unset($p[$k]); else $p[$k]=$v; }
+    return 'security_alerts.php' . ($p ? ('?' . http_build_query($p)) : '');
+  }
 }
 
-/* ------------------- checkUserLocker ------------------- */
-if(isset($_GET['checkUserLocker'])){
-    $user_id = $_SESSION['user_id'] ?? 0;
-    $stmt = $conn->prepare("SELECT locker_number, code, expires_at FROM locker_qr WHERE user_id=? AND status='occupied' LIMIT 1");
-    $stmt->bind_param("i",$user_id);
-    $stmt->execute();
-    $existing = $stmt->get_result()->fetch_assoc();
-    if($existing){
-        jexit([
-            'hasLocker'=>true,
-            'lockerNumber'=>$existing['locker_number'],
-            'code'=>$existing['code'],
-            'expires_at'=>$existing['expires_at']
-        ]);
-    } else {
-        jexit(['hasLocker'=>false]);
-    }
+/* Accent colors */
+$badgeColors = [
+  'theft'     => '#ef4444',
+  'door_slam' => '#6366f1',
+  'bump'      => '#3b82f6',
+  'tilt_only' => '#10b981',
+  'other'     => '#64748b',
+];
+?>
+<style>
+/* ===================== Scoped page styles ===================== */
+#alerts{ padding:24px 20px 40px; }
+#alerts .wrap{ max-width:1160px; margin:0 auto; }
+@media (min-width:1600px){ #alerts .wrap{ max-width:1240px; } }
+@media (max-width:1080px){ #alerts{ padding:16px; } }
+
+.card{ background:#fff; border-radius:14px; box-shadow:0 8px 24px rgba(22,28,45,.06); }
+
+/* Header + icon (medium) */
+.page-head{ display:flex; align-items:center; gap:12px; margin:0 0 14px; }
+.page-head .title{ font-size:28px; font-weight:800; color:#2b3a67; display:flex; align-items:center; gap:12px; }
+.page-head .icon{
+  width:36px; height:36px; display:inline-flex; align-items:center; justify-content:center;
+  background:#eef2ff; color:#2f54eb; border-radius:10px;
 }
+.page-head .icon svg{ width:22px; height:22px; }
 
-/* ------------------- HELPER: Move expired QR to history ------------------- */
-function moveExpiredQRs($conn, $qr_folder){
-    date_default_timezone_set('Asia/Manila');
-
-    $stmt = $conn->prepare("
-        SELECT locker_number, code, user_id, expires_at, duration_minutes, item 
-        FROM locker_qr 
-        WHERE expires_at <= NOW() AND code IS NOT NULL
-    ");
-    $stmt->execute();
-    $res = $stmt->get_result();
-
-    while($row = $res->fetch_assoc()){
-        $locker_number    = (int)$row['locker_number'];
-        $code             = $row['code'];
-        $user_id          = $row['user_id'] ?? null;
-        $expires_at       = $row['expires_at'];
-        $duration_minutes = $row['duration_minutes'];
-        $item             = (int)$row['item'];
-
-        // --- Get user info ---
-        $user_fullname = '';
-        $user_email = '';
-        if($user_id){
-            $stmt_user = $conn->prepare("SELECT first_name, last_name, email FROM users WHERE id=? LIMIT 1");
-            $stmt_user->bind_param("i", $user_id);
-            $stmt_user->execute();
-            if($u=$stmt_user->get_result()->fetch_assoc()){
-                $user_fullname = $u['first_name'].' '.$u['last_name'];
-                $user_email = $u['email'];
-            }
-        }
-
-        // --- Save expired QR into history ---
-        $stmt_history = $conn->prepare("INSERT INTO locker_history 
-            (locker_number, code, user_fullname, user_email, expires_at, duration_minutes, used_at) 
-            VALUES (?,?,?,?,?,?,NOW())");
-        $stmt_history->bind_param("issssi", 
-            $locker_number, 
-            $code, 
-            $user_fullname, 
-            $user_email, 
-            $expires_at, 
-            $duration_minutes
-        );
-        $stmt_history->execute();
-
-        // Refresh item state (defensive)
-        $stmt_item = $conn->prepare("SELECT item FROM locker_qr WHERE locker_number=? LIMIT 1");
-        $stmt_item->bind_param("i", $locker_number);
-        $stmt_item->execute();
-        $itemRow = $stmt_item->get_result()->fetch_assoc();
-        $item = (int)($itemRow['item'] ?? 0);
-
-        if ($item === 1) {
-            // Item left inside → HOLD
-            $stmt_update = $conn->prepare("
-                UPDATE locker_qr 
-                SET code=NULL, user_id=NULL, status='hold', expires_at=NULL, duration_minutes=NULL,
-                    notify30_sent=0, notify15_sent=0, notify10_sent=0
-                WHERE locker_number=?");
-            $stmt_update->bind_param("i", $locker_number);
-            $stmt_update->execute();
-
-            if($user_email){
-                email_on_hold($user_email, $user_fullname, $locker_number);
-            }
-        } else {
-            // No item → AVAILABLE
-            $stmt_update = $conn->prepare("
-                UPDATE locker_qr 
-                SET code=NULL, user_id=NULL, status='available', expires_at=NULL, duration_minutes=NULL,
-                    notify30_sent=0, notify15_sent=0, notify10_sent=0
-                WHERE locker_number=?");
-            $stmt_update->bind_param("i", $locker_number);
-            $stmt_update->execute();
-
-            if ($user_email) {
-                email_expired_released($user_email, $user_fullname, $locker_number);
-            }
-        }
-
-        // --- Delete QR image file ---
-        $qr_file = $qr_folder.'qr_'.$code.'.png';
-        if(file_exists($qr_file)) @unlink($qr_file);
-    }
+/* Controls */
+label.small{ font-size:12px; font-weight:600; color:#5b6b8d; }
+select, .checkbox{
+  height:42px; border:1px solid #e6e9f4; border-radius:12px; background:#fff; padding:0 12px; font-size:14px;
 }
+.toolbar{ padding:16px; display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
 
-/* ------------------- NEW: Pre-expiry reminders ------------------- */
-function checkAndSendReminders($conn){
-    date_default_timezone_set('Asia/Manila');
-    $now = time();
-
-    $sql = "
-      SELECT l.locker_number, l.code, l.user_id, l.expires_at, l.duration_minutes,
-             l.notify30_sent, l.notify15_sent, l.notify10_sent,
-             u.first_name, u.last_name, u.email
-      FROM locker_qr l
-      LEFT JOIN users u ON u.id = l.user_id
-      WHERE l.status='occupied' AND l.expires_at IS NOT NULL AND l.expires_at > NOW()
-    ";
-    $res = $conn->query($sql);
-    while($row = $res->fetch_assoc()){
-        $locker        = (int)$row['locker_number'];
-        $expires_ts    = strtotime($row['expires_at']);
-        if ($expires_ts === false) continue;
-
-        $remaining_sec = $expires_ts - $now;
-        if ($remaining_sec <= 0) continue;
-
-        $remaining_min = floor($remaining_sec / 60);
-        $total_min     = (int)$row['duration_minutes'];
-        $sent30        = (int)$row['notify30_sent'];
-        $sent15        = (int)$row['notify15_sent'];
-        $sent10        = (int)$row['notify10_sent'];
-        $name          = trim(($row['first_name'] ?? '').' '.($row['last_name'] ?? ''));
-        $email         = $row['email'] ?? '';
-        $expires_fmt   = date('F j, Y h:i A', $expires_ts);
-
-        $didUpdate = false;
-
-        if ($total_min >= 60) {
-            if ($remaining_min <= 30 && $remaining_min > 15 && !$sent30) {
-                email_time_left($email, $name, $locker, 30, $expires_fmt);
-                $sent30 = 1; $didUpdate = true;
-            }
-            if ($remaining_min <= 15 && $remaining_min > 0 && !$sent15) {
-                if (!$sent30) { email_time_left($email, $name, $locker, 30, $expires_fmt); $sent30 = 1; }
-                email_time_left($email, $name, $locker, 15, $expires_fmt);
-                $sent15 = 1; $didUpdate = true;
-            }
-        } elseif ($total_min >= 30) {
-            if ($remaining_min <= 15 && $remaining_min > 0 && !$sent15) {
-                email_time_left($email, $name, $locker, 15, $expires_fmt);
-                $sent15 = 1; $didUpdate = true;
-            }
-        } elseif ($total_min >= 20) {
-            if ($remaining_min <= 10 && $remaining_min > 0 && !$sent10) {
-                email_time_left($email, $name, $locker, 10, $expires_fmt);
-                $sent10 = 1; $didUpdate = true;
-            }
-        }
-
-        if ($didUpdate) {
-            $stmt = $conn->prepare("UPDATE locker_qr SET notify30_sent=?, notify15_sent=?, notify10_sent=? WHERE locker_number=?");
-            $stmt->bind_param("iiii", $sent30, $sent15, $sent10, $locker);
-            $stmt->execute();
-        }
-    }
+/* Medium pill buttons for Apply/Reset */
+.btn{
+  --h: 42px;
+  height:var(--h);
+  border:0; border-radius:999px; padding:0 16px; font-weight:800; font-size:14px; cursor:pointer;
+  text-decoration:none; display:inline-flex; align-items:center; gap:10px;
 }
+a.btn{ text-decoration:none; }
+.btn.apply{ background:#3056ff; color:#fff; }
+.btn.reset{ background:#eef2ff; color:#2a3db6; } /* NO icon */
 
-// housekeeping every request
-moveExpiredQRs($conn, $qr_folder);
-checkAndSendReminders($conn);
-
-/* ------------------- WALLET & PRICES ENDPOINTS ------------------- */
-if (isset($_GET['wallet'])) {
-    $uid = require_login();
-    $balance = get_wallet_balance($conn, $uid);
-    jexit(['success'=>true, 'balance'=>$balance]);
+/* Action pills (medium) */
+.pill{
+  --h: 42px;
+  height:var(--h);
+  display:inline-flex; align-items:center; gap:10px; padding:0 16px; border-radius:999px; font-weight:800; font-size:14px;
+  border:1px solid transparent; text-decoration:none;
 }
+.pill svg{ width:18px; height:18px; }
+.pill.blue{  color:#1e40af; background:#eaf1ff; border-color:#d9e6ff; }
+.pill.amber{ color:#92400e; background:#fff1d6; border-color:#ffe4b5; }
+.pill.red{   color:#9f1d1d; background:#ffe1e1; border-color:#ffc9c9; }
+.pill-group{ display:flex; gap:12px; align-items:center; justify-content:center; flex-wrap:wrap; }
 
-if (isset($_GET['wallet_topup'])) {
-    $uid = require_login();
-    $method = $_GET['method'] ?? 'GCash';
-    if (!in_array($method, ['GCash','Maya','Admin'], true)) {
-        jexit(['error'=>'invalid_method'],400);
-    }
-    $amount = (float)($_GET['amount'] ?? 0);
-    $reference_no = $_GET['ref'] ?? null; // PSP or client ref (stable to merge)
-    $res = wallet_credit($conn, $uid, round($amount,2), $method, $reference_no, 'Top-up via '.$method);
-    if (!$res['ok']) jexit(['error'=>$res['error'], 'message'=>$res['message'] ?? null], 500);
-    jexit(['success'=>true, 'balance'=>$res['balance'], 'idempotent'=>!empty($res['idempotent'])]);
+.muted{ color:#8592b0; font-size:12px; }
+
+.quick-chips{ display:flex; gap:10px; flex-wrap:wrap; padding:12px 16px 16px; }
+.chip{
+  display:inline-flex; align-items:center; gap:8px; border:1px solid #e6e9f4; background:#fff;
+  border-radius:999px; padding:8px 12px; text-decoration:none; color:#2d3a69; font-weight:700; font-size:12px;
 }
+.chip.active{ background:#2f54eb; border-color:#2f54eb; color:#fff; }
 
-if (isset($_GET['prices'])) {
-    jexit(['success'=>true, 'prices'=>price_map_php()]);
+.headerline{ display:flex; gap:10px; align-items:center; padding:12px 16px; }
+
+/* Table */
+.table-wrap{ overflow:auto; }
+.table{ width:100%; border-collapse:separate; border-spacing:0 10px; }
+.table thead th{
+  position:sticky; top:0; background:#f9fbff; z-index:1; padding:12px; text-transform:uppercase;
+  font-size:12px; letter-spacing:.03em; color:#6f7da6; text-align:center;
+  border-top-left-radius:12px; border-top-right-radius:12px;
 }
+.table tbody tr{ background:#fff; box-shadow:0 3px 12px rgba(0,0,0,.05); border-radius:12px; }
+.table tbody td{ padding:14px 12px; vertical-align:middle; text-align:center; }
 
-/* ------------------- MARK QR AS USED (ESP32) ------------------- */
-if(isset($_GET['used'])){
-    $code = $_GET['used'];
-    $secret = $_GET['secret'] ?? '';
-    if($secret !== $esp32_secret) jexit(['error'=>'unauthorized'],401);
-    if(empty($code)) jexit(['error'=>'no_code'],400);
-
-    try{
-        $conn->begin_transaction();
-
-        $stmt = $conn->prepare("SELECT locker_number, user_id, expires_at, duration_minutes FROM locker_qr WHERE code=? LIMIT 1");
-        $stmt->bind_param("s",$code);
-        $stmt->execute();
-        $row=$stmt->get_result()->fetch_assoc();
-        if(!$row){ $conn->rollback(); jexit(['error'=>'code_not_found'],404); }
-
-        $locker_number = (int)$row['locker_number'];
-        $user_id = $row['user_id'] ?? null;
-        $expires_at = $row['expires_at'];
-        $duration_minutes = $row['duration_minutes'];
-
-        $user_fullname = ''; $user_email = '';
-        if($user_id){
-            $stmt_user = $conn->prepare("SELECT first_name, last_name, email FROM users WHERE id=? LIMIT 1");
-            $stmt_user->bind_param("i",$user_id);
-            $stmt_user->execute();
-            if($u=$stmt_user->get_result()->fetch_assoc()){
-                $user_fullname = $u['first_name'].' '.$u['last_name'];
-                $user_email = $u['email'];
-            }
-        }
-
-        $stmt_hist = $conn->prepare("INSERT INTO locker_history (locker_number, code, user_fullname, user_email, expires_at, duration_minutes, used_at) VALUES (?,?,?,?,?,?,NOW())");
-        $stmt_hist->bind_param("isssis",$locker_number,$code,$user_fullname,$user_email,$expires_at,$duration_minutes);
-        $stmt_hist->execute();
-
-        $stmt_update = $conn->prepare("UPDATE locker_qr SET code=NULL, user_id=NULL, status='available', expires_at=NULL, duration_minutes=NULL, notify30_sent=0, notify15_sent=0, notify10_sent=0 WHERE locker_number=?");
-        $stmt_update->bind_param("i",$locker_number);
-        $stmt_update->execute();
-
-        $conn->commit();
-
-        $qr_file = $qr_folder.'qr_'.$code.'.png';
-        if(file_exists($qr_file)) @unlink($qr_file);
-
-        jexit(['success'=>true]);
-    }catch(mysqli_sql_exception $e){
-        $conn->rollback();
-        jexit(['error'=>'tx_failed','message'=>$e->getMessage()],500);
-    }
+.col-time small{ display:block; color:#6f7da6; }
+.badge{
+  display:inline-flex; align-items:center; gap:8px; padding:8px 12px; border-radius:999px; font-weight:700; font-size:12px;
+  background:#eef2ff; color:#1f2937;
 }
+.badge .dot{ width:10px; height:10px; border-radius:999px; display:inline-block; }
 
-/* ------------------- EXTEND LOCKER TIME (IDEMPOTENT, WALLET) ------------------- */
-if(isset($_GET['extend'])){
-    $user_id = require_login();
-    $locker  = (int)$_GET['extend'];
+.row-unread{ border-left:4px solid #3056ff; }
 
-    $requested = $_GET['duration'] ?? '1hour';
-    $duration_minutes = safe_duration_minutes($requested);
-    $amount = safe_price($requested);
-
-    $stmt = $conn->prepare("SELECT code, expires_at FROM locker_qr WHERE locker_number=? AND user_id=? AND status='occupied' LIMIT 1");
-    $stmt->bind_param("ii", $locker, $user_id);
-    $stmt->execute();
-    $existing = $stmt->get_result()->fetch_assoc();
-    if(!$existing){
-        jexit(['error'=>'not_owner','message'=>'You cannot extend this locker or it is not active.'],403);
-    }
-
-    $currentExpiresTs = strtotime($existing['expires_at']);
-    if ($currentExpiresTs === false) $currentExpiresTs = now_ph();
-
-    $reference_no = $_GET['ref'] ?? uniqid("WXT");
-    $method = 'Wallet';
-
-    try {
-        $conn->begin_transaction();
-
-        $stmt_chk = $conn->prepare("SELECT id FROM payments WHERE user_id=? AND locker_number=? AND reference_no=? LIMIT 1");
-        $stmt_chk->bind_param("iis", $user_id, $locker, $reference_no);
-        $stmt_chk->execute();
-        $dup = $stmt_chk->get_result()->fetch_assoc();
-
-        if ($dup) {
-            $stmt_state = $conn->prepare("SELECT code, expires_at FROM locker_qr WHERE locker_number=? LIMIT 1");
-            $stmt_state->bind_param("i", $locker);
-            $stmt_state->execute();
-            $row = $stmt_state->get_result()->fetch_assoc();
-            $expires_ts = $row && $row['expires_at'] ? strtotime($row['expires_at']) : $currentExpiresTs;
-
-            $qr_url = '/kandado/qr_image/qr_'.($row['code'] ?? $existing['code']).'.png';
-
-            $conn->commit();
-            jexit([
-                'success'=>true,
-                'code'=> $row['code'] ?? $existing['code'],
-                'qr_url'=>$qr_url,
-                'expires_at'=> date('Y-m-d H:i:s', $expires_ts),
-                'expires_at_ms'=> $expires_ts * 1000,
-                'duration_minutes'=>0,
-                'idempotent'=>true
-            ]);
-        }
-
-        // Wallet debit
-        $deb = wallet_debit($conn, $user_id, round($amount,2), $reference_no, "Extend locker #$locker ($requested)");
-        if (!$deb['ok']) {
-            $conn->rollback();
-            if ($deb['error'] === 'insufficient_funds') {
-                jexit([
-                    'error'=>'insufficient_balance',
-                    'message'=>'Your wallet balance is not enough to extend.',
-                    'balance'=>$deb['balance'],
-                    'needed'=>$amount
-                ], 402);
-            }
-            jexit(['error'=>'wallet_debit_failed','message'=>$deb['message'] ?? null],500);
-        }
-
-        $newExpiresTs = $currentExpiresTs + (int)round($duration_minutes * 60);
-        $expires_at   = date('Y-m-d H:i:s', $newExpiresTs);
-
-        $stmt_upd = $conn->prepare("UPDATE locker_qr SET expires_at=?, duration_minutes=duration_minutes+?, notify30_sent=0, notify15_sent=0, notify10_sent=0 WHERE locker_number=?");
-        $stmt_upd->bind_param("sii", $expires_at, $duration_minutes, $locker);
-        $stmt_upd->execute();
-
-        $created_at = date('Y-m-d H:i:s');
-        $dur_for_db = (string)$duration_minutes;
-        $stmt_pay = $conn->prepare("INSERT INTO payments (user_id, locker_number, method, amount, reference_no, duration, created_at) VALUES (?,?,?,?,?,?,?)");
-        $stmt_pay->bind_param("iisdsss", $user_id, $locker, $method, $amount, $reference_no, $dur_for_db, $created_at);
-        $stmt_pay->execute();
-
-        $conn->commit();
-
-        $qr_url = '/kandado/qr_image/qr_'.$existing['code'].'.png';
-        jexit([
-            'success'=>true,
-            'code'=>$existing['code'],
-            'qr_url'=>$qr_url,
-            'expires_at'=>$expires_at,
-            'expires_at_ms'=>$newExpiresTs * 1000,
-            'duration_minutes'=>$duration_minutes,
-            'balance'=>$deb['balance']
-        ]);
-    } catch(mysqli_sql_exception $e){
-        $conn->rollback();
-        jexit(['error'=>'extend_failed','message'=>$e->getMessage()],500);
-    }
+/* Bulk bar */
+.bulkbar{
+  display:none; align-items:center; justify-content:space-between; gap:12px; padding:12px 16px; border-top:1px dashed #e6e9f4;
 }
+.bulkbar.active{ display:flex; }
+.bulkbar .count{ font-weight:800; }
 
-/* ====================== TERMINATE LOCKER NOW ====================== */
-if (isset($_GET['terminate'])) {
-    $user_id = require_login();
-
-    $locker      = (int)$_GET['terminate'];
-    $reason      = $_GET['reason'] ?? 'user_request';
-
-    try {
-        $conn->begin_transaction();
-
-        $stmt = $conn->prepare("
-            SELECT locker_number, code, user_id, expires_at, duration_minutes, item
-            FROM locker_qr
-            WHERE locker_number = ? AND user_id = ? AND status = 'occupied'
-            LIMIT 1
-        ");
-        $stmt->bind_param("ii", $locker, $user_id);
-        $stmt->execute();
-        $row = $stmt->get_result()->fetch_assoc();
-
-        if (!$row) {
-            $conn->rollback();
-            jexit(['error' => 'not_owner_or_not_active', 'message' => 'You cannot terminate this locker or it is not active.'], 403);
-        }
-
-        $locker_number    = (int)$row['locker_number'];
-        $code             = $row['code'];
-        $expires_at       = $row['expires_at'];
-        $duration_minutes = $row['duration_minutes'];
-        $item             = (int)$row['item'];
-
-        $user_fullname = ''; $user_email = '';
-        $stmt_user = $conn->prepare("SELECT first_name, last_name, email FROM users WHERE id = ? LIMIT 1");
-        $stmt_user->bind_param("i", $user_id);
-        $stmt_user->execute();
-        if ($u = $stmt_user->get_result()->fetch_assoc()) {
-            $user_fullname = $u['first_name'].' '.$u['last_name'];
-            $user_email    = $u['email'];
-        }
-
-        $stmt_hist = $conn->prepare("
-            INSERT INTO locker_history (locker_number, code, user_fullname, user_email, expires_at, duration_minutes, used_at)
-            VALUES (?,?,?,?,?,?,NOW())
-        ");
-        $stmt_hist->bind_param("isssis", $locker_number, $code, $user_fullname, $user_email, $expires_at, $duration_minutes);
-        $stmt_hist->execute();
-
-        if ($item === 1) {
-            $stmt_upd = $conn->prepare("
-                UPDATE locker_qr
-                SET code=NULL, user_id=NULL, status='hold', expires_at=NULL, duration_minutes=NULL,
-                    notify30_sent=0, notify15_sent=0, notify10_sent=0
-                WHERE locker_number=?
-            ");
-            $next_status = 'hold';
-        } else {
-            $stmt_upd = $conn->prepare("
-                UPDATE locker_qr
-                SET code=NULL, user_id=NULL, status='available', expires_at=NULL, duration_minutes=NULL,
-                    notify30_sent=0, notify15_sent=0, notify10_sent=0
-                WHERE locker_number=?
-            ");
-            $next_status = 'available';
-        }
-        $stmt_upd->bind_param("i", $locker_number);
-        $stmt_upd->execute();
-
-        $conn->commit();
-
-        $qr_file = $qr_folder.'qr_'.$code.'.png';
-        if ($code && file_exists($qr_file)) @unlink($qr_file);
-
-        jexit([
-            'success' => true,
-            'status'  => $next_status,
-            'message' => $next_status === 'hold'
-                ? 'Locker terminated. Locker is on hold because an item is still inside.'
-                : 'Locker terminated and released.'
-        ]);
-    } catch (mysqli_sql_exception $e) {
-        $conn->rollback();
-        jexit(['error' => 'terminate_failed', 'message' => $e->getMessage()], 500);
-    }
+/* Pagination */
+.pagination{
+  display:flex; align-items:center; justify-content:space-between; gap:10px; padding:12px 16px; flex-wrap:wrap;
 }
-
-/* ------------------- GENERATE QR (reserve using WALLET) ------------------- */
-if(isset($_GET['generate'])){
-    $user_id = require_login();
-
-    $locker = (int)$_GET['generate'];
-    if($locker<1||$locker>$TOTAL_LOCKERS) jexit(['error'=>'invalid_locker'],400);
-
-    // Block reservation if locker is under maintenance
-    $stmt_chk = $conn->prepare("SELECT maintenance FROM locker_qr WHERE locker_number=? LIMIT 1");
-    $stmt_chk->bind_param("i", $locker);
-    $stmt_chk->execute();
-    $row_chk = $stmt_chk->get_result()->fetch_assoc();
-    if ($row_chk && (int)$row_chk['maintenance'] === 1) {
-        jexit(['error'=>'under_maintenance','message'=>'This locker is temporarily unavailable due to maintenance.'], 409);
-    }
-
-    // Prevent multiple active lockers for same user
-    $stmt = $conn->prepare("SELECT locker_number, code FROM locker_qr WHERE user_id=? AND status='occupied' LIMIT 1");
-    $stmt->bind_param("i",$user_id);
-    $stmt->execute();
-    $existing=$stmt->get_result()->fetch_assoc();
-    if($existing){
-        $existing_code=$existing['code'];
-        $existing_file='/kandado/qr_image/qr_'.$existing_code.'.png';
-        jexit([
-            'error'=>'already_has_locker',
-            'message'=>'You already have a locker. Please use it before generating a new one.',
-            'code'=>$existing_code,
-            'qr_url'=>$existing_file
-        ],400);
-    }
-
-    // Get requested duration + price from server map
-    $requested = $_GET['duration'] ?? '1hour';
-    $duration_minutes = safe_duration_minutes($requested);
-    $amount = safe_price($requested);
-
-    date_default_timezone_set('Asia/Manila');
-    $expires_at = date('Y-m-d H:i:s', time()+$duration_minutes*60);
-    $reserve_date = date('F j, Y');
-    $reserve_time = date('h:i A');
-    $expires_at_formatted = date('F j, Y h:i A', strtotime($expires_at));
-
-    // Call ESP32
-    $url = "http://{$esp32_host}/generate?locker=".($locker-1);
-    $ch = curl_init($url);
-    curl_setopt($ch,CURLOPT_RETURNTRANSFER,true);
-    curl_setopt($ch,CURLOPT_TIMEOUT,3);
-    $response=curl_exec($ch);
-    $curl_err=curl_error($ch);
-    $http_code=curl_getinfo($ch,CURLINFO_RESPONSE_CODE);
-    curl_close($ch);
-
-    $data=json_decode($response,true);
-    if(!$data || !isset($data['code'])){
-        jexit([
-            'error'=>'esp32_invalid_response',
-            'http_code'=>$http_code,
-            'raw'=>$response,
-            'curl_error'=>$curl_err
-        ],502);
-    }
-
-    $code = $data['code'];
-    $reference_no = $_GET['ref'] ?? uniqid('WAL'); // stable idempotency key
-
-    // Reserve + wallet debit in one transaction
-    try {
-        $conn->begin_transaction();
-
-        // Still available?
-        $stmtLock = $conn->prepare("SELECT status FROM locker_qr WHERE locker_number=? FOR UPDATE");
-        $stmtLock->bind_param("i", $locker);
-        $stmtLock->execute();
-        $rowLock = $stmtLock->get_result()->fetch_assoc();
-        if (!$rowLock || $rowLock['status'] !== 'available') {
-            $conn->rollback();
-            jexit(['error'=>'locker_unavailable'],409);
-        }
-
-        // Wallet debit
-        $deb = wallet_debit($conn, $user_id, round($amount,2), $reference_no, "Reserve locker #$locker ($requested)");
-        if (!$deb['ok']) {
-            $conn->rollback();
-            if ($deb['error'] === 'insufficient_funds') {
-                jexit([
-                    'error'=>'insufficient_balance',
-                    'message'=>'Your wallet balance is not enough to reserve.',
-                    'balance'=>$deb['balance'],
-                    'needed'=>$amount
-                ], 402);
-            }
-            jexit(['error'=>'wallet_debit_failed','message'=>$deb['message'] ?? null],500);
-        }
-
-        // Update locker + reset reminder flags
-        $stmt = $conn->prepare("UPDATE locker_qr SET code=?, user_id=?, status='occupied', expires_at=?, duration_minutes=?, notify30_sent=0, notify15_sent=0, notify10_sent=0 WHERE locker_number=?");
-        $stmt->bind_param("sisii",$code,$user_id,$expires_at,$duration_minutes,$locker);
-        $stmt->execute();
-
-        // Record payment
-        $created_at = date('Y-m-d H:i:s');
-        $method = 'Wallet';
-        $dur_for_db = (string)$duration_minutes;
-        $stmtPay = $conn->prepare("INSERT INTO payments (user_id, locker_number, method, amount, reference_no, duration, created_at) VALUES (?,?,?,?,?,?,?)");
-        $stmtPay->bind_param("iisdsss", $user_id, $locker, $method, $amount, $reference_no, $dur_for_db, $created_at);
-        $stmtPay->execute();
-
-        $conn->commit();
-
-    } catch (mysqli_sql_exception $e) {
-        $conn->rollback();
-        jexit(['error'=>'reserve_failed','message'=>$e->getMessage()],500);
-    }
-
-    // Save QR image + email (unchanged)
-    $qr_filename=$qr_folder.'qr_'.$code.'.png';
-    QRcode::png($code,$qr_filename,QR_ECLEVEL_L,6);
-    $qr_url='/kandado/qr_image/qr_'.$code.'.png';
-
-    $stmt_user = $conn->prepare("SELECT first_name,last_name,email FROM users WHERE id=? LIMIT 1");
-    $stmt_user->bind_param("i",$user_id);
-    $stmt_user->execute();
-    $u=$stmt_user->get_result()->fetch_assoc();
-    $user_fullname=$u['first_name'].' '.$u['last_name'];
-    $user_email=$u['email'];
-    email_qr($user_email, $user_fullname, $locker, $qr_filename, $code, $reserve_date, $reserve_time, $expires_at_formatted);
-
-    $data['qr_url']=$qr_url;
-    $data['expires_at']=$expires_at;
-    $data['duration_minutes']=$duration_minutes;
-    $data['balance']=get_wallet_balance($conn, $user_id);
-
-    jexit($data);
+.pager{ display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+.pager a, .pager span{
+  padding:6px 10px; border-radius:8px; border:1px solid #e2e6f2; background:#fff; color:#2d3a69; text-decoration:none; font-weight:600; font-size:13px;
 }
+.pager a.active{ background:#2f54eb; color:#fff; border-color:#2f54eb; }
+.pager .sep{ pointer-events:none; border:none; background:transparent; padding:0 2px; }
 
-/* ------------------- FETCH LOCKERS ------------------- */
-$lockerStatus=[];
-
-if (isset($_GET['esp32']) && ($_GET['secret'] ?? '') === $esp32_secret) {
-    $stmt = $conn->prepare("
-        SELECT locker_number, code, status, expires_at, duration_minutes, item, maintenance
-        FROM locker_qr
-        ORDER BY locker_number ASC
-    ");
-    $stmt->execute();
-    $res = $stmt->get_result();
-    while ($row = $res->fetch_assoc()) {
-        $locker = (int)$row['locker_number'];
-        $expires_iso = $row['expires_at'] ? date('c', strtotime($row['expires_at'])) : null;
-
-        $lockerStatus[$locker] = [
-            'code'             => $row['code'],
-            'status'           => $row['status'],
-            'expires_at'       => $expires_iso,
-            'duration_minutes' => $row['duration_minutes'] !== null ? (float)$row['duration_minutes'] : null,
-            'item'             => (int)$row['item'],
-            'maintenance'      => (int)$row['maintenance'],
-        ];
-    }
-} else {
-    $user_id = $_SESSION['user_id'] ?? null;
-    $stmt = $conn->prepare("
-        SELECT locker_number, code, status, user_id, expires_at, duration_minutes, item, maintenance
-        FROM locker_qr
-        ORDER BY locker_number ASC
-    ");
-    $stmt->execute();
-    $res = $stmt->get_result();
-
-    while ($row = $res->fetch_assoc()) {
-        $locker = (int)$row['locker_number'];
-        $status = $row['status'];
-
-        $label = "Unknown";
-        if ($status === "available")    $label = "✅ Available";
-        elseif ($status === "occupied") $label = "🔒 In Use";
-        elseif ($status === "hold")     $label = "⚠ On Hold (Item Inside)";
-
-        $expires_iso = $row['expires_at'] ? date('c', strtotime($row['expires_at'])) : null;
-
-        $lockerStatus[$locker] = [
-            'code'             => $row['code'],
-            'status'           => $status,
-            'status_label'     => $label,
-            'user_id'          => $row['user_id'],
-            'expires_at'       => $expires_iso,
-            'duration_minutes' => $row['duration_minutes'] !== null ? (float)$row['duration_minutes'] : null,
-            'item'             => (int)$row['item'],
-            'maintenance'      => (int)$row['maintenance'],
-        ];
-    }
+/* SweetAlert-like modal (alert + confirm) */
+.sweet-overlay{
+  position:fixed; inset:0; background:rgba(15,23,42,.6); display:none; align-items:center; justify-content:center; z-index:9999;
 }
-
-/* ------------------- UPDATE ITEM (Slave 2) ------------------- */
-if(isset($_GET['update_item'])){
-    $locker_number=(int)$_GET['update_item'];
-    $item=isset($_GET['item'])?(int)$_GET['item']:0;
-
-    $stmt=$conn->prepare("UPDATE locker_qr SET item=? WHERE locker_number=?");
-    $stmt->bind_param("ii",$item,$locker_number);
-    $stmt->execute();
-
-    jexit(['success'=>true,'locker'=>$locker_number,'item'=>$item]);
+.sweet{
+  width:min(420px, 92vw); background:#fff; border-radius:16px; box-shadow:0 30px 60px rgba(0,0,0,.35);
+  padding:22px 18px; text-align:center;
 }
+.sweet .icon{
+  width:56px; height:56px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; margin:0 auto 10px;
+}
+.sweet.success .icon{ background:#e7f6ee; color:#16a34a; }
+.sweet.error   .icon{ background:#ffe8e8; color:#dc2626; }
+.sweet .title{ font-size:18px; font-weight:900; color:#0b1e3a; margin-bottom:6px; }
+.sweet .text{ color:#475569; font-size:14px; margin-bottom:16px; }
+.sweet .actions{ display:flex; gap:10px; justify-content:center; }
+.sweet .btn{ height:40px; border-radius:10px; font-weight:800; padding:0 14px; }
+.sweet .btn.primary{ background:#3056ff; color:#fff; }
+.sweet .btn.cancel { background:#eef2ff; color:#2a3db6; }
 
-jexit($lockerStatus);
+/* Mobile cards */
+@media (max-width: 760px){
+  .table{ display:block; border-spacing:0; }
+  .table thead{ display:none; }
+  .table tbody{ display:block; }
+  .table tbody tr{
+    display:block; border-radius:14px; box-shadow:0 3px 12px rgba(0,0,0,.05); margin:12px 8px; padding:10px 10px;
+  }
+  .table tbody td{ display:flex; align-items:center; justify-content:space-between; padding:8px 6px; text-align:left; }
+  .table tbody td[data-label]::before{
+    content:attr(data-label);
+    color:#6f7da6; font-size:12px; font-weight:700;
+  }
+  .pill-group{ justify-content:flex-end; }
+  .pill{ width:auto; }
+  .toolbar{ gap:10px; }
+  .quick-chips{ padding:8px 12px 12px; }
+}
+</style>
 
+<main id="content">
+  <section id="alerts">
+    <div class="wrap">
 
+      <!-- PAGE HEADER WITH MEDIUM ICON -->
+      <div class="page-head">
+        <div class="title">
+          <span class="icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true">
+              <path fill="currentColor" d="M12 2l7 3v6c0 5.25-3.438 9.75-7 11-3.562-1.25-7-5.75-7-11V5l7-3zM7 6.385V11c0 3.967 2.544 7.76 5 8.971 2.456-1.211 5-5.004 5-8.971V6.385L12 4.539 7 6.385z"/>
+              <path fill="currentColor" d="M10.5 12.75l-1.75-1.75-1.5 1.5 3.25 3.25 5.5-5.5-1.5-1.5z"/>
+            </svg>
+          </span>
+          Security Alerts
+        </div>
+      </div>
 
+      <!-- FILTERS BAR -->
+      <div class="card">
+        <form class="toolbar" method="get" action="security_alerts.php">
+          <div>
+            <label for="cause" class="small">Cause</label><br>
+            <select id="cause" name="cause">
+              <?php foreach ($allowedCauses as $c): ?>
+                <option value="<?= sa_esc($c) ?>" <?= $cause===$c?'selected':'' ?>><?= sa_esc(sa_cause_label($c)) ?></option>
+              <?php endforeach; ?>
+            </select>
+          </div>
 
+          <div style="display:flex; align-items:center; gap:10px; padding-top:10px">
+            <input class="checkbox" type="checkbox" id="only_unread" name="only_unread" value="1" <?= $onlyUnread?'checked':'' ?>>
+            <label for="only_unread" style="margin:0">Show unread only</label>
+          </div>
 
+          <button class="btn apply" type="submit">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M9 16.2l-3.5-3.5-1.4 1.4L9 19 20.3 7.7l-1.4-1.4z"/></svg>
+            Apply
+          </button>
 
+          <!-- Reset WITHOUT icon -->
+          <a class="btn reset" href="security_alerts.php">Reset</a>
+
+          <div class="top-right" style="margin-left:auto">
+            <label style="display:flex; align-items:center; gap:10px; font-weight:700;">
+              <input type="checkbox" id="autorefresh" <?= $autoRefresh ? 'checked' : '' ?>
+                onclick="location.href='<?= sa_esc(sa_url_with(['autorefresh'=>$autoRefresh?null:1])) ?>'">
+              Auto-refresh
+            </label>
+            <span class="muted">Showing last 7 days • Asia/Manila (UTC+8)</span>
+          </div>
+        </form>
+
+        <!-- QUICK FILTER CHIPS -->
+        <div class="quick-chips">
+          <?php foreach ($allowedCauses as $c): ?>
+            <?php $active = ($cause === $c) ? 'active' : ''; ?>
+            <a class="chip <?= $active ?>" href="<?= sa_esc(sa_url_with(['cause'=>$c, 'page'=>1])) ?>">
+              <?= sa_esc(sa_cause_label($c)) ?>
+              <span class="muted" style="font-weight:800;"><?= (int)($causeCounts[$c] ?? 0) ?></span>
+            </a>
+          <?php endforeach; ?>
+        </div>
+      </div>
+
+      <!-- LIST & ACTIONS -->
+      <div class="card" style="margin-top:14px;">
+        <div class="headerline">
+          <div class="muted">
+            <?php
+              $start = $total ? ($offset + 1) : 0;
+              $end   = min($offset + $perPage, $total);
+              echo "Showing {$start}–{$end} of {$total}";
+            ?>
+          </div>
+
+          <div class="top-right" style="margin-left:auto">
+            <button id="markAllBtn" class="btn" style="background:#ffe6e6;color:#b02a2a" type="button">Mark all as read</button>
+            <form id="markAllForm" method="post" style="display:none">
+              <input type="hidden" name="action" value="mark_all_read">
+            </form>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <form id="bulkForm" method="post">
+            <input type="hidden" name="action" id="bulkAction" value="">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th style="width:48px;">
+                    <input type="checkbox" id="checkAll" title="Select all on page">
+                  </th>
+                  <th>Time</th>
+                  <th>Cause</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+              <?php if (!$rows): ?>
+                <tr><td colspan="4" style="padding:56px 12px; text-align:center; color:#6f7da6">No alerts for the current filters in the last 7 days.</td></tr>
+              <?php else: ?>
+                <?php foreach ($rows as $r): ?>
+                  <?php
+                    $isUnread = ((int)$r['is_read']) === 0;
+                    $c = $r['cause'] ?? 'other';
+                    $dot = $badgeColors[$c] ?? '#64748B';
+                  ?>
+                  <tr class="<?= $isUnread ? 'row-unread' : '' ?>">
+                    <td data-label="">
+                      <input type="checkbox" class="rowcheck" name="ids[]" value="<?= (int)$r['id'] ?>">
+                    </td>
+                    <td class="col-time" data-label="Time">
+                      <strong><?= sa_time_ago($r['created_at']); ?></strong>
+                      <small><?= date('M d, Y H:i', strtotime($r['created_at'])) ?></small>
+                    </td>
+                    <td data-label="Cause">
+                      <span class="badge">
+                        <span class="dot" style="background:<?= sa_esc($dot) ?>;"></span>
+                        <?= sa_esc(sa_cause_label($c)) ?>
+                        <?php if ($isUnread): ?>
+                          <span class="muted" style="font-weight:800; margin-left:4px;">• Unread</span>
+                        <?php endif; ?>
+                      </span>
+                    </td>
+                    <td data-label="Actions">
+                      <div class="pill-group">
+                        <?php if ($isUnread): ?>
+                          <form method="post" style="display:inline">
+                            <input type="hidden" name="action" value="mark_read">
+                            <input type="hidden" name="id" value="<?= (int)$r['id'] ?>">
+                            <button type="submit" class="pill blue">
+                              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.2l-3.5-3.5-1.4 1.4L9 19 20.3 7.7l-1.4-1.4z"/></svg>
+                              Mark read
+                            </button>
+                          </form>
+                        <?php else: ?>
+                          <form method="post" style="display:inline">
+                            <input type="hidden" name="action" value="mark_unread">
+                            <input type="hidden" name="id" value="<?= (int)$r['id'] ?>">
+                            <button type="submit" class="pill amber">
+                              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 6V3L8 7l4 4V8c2.76 0 5 2.24 5 5a5 5 0 01-9.9 1H5.02A7.002 7.002 0 0012 22a7 7 0 000-14z"/></svg>
+                              Mark unread
+                            </button>
+                          </form>
+                        <?php endif; ?>
+
+                        <form class="deleteRowForm" method="post" style="display:inline">
+                          <input type="hidden" name="action" value="delete">
+                          <input type="hidden" name="id" value="<?= (int)$r['id'] ?>">
+                          <button type="button" class="pill red deleteRowBtn">
+                            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 3h6l1 2h4v2H4V5h4l1-2zm1 6h2v9h-2V9zm4 0h2v9h-2V9zM7 9h2v9H7V9z"/></svg>
+                            Delete
+                          </button>
+                        </form>
+                      </div>
+                    </td>
+                  </tr>
+                <?php endforeach; ?>
+              <?php endif; ?>
+              </tbody>
+            </table>
+
+            <!-- BULK BAR -->
+            <div id="bulkBar" class="bulkbar">
+              <div><span class="count" id="bulkCount">0</span> selected</div>
+              <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                <button type="button" class="pill blue" id="bulkReadBtn">
+                  <svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.2l-3.5-3.5-1.4 1.4L9 19 20.3 7.7l-1.4-1.4z"/></svg>
+                  Mark selected read
+                </button>
+                <button type="button" class="pill amber" id="bulkUnreadBtn">
+                  <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 6V3L8 7l4 4V8c2.76 0 5 2.24 5 5a5 5 0 01-9.9 1H5.02A7.002 7.002 0 0012 22a7 7 0 000-14z"/></svg>
+                  Mark selected unread
+                </button>
+                <button type="button" class="pill red" id="bulkDeleteBtn">
+                  <svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 3h6l1 2h4v2H4V5h4l1-2zm1 6h2v9h-2V9zm4 0h2v9h-2V9zM7 9h2v9H7V9z"/></svg>
+                  Delete selected
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+
+        <!-- PAGINATION -->
+        <div class="pagination">
+          <div class="muted">
+            <?php
+              $start = $total ? ($offset + 1) : 0;
+              $end   = min($offset + $perPage, $total);
+              echo "Showing {$start}–{$end} of {$total}";
+            ?>
+          </div>
+          <div class="pager">
+            <?php
+              $window = 2;
+              $from = max(1, $page - $window);
+              $to   = min($totalPages, $page + $window);
+
+              if ($page > 1) {
+                echo '<a href="'.sa_esc(sa_url_with(['page'=>1])).'">First</a>';
+                echo '<a href="'.sa_esc(sa_url_with(['page'=>$page-1])).'">Prev</a>';
+              }
+
+              if ($from > 1) {
+                echo '<a href="'.sa_esc(sa_url_with(['page'=>1])).'">1</a><span class="sep">…</span>';
+              }
+
+              for ($p=$from; $p<=$to; $p++) {
+                $cls = $p===$page ? 'class="active"' : '';
+                echo '<a '.$cls.' href="'.sa_esc(sa_url_with(['page'=>$p])).'">'.(int)$p.'</a>';
+              }
+
+              if ($to < $totalPages) {
+                echo '<span class="sep">…</span><a href="'.sa_esc(sa_url_with(['page'=>$totalPages])).'">'.(int)$totalPages.'</a>';
+              }
+
+              if ($page < $totalPages) {
+                echo '<a href="'.sa_esc(sa_url_with(['page'=>$page+1])).'">Next</a>';
+                echo '<a href="'.sa_esc(sa_url_with(['page'=>$totalPages])).'">Last</a>';
+              }
+            ?>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /.wrap -->
+  </section>
+</main>
+
+<!-- SweetAlert-like reusable modal -->
+<div class="sweet-overlay" id="sweetOverlay" role="dialog" aria-modal="true" aria-hidden="true">
+  <div class="sweet" id="sweetBox">
+    <div class="icon" id="sweetIcon"></div>
+    <div class="title" id="sweetTitle"></div>
+    <div class="text" id="sweetText"></div>
+    <div class="actions" id="sweetActions">
+      <button class="btn cancel" id="sweetCancel">Cancel</button>
+      <button class="btn primary" id="sweetOk">OK</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ======================= Interactions ======================= */
+(function(){
+  const $  = (s,root=document)=>root.querySelector(s);
+  const $$ = (s,root=document)=>Array.from(root.querySelectorAll(s));
+
+  /* SweetAlert-like helpers */
+  const overlay = $('#sweetOverlay');
+  const box     = $('#sweetBox');
+  const icon    = $('#sweetIcon');
+  const title   = $('#sweetTitle');
+  const text    = $('#sweetText');
+  const btnOK   = $('#sweetOk');
+  const btnCancel = $('#sweetCancel');
+
+  function openSweet({type='success', title:t='Done', text:tx='', confirmText='OK', showCancel=false}={}, cb){
+    overlay.style.display = 'flex';
+    box.classList.remove('success','error');
+    box.classList.add(type);
+    icon.innerHTML = type==='success'
+      ? '<svg width="26" height="26" viewBox="0 0 24 24" fill="#16a34a"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>'
+      : '<svg width="26" height="26" viewBox="0 0 24 24" fill="#dc2626"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>';
+    title.textContent = t;
+    text.textContent  = tx;
+    btnOK.textContent = confirmText || 'OK';
+    btnCancel.style.display = showCancel ? 'inline-flex' : 'none';
+
+    function cleanup(){ overlay.style.display='none'; btnOK.onclick=null; btnCancel.onclick=null; overlay.onclick=null; }
+    btnOK.onclick = ()=>{ cleanup(); cb && cb(true); };
+    btnCancel.onclick = ()=>{ cleanup(); cb && cb(false); };
+    overlay.onclick = (e)=>{ if(e.target===overlay){ cleanup(); cb && cb(false); } };
+  }
+
+  function sweetConfirm({title, text, confirmText='Yes', type='error'}, cb){
+    openSweet({type, title, text, confirmText, showCancel:true}, (ok)=> cb && cb(ok));
+  }
+  function sweetAlert({title, text, type='success', confirmText='OK'}){
+    openSweet({type, title, text, confirmText, showCancel:false});
+  }
+
+  /* Bulk selection */
+  const checkAll   = $('#checkAll');
+  const rowChecks  = $$('.rowcheck');
+  const bulkBar    = $('#bulkBar');
+  const bulkCount  = $('#bulkCount');
+  const bulkAction = $('#bulkAction');
+  const bulkForm   = $('#bulkForm');
+
+  function refreshBulk(){
+    const n = rowChecks.filter(c => c.checked).length;
+    bulkCount.textContent = n;
+    bulkBar.classList.toggle('active', n>0);
+    if (checkAll) {
+      checkAll.checked = (n === rowChecks.length && n>0);
+      checkAll.indeterminate = (n>0 && n<rowChecks.length);
+    }
+  }
+  if (checkAll) {
+    checkAll.addEventListener('change', () => {
+      rowChecks.forEach(c => c.checked = checkAll.checked);
+      refreshBulk();
+    });
+  }
+  rowChecks.forEach(c => c.addEventListener('change', refreshBulk));
+
+  /* Bulk buttons */
+  $('#bulkReadBtn').addEventListener('click', () => {
+    if (!rowChecks.some(c=>c.checked)) return;
+    bulkAction.value = 'mark_read';
+    bulkForm.submit();
+  });
+  $('#bulkUnreadBtn').addEventListener('click', () => {
+    if (!rowChecks.some(c=>c.checked)) return;
+    bulkAction.value = 'mark_unread';
+    bulkForm.submit();
+  });
+  $('#bulkDeleteBtn').addEventListener('click', () => {
+    if (!rowChecks.some(c=>c.checked)) return;
+    sweetConfirm({
+      title: 'Delete selected alerts?',
+      text: 'This action cannot be undone.',
+      confirmText: 'Delete',
+      type: 'error'
+    }, (ok)=>{
+      if (ok){
+        bulkAction.value = 'delete';
+        bulkForm.submit();
+      }
+    });
+  });
+
+  /* Per-row delete confirmation */
+  $$('.deleteRowBtn').forEach(btn=>{
+    btn.addEventListener('click', (e)=>{
+      const form = e.currentTarget.closest('form');
+      sweetConfirm({
+        title: 'Delete this alert?',
+        text: 'This action cannot be undone.',
+        confirmText: 'Delete',
+        type: 'error'
+      }, (ok)=>{ if(ok) form.submit(); });
+    });
+  });
+
+  /* Mark all as read confirmation */
+  $('#markAllBtn').addEventListener('click', ()=>{
+    sweetConfirm({
+      title: 'Mark all recent alerts as read?',
+      text: 'Applies to the last 7 days.',
+      confirmText: 'Mark all read',
+      type: 'success'
+    }, (ok)=>{ if(ok) $('#markAllForm').submit(); });
+  });
+
+  /* Flash popup from server */
+  <?php if ($flash): ?>
+    sweetAlert({
+      title: <?= json_encode($flash[1]==='error' ? 'Completed' : 'Completed') ?>,
+      text:  <?= json_encode($flash[0]) ?>,
+      type:  <?= json_encode($flash[1]) ?>
+    });
+  <?php endif; ?>
+
+  /* Optional client-side 30s auto-refresh */
+  const urlParams = new URLSearchParams(location.search);
+  if (urlParams.get('autorefresh') === '1') {
+    setInterval(() => location.reload(), 30000);
+  }
+})();
+</script>
 
 
 

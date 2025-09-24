@@ -1,9 +1,9 @@
 <?php
 // ===============================
-// Admin Header + Sidebar (Indigo Sidebar + Green Active)
-// + Security Alerts tab with unread counter
+// Admin Header + Sidebar (Indigo Sidebar)
+// - Sidebar: no unread count, icons are white
+// - Header: unread badge is red
 // ===============================
-
 if (session_status() === PHP_SESSION_NONE) session_start();
 require_once '../../config/db.php';
 
@@ -17,7 +17,6 @@ if ($userId) {
     $stmt = $pdo->prepare("SELECT first_name, last_name, profile_image FROM users WHERE id = ?");
     $stmt->execute([$userId]);
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
-
     if ($user) {
         $first = isset($user['first_name']) ? $user['first_name'] : '';
         $last  = isset($user['last_name']) ? $user['last_name'] : '';
@@ -26,21 +25,14 @@ if ($userId) {
     }
 }
 
-// OPTIONAL: Unread security alerts counter
-// Assumes a table `security_alerts` with columns: id, user_id (nullable), is_read (0/1), created_at
-// Alerts addressed to a specific user or global (user_id IS NULL) are counted.
+// Unread alerts count (safe fallback)
 $unreadAlertCount = 0;
 try {
-    $stmt = $pdo->prepare("
-        SELECT COUNT(*) 
-        FROM security_alerts 
-        WHERE is_read = 0 
-          AND (:uid IS NULL OR user_id = :uid OR user_id IS NULL)
-    ");
-    $stmt->execute([':uid' => $userId]);
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM security_alerts WHERE is_read = 0");
+    $stmt->execute();
     $unreadAlertCount = (int)$stmt->fetchColumn();
 } catch (Throwable $e) {
-    $unreadAlertCount = 0; // fail safe
+    $unreadAlertCount = 0;
 }
 
 // Cache-busting for profile image
@@ -54,7 +46,6 @@ function isActive($file) {
 }
 ?>
 <link rel="icon" href="../../assets/icon/icon_tab.png" sizes="any">
-<!-- Meta -->
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 
 <!-- Fonts & Icons -->
@@ -66,22 +57,61 @@ function isActive($file) {
 <!-- Styles -->
 <link rel="stylesheet" href="../../assets/css/admin_header.css">
 <style>
-  /* tiny pill badge (in case your CSS doesn't already have one) */
-  .pill {
-    display:inline-flex; align-items:center; justify-content:center;
-    min-width: 18px; height: 18px; padding: 0 6px; margin-left: .5rem;
-    border-radius: 999px; font-size: 11px; font-weight: 700;
-    background: #e11d48; color: #fff; line-height: 18px;
+  :root{
+    --brand-blue:#3056ff;
+    --alert-red:#e02424; /* header badge color when unread > 0 */
   }
-  .admin-header { display:flex; align-items:center; justify-content:space-between; }
-  .header-right a.alerts-link { position:relative; display:inline-flex; align-items:center; gap:.5rem; padding:.5rem; }
-  .header-right a.alerts-link .pill { position:absolute; top:2px; right:2px; }
+
+  .admin-header{ display:flex; align-items:center; justify-content:space-between; }
+
+  /* ===== Header alerts (bell + red badge) ===== */
+  .header-right a.alerts-link{
+    position:relative; display:inline-flex; align-items:center; gap:.5rem; padding:.5rem .6rem;
+    color:#2b3a67; text-decoration:none;
+  }
+  .header-right a.alerts-link i{
+    font-size:18px;
+    color:var(--brand-blue); /* keep bell blue */
+  }
+
+  /* Red numeric pill shown ONLY in header when unread > 0 */
+  .pill{
+    display:inline-flex; align-items:center; justify-content:center;
+    min-width:20px; height:20px; padding:0 7px;
+    border-radius:999px; font-size:11px; font-weight:700;
+    background:var(--alert-red); color:#fff;
+    border:2px solid var(--alert-red); line-height:18px;
+    box-shadow:0 2px 6px rgba(224,36,36,.25);
+  }
+
+  /* place the pill on bell */
+  .header-right a.alerts-link .pill{
+    position:absolute; top:0; right:0; transform:translate(30%,-30%);
+  }
+
+  /* Red pulse ring when there are unread alerts */
+  .alerts-link.has-unread::after{
+    content:""; position:absolute; top:4px; right:4px; width:18px; height:18px;
+    border:2px solid var(--alert-red); border-radius:999px;
+    animation:ringPulse 1.6s cubic-bezier(0,0,.2,1) infinite;
+    pointer-events:none;
+  }
+  @keyframes ringPulse{
+    0%   { transform:scale(.6); opacity:.70; }
+    70%  { transform:scale(1.8); opacity:0; }
+    100% { transform:scale(1.8); opacity:0; }
+  }
+
+  /* Sidebar tweaks */
+  .sidebar-links a i{ color:#fff; } /* make sidebar icons white */
+  /* removed sidebar pill styles entirely */
+  .header-right a.alerts-link:focus{
+    outline:2px solid var(--brand-blue); outline-offset:2px; border-radius:10px;
+  }
 </style>
 
-<!-- SweetAlert2 -->
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
-<!-- Accessible skip link -->
 <a class="skip-link" href="#content">Skip to content</a>
 
 <header class="admin-header">
@@ -91,23 +121,16 @@ function isActive($file) {
     </button>
 
     <a href="dashboard.php" class="logo" aria-label="Go to dashboard" style="background-color: white;">
-      <img
-        src="/kandado/assets/icon/kandado.png"
-        alt="Kandado logo"
-        width="36"
-        height="36"
-        decoding="async"
-        loading="eager"
-      />
+      <img src="/kandado/assets/icon/kandado.png" alt="Kandado logo" width="36" height="36" decoding="async" loading="eager"/>
     </a>
   </div>
 
-  <!-- Optional quick access to Security Alerts in header -->
+  <!-- Header: red unread number when there are notifications -->
   <div class="header-right">
-    <a class="alerts-link" href="security_alerts.php" aria-label="Open security alerts">
-      <i class="fas fa-bell"></i>
+    <a class="alerts-link <?= $unreadAlertCount > 0 ? 'has-unread' : '' ?>" href="security_alerts.php" aria-label="Open security alerts">
+      <i class="fas fa-bell" aria-hidden="true" style = "color: white;"></i>
       <?php if ($unreadAlertCount > 0): ?>
-        <span class="pill" aria-label="<?= (int)$unreadAlertCount ?> unread alerts">
+        <span class="pill" aria-label="<?= (int)$unreadAlertCount ?> unread alerts" role="status" aria-live="polite">
           <?= $unreadAlertCount > 99 ? '99+' : (int)$unreadAlertCount ?>
         </span>
       <?php endif; ?>
@@ -149,28 +172,21 @@ function isActive($file) {
         <i class="fas fa-history"></i> <span>Locker History</span>
       </a>
     </li>
-
-    <!-- Payments -->
     <li>
       <a href="payments.php" class="<?= isActive('payments.php') ?>" aria-current="<?= $currentPage === 'payments.php' ? 'page' : 'false' ?>">
         <i class="fas fa-credit-card"></i> <span>Payments</span>
       </a>
     </li>
-
-    <!-- Wallets -->
     <li>
       <a href="wallet.php" class="<?= isActive('wallet.php') ?>" aria-current="<?= $currentPage === 'wallet.php' ? 'page' : 'false' ?>">
         <i class="fas fa-wallet"></i> <span>Wallets</span>
       </a>
     </li>
 
-    <!-- NEW: Security Alerts -->
+    <!-- Security Alerts (no number shown in sidebar; icon is white via CSS) -->
     <li>
       <a href="security_alerts.php" class="<?= isActive('security_alerts.php') ?>" aria-current="<?= $currentPage === 'security_alerts.php' ? 'page' : 'false' ?>">
         <i class="fas fa-shield-halved"></i> <span>Security Alerts</span>
-        <?php if ($unreadAlertCount > 0): ?>
-          <span class="pill" aria-hidden="true"><?= $unreadAlertCount > 99 ? '99+' : (int)$unreadAlertCount ?></span>
-        <?php endif; ?>
       </a>
     </li>
   </ul>

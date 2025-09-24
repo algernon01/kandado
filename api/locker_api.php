@@ -924,6 +924,63 @@ if(isset($_GET['generate'])){
     jexit($data);
 }
 
+/* ------------------- TAMPER / SECURITY ALERT (from ESP32) ------------------- */
+if (isset($_GET['tamper'])) {
+    $secret = $_GET['secret'] ?? '';
+    if ($secret !== $esp32_secret) jexit(['error' => 'unauthorized'], 401);
+
+    // ★ Make this API's MySQL session UTC so TIMESTAMPs are consistent
+    $conn->query("SET time_zone = '+00:00'");
+
+    // Normalize cause → limit to known values
+    $cause = strtolower(trim($_GET['cause'] ?? 'other'));
+    $allowed = ['theft','door_slam','bump','tilt_only','other'];
+    if (!in_array($cause, $allowed, true)) $cause = 'other';
+
+    // Locker number: 0 = cabinet/global; 1..$TOTAL_LOCKERS for specific
+    $locker_number = isset($_GET['locker']) ? (int)$_GET['locker'] : 0;
+    if ($locker_number < 0 || $locker_number > $TOTAL_LOCKERS) $locker_number = 0;
+
+    // Optional details text (limit length defensively)
+    $details = $_GET['details'] ?? null;
+    if ($details !== null) $details = mb_substr($details, 0, 255, 'UTF-8');
+
+    // Optional device-sent UTC epoch (recommended to omit; server time is fine)
+    $ts = isset($_GET['ts']) ? (int)$_GET['ts'] : 0;
+    // sanity window: 2000-01-01 .. 2100-01-01
+    $hasTs = ($ts >= 946684800 && $ts <= 4102444800);
+
+    // Meta for forensics
+    $meta = [
+        'ip' => $_SERVER['REMOTE_ADDR'] ?? null,
+        'ua' => $_SERVER['HTTP_USER_AGENT'] ?? null,
+    ];
+    $metaJson = json_encode($meta, JSON_UNESCAPED_SLASHES);
+
+    try {
+        if ($hasTs) {
+            // Use device UTC epoch for created_at (still stored/returned as UTC by MySQL session)
+            $stmt = $conn->prepare("
+                INSERT INTO security_alerts (locker_number, cause, details, meta, created_at)
+                VALUES (?, ?, ?, ?, FROM_UNIXTIME(?))
+            ");
+            $stmt->bind_param("isssi", $locker_number, $cause, $details, $metaJson, $ts);
+        } else {
+            // Let MySQL set created_at = CURRENT_TIMESTAMP (in UTC because of SET time_zone)
+            $stmt = $conn->prepare("
+                INSERT INTO security_alerts (locker_number, cause, details, meta)
+                VALUES (?, ?, ?, ?)
+            ");
+            $stmt->bind_param("isss", $locker_number, $cause, $details, $metaJson);
+        }
+
+        $stmt->execute();
+        jexit(['success' => true]);
+    } catch (mysqli_sql_exception $e) {
+        jexit(['error' => 'tamper_insert_failed', 'message' => $e->getMessage()], 500);
+    }
+}
+
 /* ------------------- FETCH LOCKERS ------------------- */
 $lockerStatus=[];
 
