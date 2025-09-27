@@ -1,8 +1,4 @@
-/* ===========================================
-   LIGHT UI THEME — Responsive & Accessible
-   All styles are scoped to #manage-users
-   =========================================== */
-:root { color-scheme: only light; } /* enforce light */
+:root { color-scheme: only light; } 
 #manage-users{
   --brand: #2563eb;
   --brand-2:#60a5fa;
@@ -29,12 +25,10 @@
   line-height:1.45; overflow-x:hidden;
 }
 
-/* Layout */
 #manage-users .mu-main{ margin-top:var(--header-h); margin-left:var(--sidebar-w); min-height:calc(100vh - var(--header-h)); padding: 20px clamp(16px,2vw,32px); }
 @media (max-width: 860px){ #manage-users .mu-main{ margin-left:0; } }
 #manage-users .container-xl{ max-width:1220px; margin:0 auto; }
 
-/* Typography & utilities (no explicit weights here) */
 #manage-users .h1{ font-size: clamp(1.4rem, 1.2rem + 1vw, 2rem); margin:0; letter-spacing:-.01em; }
 #manage-users .lead{ color:var(--muted); }
 #manage-users .small{ font-size:.875rem; color:var(--muted); }
@@ -49,13 +43,11 @@
 #manage-users .text-end{ text-align:right; }
 #manage-users .text-center{ text-align:center; }
 
-/* Cards */
 #manage-users .card{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:var(--shadow-md); overflow:hidden; }
 #manage-users .card-body{ padding:1rem; }
 #manage-users .card-header, #manage-users .card-footer{ background:var(--subtle); border-bottom:1px solid var(--border); padding:.75rem 1rem; }
 #manage-users .card-footer{ border-top:1px solid var(--border); border-bottom:none; }
 
-/* Buttons */
 #manage-users .btn{
   --bg:#fff; --bd:var(--border); --fg:var(--ink);
   display:inline-flex; align-items:center; justify-content:center; gap:.5rem;
@@ -72,13 +64,11 @@
 #manage-users .btn-primary{ --bg:var(--brand); --bd:var(--brand); --fg:#fff; box-shadow:0 4px 14px rgba(37,99,235,.18); }
 #manage-users .btn-ghost{ --bg:#fff; --bd:var(--border); --fg:var(--ink); }
 
-/* Friendly colors */
 #manage-users .btn-view{    --bg:#eef2ff; --bd:#c7d2fe; --fg:#1d4ed8; }
 #manage-users .btn-warning{ --bg:#fff7ed; --bd:#fed7aa; --fg:#b45309; }
 #manage-users .btn-success{ --bg:#ecfdf5; --bd:#bbf7d0; --fg:#166534; }
 #manage-users .btn-danger{  --bg:#fff1f2; --bd:#fecdd3; --fg:#b91c1c; }
 
-/* Segmented control */
 #manage-users .segmented{
   display:inline-flex; gap:.35rem; padding:.25rem; border:1px solid var(--border);
   border-radius:999px; background:#fff; box-shadow:var(--shadow-sm);
@@ -89,7 +79,6 @@
 }
 #manage-users .segmented a.active{ background:linear-gradient(180deg,#5da1ff,#2b6ffb); color:#fff; }
 
-/* Inputs */
 #manage-users .form-label{ font-size:.9rem; margin-bottom:.35rem; color:#334155; }
 #manage-users .form-control, #manage-users .form-select{
   appearance:none; width:100%; border:1px solid var(--border); border-radius:12px; padding:.6rem .8rem;
@@ -102,7 +91,6 @@
 #manage-users .input-icon .addon{ position:absolute; inset-inline-start:.65rem; inset-block:0; display:grid; place-items:center; color:#64748b; }
 #manage-users .input-icon input{ padding-inline-start:2rem; }
 
-/* Top toolbar */
 #manage-users .toolbar{
   display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap;
   background:linear-gradient(180deg,#ffffff, #f6f9ff 100%);
@@ -111,7 +99,6 @@
 }
 #manage-users .toolbar .right{ display:flex; gap:.6rem; align-items:center; flex-wrap:wrap; }
 
-/* Columns dropdown */
 #manage-users .dropdown{ position:relative; }
 #manage-users .menu{
   position:absolute; right:0; top:calc(100% + .4rem); min-width:240px; background:#fff; border:1px solid var(--border);
@@ -120,7 +107,6 @@
 #manage-users .menu.open{ display:block; }
 #manage-users .menu .form-check{ display:flex; align-items:center; gap:.5rem; margin:.35rem 0; font-size:.95rem; }
 
-/* Filters row */
 #manage-users .filters.card{ border:none; box-shadow:none; background:transparent; }
 #manage-users details.filters > summary{
   list-style:none; cursor:pointer; display:inline-flex; align-items:center; gap:.5rem; padding:.45rem .8rem;
@@ -132,13 +118,11 @@
   #manage-users .filters-grid{ grid-template-columns: 1.2fr .8fr .8fr .8fr .8fr; align-items:end; }
 }
 
-/* Sort strip */
 #manage-users .sort-strip{
   display:flex; align-items:center; gap:.35rem; overflow-x:auto; padding:.25rem;
 }
 #manage-users .sort-strip .btn{ white-space:nowrap; }
 
-/* Table */
 #manage-users .table-wrap{ overflow:auto; border:1px solid var(--border); border-radius:var(--radius-lg); background:#fff; box-shadow:var(--shadow-md); }
 #manage-users table{ width:100%; border-collapse:separate; border-spacing:0; }
 #manage-users thead th{
@@ -151,7 +135,6 @@
 #manage-users tbody tr:nth-child(even){ background:#fbfdff; }
 #manage-users .table-hover tbody tr:hover{ background:#f8fbff; }
 
-/* Badges */
 #manage-users .badge{ display:inline-flex; align-items:center; gap:.35rem; padding:.35rem .6rem; border-radius:999px; font-size:.78rem; }
 #manage-users .badge-admin{ background:#1e293b; color:#fff; }
 #manage-users .badge-user{ background:#e2e8f0; color:#1e293b; }
@@ -159,16 +142,13 @@
 #manage-users .badge-archived{ background:#fff7ed; color:#b45309; border:1px solid #fed7aa; }
 #manage-users .row-archived{ background:#fff7ed !important; }
 
-/* Avatar */
 #manage-users .avatar{ width:44px; height:44px; object-fit:cover; border-radius:50%; border:2px solid transparent; box-shadow:0 2px 8px rgba(2,6,23,.06); }
 #manage-users .avatar-ring{ position:relative; }
 #manage-users .avatar-ring .ring{ position:absolute; inset:-2px; border:2px solid var(--brand); border-radius:50%; pointer-events:none; }
 
-/* Actions */
 #manage-users .btn-list{ display:flex; align-items:center; gap:.45rem; flex-wrap:nowrap; justify-content:center; }
 #manage-users .btn-list .btn{ white-space:nowrap; }
 
-/* Mobile table → cards */
 @media (max-width: 860px){
   #manage-users table thead{ display:none; }
   #manage-users table tbody tr{ display:block; margin:12px 12px; border:1px solid var(--border); border-radius:14px; overflow:hidden; background:#fff; box-shadow:var(--shadow-sm); }
@@ -181,7 +161,6 @@
   #manage-users .btn-list{ gap:.4rem !important; flex-wrap:nowrap; overflow-x:auto; }
 }
 
-/* Sticky bulk bar (mobile) */
 #manage-users #bulkBar{
   display:none; position:fixed; left:50%; transform:translateX(-50%); bottom:max(12px, env(safe-area-inset-bottom));
   background:#fff; border:1px solid var(--border); border-radius:999px; box-shadow:var(--shadow-md); padding:.25rem .35rem; z-index:1000; gap:.25rem;
@@ -189,10 +168,8 @@
 #manage-users #bulkBar .btn{ border-radius:999px; padding:.45rem .6rem; }
 @media (min-width: 861px){ #manage-users #bulkBar{ display:none !important; } }
 
-/* Column visibility */
 #manage-users .hidden-col{ display:none !important; }
 
-/* Modal */
 #manage-users .mu-modal{ position:fixed; inset:0; background:rgba(2,6,23,.5); display:none; align-items:center; justify-content:center; z-index:1200; backdrop-filter: blur(2px); }
 #manage-users .mu-modal.open{ display:flex; }
 #manage-users .mu-modal .mu-dialog{ width:min(560px, 92vw); background:#fff; border-radius:16px; box-shadow:var(--shadow-md); overflow:hidden; position:relative; }
@@ -204,47 +181,37 @@
   border-radius:999px; padding:.25rem .55rem; font-size:.75rem; display:none;
 }
 
-/* Accessibility & polish */
 #manage-users *:focus-visible{ outline:3px solid rgba(37,99,235,.35); outline-offset:2px; }
 @media (prefers-reduced-motion: reduce){
   #manage-users *, #manage-users *::before, #manage-users *::after{ animation:none !important; transition:none !important; }
 }
 
-/* Spacing utilities */
 #manage-users .me-1 { margin-inline-end:.25rem; }
 #manage-users .me-2 { margin-inline-end:.5rem; }
 #manage-users .ms-1 { margin-inline-start:.25rem; }
 #manage-users .ms-2 { margin-inline-start:.5rem; }
 
-/* ====================================================
-   GLOBAL: make ALL text semibold (weight 600)
-   ==================================================== */
 #manage-users,
 #manage-users *,
 #manage-users *::before,
 #manage-users *::after{
-  font-weight:600 !important; /* <- matches your screenshot */
+  font-weight:600 !important;
 }
 
-/* Placeholders also 600 */
 #manage-users input::placeholder,
 #manage-users textarea::placeholder{ font-weight:600 !important; }
 
-/* ====================================================
-   EXCEPTIONS for Font Awesome icons
-   (icons use weight to pick style)
-   ==================================================== */
 #manage-users .fa-solid,
 #manage-users .fas,
 #manage-users .fa-solid::before,
-#manage-users .fas::before{ font-weight:900 !important; }   /* solid icons */
+#manage-users .fas::before{ font-weight:900 !important; }
 
 #manage-users .fa-regular,
 #manage-users .far,
 #manage-users .fa-regular::before,
-#manage-users .far::before{ font-weight:400 !important; }   /* regular icons */
+#manage-users .far::before{ font-weight:400 !important; }
 
 #manage-users .fa-brands,
 #manage-users .fab,
 #manage-users .fa-brands::before,
-#manage-users .fab::before{ font-weight:400 !important; }   /* brands */
+#manage-users .fab::before{ font-weight:400 !important; }
