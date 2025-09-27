@@ -1,18 +1,17 @@
 <?php
-// /kandado/lib/email_lib.php
-// Centralized email helpers (keeps original designs; adds login link to locker email)
+
 
 require_once $_SERVER['DOCUMENT_ROOT'] . '/kandado/vendor/autoload.php';
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
 
-/** Public login URL used in emails (requested) */
+
 const KANDADO_LOGIN_URL = 'http://longhorn-settling-precisely.ngrok-free.app/kandado/public/login.php';
 
-/** Local network login URL (added for QR email fallback) */
+
 const KANDADO_LOGIN_URL_LOCAL = 'http://192.168.100.15/kandado/public/login.php';
 
-/** Brand color */
+
 const KANDADO_BRAND_COLOR = '#3353bb';
 
 function kandado_mailer(): PHPMailer {
@@ -20,11 +19,11 @@ function kandado_mailer(): PHPMailer {
     $mail->CharSet   = 'UTF-8';
     $mail->isSMTP();
 
-    // Prefer env vars if present; fall back to your existing settings
+
     $mail->Host       = getenv('KANDADO_SMTP_HOST') ?: 'smtp.gmail.com';
     $mail->SMTPAuth   = true;
     $mail->Username   = getenv('KANDADO_SMTP_USER') ?: 'lockerkandado01@gmail.com';
-    $mail->Password   = getenv('KANDADO_SMTP_PASS') ?: 'pzyuqdxojumykxgs'; // consider env var!
+    $mail->Password   = getenv('KANDADO_SMTP_PASS') ?: 'pzyuqdxojumykxgs'; 
     $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
     $mail->Port       = (int) (getenv('KANDADO_SMTP_PORT') ?: 465);
 
@@ -33,16 +32,13 @@ function kandado_mailer(): PHPMailer {
     return $mail;
 }
 
-/**
- * Account verification email
- * $verificationLink is full URL including token (already rawurlencoded upstream)
- */
+
 function email_verify_account(string $to, string $firstName, string $lastName, string $verificationLink): bool {
     if (!$to || !$verificationLink) return false;
     try {
         $mail = kandado_mailer();
         $fullName = trim($firstName.' '.$lastName);
-        // Use unescaped name for headers, escaped for HTML
+   
         $displayName = $fullName ?: $to;
         $safeFullName = htmlspecialchars($displayName, ENT_QUOTES, 'UTF-8');
         $brandColor = KANDADO_BRAND_COLOR;
@@ -51,7 +47,7 @@ function email_verify_account(string $to, string $firstName, string $lastName, s
         $mail->addAddress($to, $displayName);
         $mail->Subject = 'Verify your Kandado account (expires in 1 hour)';
 
-        // Polished, responsive email
+  
         $mail->Body = "
 <!doctype html>
 <html lang='en'>
@@ -151,7 +147,7 @@ function email_verify_account(string $to, string $firstName, string $lastName, s
   </table>
 </body>
 </html>";
-        // Plain-text fallback
+  
         $mail->AltBody = "Welcome to Kandado!\n\n"
             ."Verify your email (link expires in 1 hour):\n"
             .$verificationLink."\n\n"
@@ -165,9 +161,7 @@ function email_verify_account(string $to, string $firstName, string $lastName, s
     }
 }
 
-/**
- * Password reset email
- */
+
 function email_reset_password(string $to, string $firstName, string $resetLink): bool {
     if (!$to || !$resetLink) return false;
     try {
@@ -281,16 +275,13 @@ function email_reset_password(string $to, string $firstName, string $resetLink):
     }
 }
 
-/**
- * Locker QR email (sent when user avails / reserves a locker)
- * Adds a prominent login link + note about using data/another network.
- */
+
 function email_qr($to, $name, int $locker, string $qr_path_abs, string $code, string $reserve_date, string $reserve_time, string $expires_at_fmt): bool {
     if (!$to) return false;
     try {
         $mail = kandado_mailer();
-        $displayName = $name ?: $to; // for headers
-        $safeName = htmlspecialchars($displayName, ENT_QUOTES, 'UTF-8'); // for HTML
+        $displayName = $name ?: $to; 
+        $safeName = htmlspecialchars($displayName, ENT_QUOTES, 'UTF-8'); 
         $brandColor = KANDADO_BRAND_COLOR;
         $loginUrl   = KANDADO_LOGIN_URL;
         $loginUrlLocal = KANDADO_LOGIN_URL_LOCAL;
@@ -434,7 +425,7 @@ function email_qr($to, $name, int $locker, string $qr_path_abs, string $code, st
             $mail->addEmbeddedImage($qr_path_abs, $cid);
         }
 
-        // Plain-text fallback (with login link + note)
+   
         $mail->AltBody =
             "Hello {$displayName},\n\n"
             ."You have successfully reserved Locker #{$locker}.\n\n"
@@ -454,7 +445,7 @@ function email_qr($to, $name, int $locker, string $qr_path_abs, string $code, st
     }
 }
 
-/** On Hold email (unchanged design) */
+
 function email_on_hold($to, $name, int $locker): bool {
     if (!$to) return false;
     try {
@@ -499,7 +490,7 @@ function email_on_hold($to, $name, int $locker): bool {
     }
 }
 
-/** Expired with no item (session released) */
+
 function email_expired_released($to, $name, int $locker): bool {
     if (!$to) return false;
     try {
@@ -548,7 +539,7 @@ function email_time_left($to, $name, int $locker, int $minutes_left, string $exp
     }
 }
 
-/** Power outage / backup power warning (admin-triggered) */
+
 function email_power_alert($to, $name, int $locker, string $deadline_human): bool {
     if (!$to) return false;
     try {
@@ -557,7 +548,7 @@ function email_power_alert($to, $name, int $locker, string $deadline_human): boo
         $safeName = htmlspecialchars($displayName, ENT_QUOTES, 'UTF-8');
         $brandColor = KANDADO_BRAND_COLOR;
 
-        // ASCII-only subject line to avoid encoding issues in some clients
+
         $mail->Subject = "Important: Locker #{$locker} - Please retrieve within 1 hour";
         $mail->addAddress($to, $displayName);
 
