@@ -1,4 +1,3 @@
-// mylocker.js — My Locker page with Wallet + Extend modal (same UI as Reserve)
 (() => {
   const el = (id) => document.getElementById(id);
 
@@ -11,7 +10,7 @@
   let   expiresAtMs  = Number(lockerObj.expiresAtMs) || (Date.now() - 1);
   const DEFAULT_DURATION = BOOT.defaultDuration || '30min';
 
-  if (!lockerCode) return; // page not ready
+  if (!lockerCode) return; 
 
   /* ===== CONSTANTS / API ===== */
   const API_BASE        = `${window.location.origin}/kandado/api`;
@@ -77,7 +76,7 @@
   let timeOffset = (Number(serverNowMs) || Date.now()) - Date.now();
   const nowAligned = () => Date.now() + timeOffset;
 
-  // Initial baseline to color progress hue consistently
+  
   const baselineKey = () => `lockerBaseline:${lockerCode}:${Math.floor(expiresAtMs)}`;
   function loadBaselineMs(){ try{ const v=parseInt(localStorage.getItem(baselineKey()),10); return Number.isFinite(v)&&v>0?v:null; }catch{ return null; } }
   function saveBaselineMs(ms){ try{ localStorage.setItem(baselineKey(), String(Math.max(1, Math.floor(ms)))); }catch{} }
@@ -138,7 +137,7 @@
 
     const label = d > 0 ? `${d}d ${hh}:${mm}:${ss}` : `${hh}:${mm}:${ss}`;
     if (remainingTimeEl) remainingTimeEl.textContent = label;
-    // --- /CHANGED ---
+
 
     const ratio = Math.max(0, Math.min(1, diff / Math.max(1, initialRemainingMs)));
     if (progressBar) progressBar.style.width = (ratio * 100) + '%';
@@ -164,7 +163,7 @@
           const parsed = Date.parse(dateHeader);
           if (!Number.isNaN(parsed)) timeOffset = parsed - Date.now();
         }
-        // If locker no longer occupied, mark used
+
         const list = Object.values(data || {});
         const still = list.some(l => l?.code === lockerCode && l?.status === 'occupied');
         if (!still){
@@ -181,7 +180,7 @@
 
   /* ===== WALLET ===== */
   let walletBalance = 0;
-  const walletHint = el('walletHint');    // optional line under price on page
+  const walletHint = el('walletHint');   
   function paintWallet(){ if (walletHint) walletHint.textContent = `Wallet: ${peso(walletBalance)}`; }
   async function loadWallet(){
     try{
@@ -339,7 +338,7 @@
 
       const [{ data, headers }] = await Promise.all([
         jsonFetch(url.toString(), { method:'GET' }),
-        wait(900) // small friendly spinner
+        wait(900) 
       ]);
 
       const dateHeader = headers.get('date');
@@ -357,7 +356,7 @@
         throw new Error(data.message || data.error || 'Extend failed');
       }
 
-      // New expiry
+     
       let newMs = null;
       if (typeof data?.expires_at_ms === 'number') newMs = data.expires_at_ms;
       else if (typeof data?.expires_at_epoch === 'number') newMs = data.expires_at_epoch * 1000;
@@ -377,7 +376,7 @@
         startTick();
       }
 
-      // Update wallet line from backend new balance (API returns it)
+      
       if (typeof data?.balance === 'number'){
         walletBalance = Number(data.balance);
         paintWallet();
@@ -450,7 +449,7 @@ if (saveBtn && qrImage){
 
       Swal?.fire({ toast:true, position:'top-end', icon:'success', title:'QR saved', showConfirmButton:false, timer:1500 });
     }catch(err){
-      // Fallback: open in new tab so your current page/session stays
+      
       try{ window.open(dlUrl, '_blank', 'noopener'); }catch{}
       Swal?.fire({ icon:'info', title:'Opened in new tab', text:'Save the QR from the new tab.' });
     }
@@ -529,7 +528,7 @@ if (saveBtn && qrImage){
     window.addEventListener('offline', () => setOnlineUI(false));
   })();
 
-  // Hook Extend button -> modal UI
+  
   const extendBtn = el('extendBtn');
   if (extendBtn){
     extendBtn.addEventListener('click', async () => {

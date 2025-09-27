@@ -18,9 +18,9 @@ if (!isset($_SESSION['user_id'])) {
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="icon" href="../assets/icon/icon_tab.png" sizes="any">
-  <!-- Global styles -->
+
   <link rel="stylesheet" href="/kandado/assets/css/users_dashboard.css">
-  <!-- Page-specific styles (as requested path) -->
+
   <link rel="stylesheet" href="../../assets/css/topup.css">
 </head>
 <body>
@@ -91,9 +91,9 @@ if (!isset($_SESSION['user_id'])) {
     </div>
   </main>
 
-  <!-- libs first -->
+
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-  <!-- page script (as requested path) -->
+
   <script src="../../assets/js/topup.js" defer></script>
 </body>
 </html>

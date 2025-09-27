@@ -5,10 +5,10 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
-/** ===================== LAN GUARD (add once at the top) ===================== */
+
 function effective_client_ip(): string {
     $remote = $_SERVER['REMOTE_ADDR'] ?? '';
-    // If request comes through a local proxy (ngrok -> 127.0.0.1), trust X-Forwarded-For
+
     if ($remote === '127.0.0.1' || $remote === '::1') {
         if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
             $xff = explode(',', $_SERVER['HTTP_X_FORWARDED_FOR'])[0];
@@ -18,7 +18,7 @@ function effective_client_ip(): string {
             return trim($_SERVER['HTTP_X_REAL_IP']);
         }
     }
-    // If ever behind Cloudflare
+
     if (!empty($_SERVER['HTTP_CF_CONNECTING_IP'])) {
         return trim($_SERVER['HTTP_CF_CONNECTING_IP']);
     }
@@ -27,25 +27,25 @@ function effective_client_ip(): string {
 
 function is_lan_ip(string $ip): bool {
     if ($ip === '') return false;
-    if (stripos($ip, '::ffff:') === 0) $ip = substr($ip, 7); // IPv4-mapped IPv6
+    if (stripos($ip, '::ffff:') === 0) $ip = substr($ip, 7); 
 
-    // IPv4
+   
     if (preg_match('/^\d+\.\d+\.\d+\.\d+$/', $ip)) {
         if (strpos($ip, '10.') === 0) return true;
         if (strpos($ip, '192.168.') === 0) return true;
         if (strpos($ip, '172.') === 0) {
             $second = (int) explode('.', $ip)[1];
-            if ($second >= 16 && $second <= 31) return true; // 172.16.0.0/12
+            if ($second >= 16 && $second <= 31) return true; 
         }
-        if ($ip === '127.0.0.1') return true; // loopback
+        if ($ip === '127.0.0.1') return true; 
         return false;
     }
 
-    // IPv6 (loopback, ULA, link-local)
+
     $low = strtolower($ip);
     if ($low === '::1') return true;
-    if (strpos($low, 'fc') === 0 || strpos($low, 'fd') === 0) return true; // fc00::/7
-    if (strpos($low, 'fe80:') === 0) return true; // link-local
+    if (strpos($low, 'fc') === 0 || strpos($low, 'fd') === 0) return true; 
+    if (strpos($low, 'fe80:') === 0) return true; 
     return false;
 }
 
@@ -64,18 +64,17 @@ function is_mutating_request(): bool {
 $clientIp    = effective_client_ip();
 $host        = strtolower($_SERVER['HTTP_HOST'] ?? '');
 $isLan       = is_lan_ip($clientIp);
-$isNgrokHost = (strpos($host, 'ngrok') !== false); // matches *.ngrok.io / *.ngrok-free.app
+$isNgrokHost = (strpos($host, 'ngrok') !== false); 
 
-// Read-only when NOT on LAN or when accessed via an ngrok host
+
 $READ_ONLY_BY_NETWORK = $isNgrokHost || !$isLan;
 
-// Hard-block any writes (POST/PUT/PATCH/DELETE) when off-LAN
 if ($READ_ONLY_BY_NETWORK && is_mutating_request()) {
     http_response_code(403);
     header('Content-Type: text/plain; charset=utf-8');
     exit("Writes are disabled when not on the LAN. Connect to the local network to reserve.");
 }
-/** =================== END LAN GUARD =================== */
+
 
 $TOTAL_LOCKERS = 4;
 
@@ -100,7 +99,7 @@ if (isset($_SESSION['on_hold'])) {
   } catch (\Throwable $e) { $IS_ON_HOLD = false; }
 }
 
-// Combine account hold + network read-only for the UI lock
+
 $IS_READ_ONLY = $IS_ON_HOLD || $READ_ONLY_BY_NETWORK;
 ?>
 <!DOCTYPE html>
@@ -119,7 +118,7 @@ $IS_READ_ONLY = $IS_ON_HOLD || $READ_ONLY_BY_NETWORK;
   <link rel="icon" href="../../assets/icon/icon_tab.png" sizes="any">
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
-  <!-- Read-only visuals -->
+
   <style>
     .hold-banner{
       margin:12px auto; max-width:1100px; padding:12px 14px;
@@ -137,12 +136,12 @@ $IS_READ_ONLY = $IS_ON_HOLD || $READ_ONLY_BY_NETWORK;
     }
     .disabled-link{ opacity:.55; pointer-events:none; }
 
-    /* Only dim CONTENT areas, never the header (so Top Up stays crisp) */
+
     .is-locked [data-lockable]:not(.page-header){
       opacity:.55; filter:saturate(.7);
     }
 
-    /* Inline (non-sticky) badge under the banner that doesn't scroll with the page header */
+
     .lock-inline-row{
       margin:-6px auto 10px;
       max-width:1100px;
@@ -168,7 +167,7 @@ $IS_READ_ONLY = $IS_ON_HOLD || $READ_ONLY_BY_NETWORK;
 
   <main class="container <?= $IS_READ_ONLY ? 'is-locked' : '' ?>" role="main">
     <?php if ($IS_READ_ONLY): ?>
-      <!-- Read-only banner -->
+
       <div class="hold-banner" role="alert" aria-live="assertive">
         <span class="icon" aria-hidden="true">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 11V6a2 2 0 1 1 4 0v4h1V4a2 2 0 1 1 4 0v7h1V7a2 2 0 1 1 4 0v9a6 6 0 0 1-6 6h-2a7 7 0 0 1-7-7v-4h1z"/></svg>
@@ -182,13 +181,13 @@ $IS_READ_ONLY = $IS_ON_HOLD || $READ_ONLY_BY_NETWORK;
           <?php endif; ?>
         </div>
       </div>
-      <!-- Inline (non-sticky) badge just under the banner -->
+
       <div class="lock-inline-row" aria-hidden="true">
         <div class="badge"><?= $IS_ON_HOLD ? 'On-hold mode: read-only' : 'Public access: read-only' ?></div>
       </div>
     <?php endif; ?>
 
-    <!-- ======= HEADER (kept bright & clickable) ======= -->
+  
     <header class="page-header" role="region" aria-label="Locker dashboard controls" data-lockable>
       <div class="title-wrap">
         <h2>
@@ -314,7 +313,7 @@ $IS_READ_ONLY = $IS_ON_HOLD || $READ_ONLY_BY_NETWORK;
 
       const isTopUp = (el) => !!(el && (el.classList?.contains('wallet-topup-btn') || el.closest?.('#walletWidget')));
 
-      // 1) Disable common controls EXCEPT Top Up
+
       const disableEl = (el) => {
         if (!el || isTopUp(el)) return;
         const tag = el.tagName;
@@ -331,32 +330,32 @@ $IS_READ_ONLY = $IS_ON_HOLD || $READ_ONLY_BY_NETWORK;
 
       const root = document.querySelector('main.container');
       const interactiveSelectors = [
-        'button', 'a.btn', /* leave .wallet-topup-btn enabled */
+        'button', 'a.btn', 
         '.segmented .seg',
         '#searchInput', '#clearSearch', '#lockerGrid button', '#lockerGrid a',
         'input', 'select', 'textarea', '[role="tab"]', '[type="submit"]'
       ];
       interactiveSelectors.forEach(sel => root.querySelectorAll(sel).forEach(disableEl));
 
-      // 2) Intercept form submissions
+
       document.addEventListener('submit', function(e){
         if (!window.DASHBOARD.onHold) return;
         e.preventDefault(); e.stopImmediatePropagation();
         Swal.fire({ icon:'info', title:'Read-only mode', text:'Actions are disabled right now.', confirmButtonColor:'#0d5ef4' });
       }, true);
 
-      // 3) Intercept clicks, but ALLOW Top Up and header nav
+ 
       document.addEventListener('click', function(e){
         if (!window.DASHBOARD.onHold) return;
         const t = e.target.closest('button, a, [role="button"], [role="tab"]');
         if (!t) return;
-        if (t.closest('header') && !t.closest('.page-header')) return; // top global header
-        if (isTopUp(t)) return; // allow Top Up
+        if (t.closest('header') && !t.closest('.page-header')) return; 
+        if (isTopUp(t)) return; 
         e.preventDefault(); e.stopImmediatePropagation();
         Swal.fire({ icon:'info', title:'Read-only mode', text:'Actions are disabled right now.', confirmButtonColor:'#0d5ef4' });
       }, true);
 
-      // 4) Intercept fetch() that tries to modify state (anything not GET)
+   
       const origFetch = window.fetch.bind(window);
       window.fetch = function(resource, init){
         try {
@@ -368,7 +367,7 @@ $IS_READ_ONLY = $IS_ON_HOLD || $READ_ONLY_BY_NETWORK;
         return origFetch(resource, init);
       };
 
-      // 5) Intercept XHR (legacy)
+
       const origOpen = XMLHttpRequest.prototype.open;
       XMLHttpRequest.prototype.open = function(method, url){
         this.__method = method;
@@ -384,7 +383,6 @@ $IS_READ_ONLY = $IS_ON_HOLD || $READ_ONLY_BY_NETWORK;
         return origSend.apply(this, arguments);
       };
 
-      // 6) Make content regions inert, but KEEP the page header interactive (Top Up lives here)
       document.querySelectorAll('[data-lockable]:not(.page-header)').forEach(el => el.setAttribute('inert',''));
     })();
   </script>

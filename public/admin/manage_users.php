@@ -4,13 +4,13 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
   header('Location: ../login.php'); exit();
 }
 
-// CSRF token
+
 if (empty($_SESSION['csrf_token'])) { $_SESSION['csrf_token'] = bin2hex(random_bytes(32)); }
 $csrf_token = $_SESSION['csrf_token'];
 
 include '../../includes/admin_header.php';
 
-/* ===== DB CONNECTION ===== */
+
 $host = 'localhost';
 $dbname = 'kandado';
 $user = 'root';
@@ -20,7 +20,7 @@ $conn = new mysqli($host, $user, $pass, $dbname);
 $conn->set_charset('utf8mb4');
 if ($conn->connect_error) { die('Connection failed: ' . $conn->connect_error); }
 
-/* ===== HELPERS ===== */
+
 function int_array(array $arr): array { $o=[]; foreach ($arr as $v){$v=(int)$v; if($v>0)$o[]=$v;} return array_values(array_unique($o)); }
 function not_self(array $ids, $selfId): array { if(!$selfId) return $ids; return array_values(array_filter($ids, fn($x)=>(int)$x!==(int)$selfId)); }
 function in_placeholders(int $n): string { return implode(',', array_fill(0,$n,'?')); }
@@ -40,7 +40,6 @@ function order_by_for(string $key, string $dir): string {
 }
 function status_label(bool $isArchived): string { return $isArchived ? 'Archived' : 'Active'; }
 
-/* ===== BULK & PER-USER ACTIONS ===== */
 $sessionUserId = $_SESSION['user_id'] ?? null;
 $actionDone = null; $actionError = null;
 
@@ -49,7 +48,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   if (!hash_equals($_SESSION['csrf_token'] ?? '', $postedCsrf)) {
     $actionError = 'Security check failed. Please refresh and try again.';
   } else {
-    // Normalize verbs (legacy → new)
+   
     $normalize = static function($a){
       $a = strtolower(trim((string)$a));
       if ($a==='hold') return 'archive';
@@ -58,7 +57,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     };
     $action = $normalize($action);
 
-    // Collect IDs (bulk or single), protect against acting on self
+  
     $ids = [];
     if (!empty($_POST['user_ids']) && is_array($_POST['user_ids'])) { $ids = int_array($_POST['user_ids']); }
     elseif (!empty($_POST['user_id'])) { $ids = int_array([$_POST['user_id']]); }
@@ -95,7 +94,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   }
 }
 
-/* ===== SEARCH, FILTERS, SORT, PAGINATION ===== */
+
 $limit   = isset($_GET['per']) ? max(5, min(100, (int)$_GET['per'])) : 10;
 $page    = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
 $offset  = ($page - 1) * $limit;
@@ -103,7 +102,7 @@ $offset  = ($page - 1) * $limit;
 $q       = isset($_GET['q']) ? trim((string)$_GET['q']) : '';
 $f_role  = isset($_GET['role']) ? (string)$_GET['role'] : '';
 $f_stat  = isset($_GET['status']) ? (string)$_GET['status'] : '';
-if ($f_stat === 'hold') $f_stat = 'archived'; // back-compat
+if ($f_stat === 'hold') $f_stat = 'archived'; 
 $f_lock  = isset($_GET['has_locker']) ? (string)$_GET['has_locker'] : '';
 
 $sortKey = isset($_GET['sort']) ? (string)$_GET['sort'] : 'id';
@@ -125,7 +124,7 @@ if ($f_stat==='active'){ $whereParts[]='(IFNULL(u.archived,0) = 0)'; } elseif ($
 if ($f_lock==='yes'){ $whereParts[]="(l.status = 'occupied' AND l.user_id = u.id)"; } elseif ($f_lock==='no'){ $whereParts[]='(l.user_id IS NULL)'; }
 $whereSql = empty($whereParts) ? '1' : implode(' AND ', $whereParts);
 
-/* ===== COUNT ===== */
+
 $countSql = "SELECT COUNT(DISTINCT u.id) AS total
              FROM users u
              LEFT JOIN locker_qr l ON l.user_id=u.id AND l.status='occupied'
@@ -137,7 +136,7 @@ if ($countStmt){
 } else { $totalUsers=0; }
 $totalPages = max(1, (int)ceil($totalUsers / $limit));
 
-/* ===== LIST ===== */
+
 $listSql = "SELECT
               u.id, u.first_name, u.last_name, u.email, u.role, u.created_at,
               u.profile_image, IFNULL(u.archived,0) AS archived,
@@ -162,7 +161,7 @@ function keep(array $extra=[]): string {
   $q=array_merge($base,$extra); return http_build_query(array_filter($q,fn($v)=>$v!==''&&$v!==null));
 }
 
-// View context flags
+
 $onArchivedView = ($f_stat==='archived');
 $hasUndo = !empty($_SESSION['last_archived_ids']);
 ?>
@@ -178,7 +177,7 @@ $hasUndo = !empty($_SESSION['last_archived_ids']);
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 <link rel="icon" href="../../assets/icon/icon_tab.png" sizes="any">
-<!-- External CSS (moved from inline) -->
+
 <link rel="stylesheet" href="../../assets/css/manage_users.css">
 </head>
 <body
@@ -277,13 +276,13 @@ $hasUndo = !empty($_SESSION['last_archived_ids']);
         </form>
       </details>
 
-      <!-- Standalone form for "Undo Last Archive" -->
+      
       <form id="undoLastForm" method="post" class="d-inline">
         <input type="hidden" name="csrf" value="<?= htmlspecialchars($csrf_token) ?>">
         <input type="hidden" name="action" value="undo_last_archive">
       </form>
 
-      <!-- Bulk + Table form -->
+      
       <form id="bulkForm" method="post" class="card" aria-describedby="bulkActionsHelp">
         <input type="hidden" name="action" id="bulkAction">
         <input type="hidden" name="csrf" value="<?= htmlspecialchars($csrf_token) ?>">
@@ -402,7 +401,7 @@ $hasUndo = !empty($_SESSION['last_archived_ids']);
                 </td>
                 <td data-label="Locker" class="col-locker"><?= htmlspecialchars($locker, ENT_QUOTES, 'UTF-8') ?></td>
 
-                <!-- ACTIONS: centered + 3 inline + friendly colors -->
+                
                 <td class="text-center" data-label="Actions">
                   <div class="btn-list compact">
                     <button type="button" class="btn btn-view btn-sm viewBtn" title="View">
@@ -446,7 +445,7 @@ $hasUndo = !empty($_SESSION['last_archived_ids']);
           </table>
         </div>
 
-        <!-- Pagination -->
+
         <?php if ($totalPages > 1): $window=2; $start=max(1,$page-$window); $end=min($totalPages,$page+$window); ?>
         <div class="card-footer d-flex justify-content-center wrap gap-2">
           <a class="btn btn-ghost <?= $page===1?'disabled':'' ?>" href="<?= $page===1 ? 'javascript:void(0)' : '?'.keep(['page'=>1,'sort'=>$sortKey,'dir'=>$sortDir]) ?>" aria-label="First page">«</a>
@@ -462,7 +461,7 @@ $hasUndo = !empty($_SESSION['last_archived_ids']);
         <?php endif; ?>
       </form>
 
-      <!-- Sticky bulk bar (mobile, contextual) -->
+
       <div id="bulkBar" class="shadow" aria-hidden="true">
         <?php if ($onArchivedView): ?>
           <?php if ($hasUndo): ?>
@@ -505,11 +504,11 @@ $hasUndo = !empty($_SESSION['last_archived_ids']);
       </div>
     </div>
   </div>
-</div><!-- /#manage-users -->
+</div>
 
-<!-- SweetAlert2 (keep CDN) -->
+
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-<!-- External JS (moved from inline) -->
+
 <script src="../../assets/js/manage_users.js"></script>
 </body>
 </html>

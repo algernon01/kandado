@@ -1,6 +1,3 @@
-/* =========================
-   Kandado • My Locker (Light-only)
-   ========================= */
 :root{
   --bg:#f5f7fb; --surface:#fff; --text:#1f2937; --muted:#6b7280;
   --primary:#2563eb; --primary-600:#1d4ed8; --primary-700:#1e40af;
@@ -19,12 +16,12 @@ body{
 .page{padding:clamp(14px,3vw,28px)}
 .container{max-width:1040px;margin:0 auto}
 
-/* Header */
+
 .page-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
 .page-head h1{margin:0;font-size:clamp(20px,2.6vw,28px);font-weight:800;letter-spacing:-.01em}
 .badges{display:inline-flex;gap:8px;align-items:center}
 
-/* Status pill */
+
 .status-badge{
   display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border-radius:999px;
   font:700 13px/1 Inter,system-ui,-apple-system,"Segoe UI",sans-serif;background:#ecfdf5;color:var(--success);border:1px solid #d1fae5
@@ -35,15 +32,15 @@ body{
 .status-badge.is-used{background:#fff7ed;color:var(--warn);border-color:#fed7aa}
 .status-badge.is-used::before{background:var(--warn)}
 
-/* Connection badge (optional) */
+
 .conn-badge{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border-radius:999px;border:1px solid var(--border);background:var(--surface);font-weight:700;font-size:13px}
 .led{width:10px;height:10px;border-radius:50%;box-shadow:0 0 0 2px #f1f5f9 inset}
 .led--online{background:var(--success)} .led--offline{background:#9ca3af}
 
-/* Card */
+
 .card{background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);box-shadow:var(--shadow);padding:clamp(18px,3vw,24px)}
 
-/* Locker head */
+
 .locker__head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px;border-bottom:1px dashed #e5e7eb;padding-bottom:10px}
 .locker__eyebrow{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.08em}
 .locker__number{font-weight:900;font-size:clamp(20px,4vw,28px);letter-spacing:.02em}
@@ -51,17 +48,17 @@ body{
 .code-label{color:var(--muted);font-size:13px}
 .code-value{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:#f3f6ff;color:#0f172a;padding:6px 10px;border-radius:8px;border:1px solid #e6eefb;letter-spacing:.02em;overflow-wrap:anywhere}
 
-/* Layout: QR | Time/Extend */
+
 .locker__grid{display:grid;gap:18px}
 .locker__qr{display:grid;gap:12px;justify-items:center}
 @media (min-width:800px){.locker__grid{grid-template-columns:1fr 1fr;align-items:start}.locker__qr{justify-items:start}}
 
-/* QR */
+
 .qr__button{background:#f8fafc;border:1px solid #e6eefb;border-radius:12px;padding:10px;cursor:zoom-in;transition:transform .15s,box-shadow .15s}
 .qr__button:hover{transform:translateY(-2px);box-shadow:0 10px 24px rgba(2,6,23,.08)}
 .qr__button img{display:block;width:clamp(220px,60vw,340px);height:auto}
 
-/* Time + progress */
+
 .locker__time{display:grid;gap:12px}
 .time__row{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
 .time__label{color:var(--muted);font-size:14px}
@@ -69,7 +66,7 @@ body{
 .progress{position:relative;height:8px;background:rgba(22,163,74,.18);border-radius:999px;overflow:hidden;border:1px solid #e5e7eb;transition:background-color .4s linear}
 .progress__bar{position:absolute;left:0;top:0;bottom:0;width:0%;background:#16a34a;transition:width .4s linear,background-color .4s linear}
 
-/* Actions + buttons */
+
 .locker__actions{display:flex;gap:10px;flex-wrap:wrap}
 @media (max-width:520px){.locker__actions .btn{flex:1 1 100%}}
 .btn{--h:44px;display:inline-flex;align-items:center;justify-content:center;height:var(--h);padding:0 16px;border-radius:10px;border:1px solid transparent;font-weight:700;font-size:14px;cursor:pointer;user-select:none;transition:transform .08s,background .15s,border-color .15s,box-shadow .15s;text-decoration:none}
@@ -82,21 +79,19 @@ body{
 .btn-danger{background:var(--danger);color:#fff;border:1px solid transparent}.btn-danger:hover{background:#b91c1c}
 .btn-danger:focus-visible{box-shadow:0 0 0 4px rgba(220,38,38,.35)}
 
-/* Empty */
+
 .card.empty{text-align:center;display:grid;gap:12px;justify-items:center;padding:clamp(24px,4vw,40px)}
 .empty__illu{opacity:.95}.card.empty h2{margin:0;font-size:clamp(18px,3vw,22px)}.card.empty p{margin:0 0 8px;color:var(--muted)}
 
-/* Force QR center on desktop too */
+
 .locker__qr{display:grid;gap:12px;justify-items:center}
 @media (min-width:800px){.locker__qr{justify-items:center !important}}
 .locker__code--below{justify-content:center}
 
-/* States */
+
 .state-expired{opacity:.95}.state-used{opacity:.95}
 
-/* =========================
-   Extend / Reserve Modal
-   ========================= */
+
 .reserve-popup.swal2-popup{
   width:clamp(360px,92vw,720px);
   padding:16px;border-radius:16px;box-shadow:var(--shadow)
@@ -107,12 +102,12 @@ body{
 }
 .reserve-popup .swal2-html-container{margin:0 !important;padding:0 !important;overflow:visible}
 
-/* Mobile: content scrolls, actions sticky */
+
 @media (max-width:720px){
   .reserve-popup.swal2-popup{height:92dvh;display:flex;flex-direction:column}
   .reserve-popup .swal2-html-container{
     flex:1 1 auto;overflow-y:auto;-webkit-overflow-scrolling:touch;
-    padding-right:6px; /* space for scrollbar */
+    padding-right:6px; 
   }
   .reserve-popup .swal2-actions{
     position:sticky;bottom:0;
@@ -122,10 +117,10 @@ body{
   }
 }
 
-/* Modal inner */
+
 .reserve-modal{display:grid;gap:12px}
 
-/* Wallet chip */
+
 .wallet-inline{
   display:flex;align-items:center;justify-content:space-between;gap:10px;
   background:var(--surface);border:1px solid var(--border);border-radius:12px;
@@ -133,7 +128,7 @@ body{
 }
 .wallet-inline .amount{font-variant-numeric:tabular-nums;color:var(--text)}
 
-/* Duration grid */
+
 .duration-grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(140px,1fr))}
 @media (min-width:920px){.duration-grid{grid-template-columns:repeat(4,1fr)}}
 @media (max-width:480px){
@@ -154,17 +149,16 @@ body{
 .option-card .opt-title{color:var(--text);font-size:14px}
 .option-card .opt-price{display:inline-block;white-space:nowrap;font-variant-numeric:tabular-nums;color:var(--muted);font-size:13px;padding:4px 10px;border:1px solid var(--border);border-radius:999px;background:#f1f5f9}
 
-/* Selected ring like your screenshot */
 .option-card:has(input:checked){border-color:rgba(37,99,235,.45);box-shadow:0 0 0 3px rgba(37,99,235,.20),var(--shadow);background:linear-gradient(180deg,#fff,#f8fbff)}
 
-/* Affordability hint */
+
 .option-card.insufficient{opacity:.78}
 .option-card.insufficient::after{
   content:"Top up needed";position:absolute;right:10px;bottom:10px;background:#fff1f2;color:#be123c;border:1px solid #fecdd3;
   font-size:11px;font-weight:800;padding:3px 6px;border-radius:999px
 }
 
-/* Summary & warning */
+
 .wallet-warning{display:none;background:#fff8e1;color:#92400e;border:1px solid #fde68a;border-radius:10px;padding:8px 10px;font-weight:700}
 .wallet-warning.show{display:block}
 .summary-row{display:flex;align-items:center;justify-content:space-between;gap:10px;border-top:1px dashed var(--border);padding-top:10px;margin-top:2px}
@@ -172,12 +166,11 @@ body{
 .reserve-modal .reference .ref-value{color:var(--primary);text-decoration:none}
 .reserve-modal .reference .ref-value:hover{text-decoration:underline}
 
-/* ===== Fix: legacy select (tiny arrow near Extend) ===== */
 
 .reference {
   display:flex;
   align-items:center;
-  justify-content:space-between;  /* pushes label left + link right */
+  justify-content:space-between; 
   width:100%;
   gap:8px;
   font-size:13px;
@@ -190,7 +183,7 @@ body{
 }
 
 .reference .ref-value {
-  margin-left:auto;     /* ensures it hugs the right edge */
+  margin-left:auto;     
   color:var(--primary);
   font-weight:600;
   text-decoration:none;
@@ -202,34 +195,34 @@ body{
 
 
 
-/* Mobile-specific tweaks for Extend button */
+
 @media (max-width:520px) {
   .btn-primary {
-    width: 100%;              /* full width on small screens */
-    height: 50px;             /* taller for thumb-friendly tap */
-    font-size: 16px;          /* slightly bigger text */
-    border-radius: 12px;      /* smoother corners */
-    margin-top: 6px;          /* spacing from elements above */
+    width: 100%;             
+    height: 50px;            
+    font-size: 16px;          
+    border-radius: 12px;      
+    margin-top: 6px;          
   }
 
-  /* Optional: add subtle shadow to make it pop */
+
   .btn-primary {
     box-shadow: 0 4px 10px rgba(37, 99, 235, 0.25);
   }
 
   .btn-primary:active {
-    transform: scale(0.98);   /* tap feedback */
+    transform: scale(0.98);   
   }
 }
 
 .btn-gray {
-  background:#f3f4f6;        /* light gray (same family as your bg) */
-  color:#4d5c76;             /* slate/dark gray text */
-  border:1px solid #d1d5db;  /* soft border */
+  background:#f3f4f6;       
+  color:#4d5c76;            
+  border:1px solid #d1d5db;  
 }
 .btn-gray:hover {
-  background:#e5e7eb;        /* hover slightly darker */
+  background:#e5e7eb;        
 }
 .btn-gray:active {
-  background:#d1d5db;        /* pressed state */
+  background:#d1d5db;        
 }

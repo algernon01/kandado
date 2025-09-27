@@ -7,13 +7,13 @@ if (!isset($_SESSION['user_id'])) {
 
 $user_id = (int)$_SESSION['user_id'];
 
-// DB config
+
 $host = 'localhost';
 $dbname = 'kandado';
 $user = 'root';
 $pass = '';
 
-// Connect
+
 $conn = new mysqli($host, $user, $pass, $dbname);
 if ($conn->connect_error) {
     http_response_code(500);
@@ -32,7 +32,7 @@ $stmt->execute();
 $result = $stmt->get_result();
 $lockerData = $result->fetch_assoc() ?: null;
 
-// ------------------- TIMEZONE -------------------
+
 date_default_timezone_set('Asia/Manila');
 $expires_timestamp = null;
 if ($lockerData && !empty($lockerData['expires_at'])) {
@@ -64,10 +64,10 @@ $SERVER_NOW_MS = (int) round(microtime(true) * 1000);
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>My Locker · Kandado</title>
   
-<!-- SweetAlert2 -->
+
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <link rel="icon" href="../../assets/icon/icon_tab.png" sizes="any">
-<!-- Styles -->
+
 <link rel="stylesheet" href="/kandado/assets/css/mylocker.css?v=9">
 
 <style>
@@ -103,7 +103,7 @@ $SERVER_NOW_MS = (int) round(microtime(true) * 1000);
         </header>
 
         <div class="locker__grid">
-          <!-- QR column -->
+
           <div class="locker__qr">
             <button class="qr__button" id="qrZoomBtn" aria-label="View QR full screen">
               <img id="qrImage" src="/kandado/qr_image/qr_<?= $lockerCodeSafe ?>.png" alt="QR code" />
@@ -116,14 +116,14 @@ $SERVER_NOW_MS = (int) round(microtime(true) * 1000);
             </div>
           </div>
 
-          <!-- Time + Extend -->
+  
           <div class="locker__time">
             <div class="time__row">
               <span class="time__label">Time Remaining</span>
               <span class="time__value" id="remainingTime">--:--:--</span>
             </div>
 
-            <!-- PROGRESS -->
+
             <div class="progress" id="timeTrack" aria-hidden="true">
               <div class="progress__bar" id="timeBar" style="width:0%"></div>
             </div>
@@ -146,12 +146,12 @@ $SERVER_NOW_MS = (int) round(microtime(true) * 1000);
 <article class="card empty">
   <div class="empty__illu" aria-hidden="true">
     <svg width="120" height="120" viewBox="0 0 120 120" fill="none">
-      <!-- light card background -->
+
       <rect x="14" y="16" width="92" height="88" rx="12" fill="#E9EFFC"/>
-      <!-- white “paper” -->
+
       <rect x="26" y="28" width="68" height="64" rx="8" fill="#FFFFFF"/>
 
-      <!-- finder patterns -->
+
       <rect x="30" y="32" width="18" height="18" rx="2" fill="#2563EB"/>
       <rect x="33.5" y="35.5" width="11" height="11" rx="1.5" fill="#D7E4FD"/>
 
@@ -161,7 +161,7 @@ $SERVER_NOW_MS = (int) round(microtime(true) * 1000);
       <rect x="30" y="66" width="18" height="18" rx="2" fill="#2563EB"/>
       <rect x="33.5" y="69.5" width="11" height="11" rx="1.5" fill="#D7E4FD"/>
 
-      <!-- QR modules (just enough to read as a QR) -->
+
       <rect x="52" y="38" width="6" height="6" rx="1" fill="#2563EB"/>
       <rect x="60" y="38" width="6" height="6" rx="1" fill="#D7E4FD"/>
       <rect x="68" y="38" width="6" height="6" rx="1" fill="#2563EB"/>
@@ -192,7 +192,7 @@ $SERVER_NOW_MS = (int) round(microtime(true) * 1000);
 </main>
 
 <?php if ($hasLocker): ?>
-  <!-- Bootstrap config that passes PHP data to JS (tiny, safe, and cacheable) -->
+
   <script>
     window.MYLOCKER = {
       serverNowMs: <?= (int) round(microtime(true) * 1000) ?>,

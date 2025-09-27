@@ -1,14 +1,5 @@
 <?php
-// admin/wallet.php
-// --------------------------------------------------
-// Admin Wallets + Transactions (Modal view + Mobile-first)
-// • "View" opens modal with AJAX-loaded detail
-// • Ellipsis pagination for Users & Transactions
-// • No horizontal scroll on mobile
-// • Debit & Refund removed (Top-up + Adjustment only)
-// • FIX: Actions column centered
-// • FIX: Stat numbers render clean on mobile (no wrap/tabular)
-// --------------------------------------------------
+
 session_start();
 if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
     header("Location: ../login.php");
@@ -16,7 +7,7 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
 }
 require_once '../../config/db.php';
 
-/* ------------ Helpers ------------ */
+
 function h($v){ return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
 function peso($n){ return '₱' . number_format((float)$n, 2); }
 function nowUtc(){ return (new DateTime('now', new DateTimeZone('UTC')))->format('Y-m-d H:i:s'); }
@@ -32,24 +23,24 @@ function genRef($pdo,$prefix='WLT'){
 function flash($type,$msg){ $_SESSION['flash']=['type'=>$type,'msg'=>$msg]; }
 function take_flash(){ $f=$_SESSION['flash']??null; if($f) unset($_SESSION['flash']); return $f; }
 
-/* Ellipsis pager (returns HTML links) */
+
 function pager_links($current,$pages,$qs,$base='wallet.php',$anchor=''){
     $current=max(1,(int)$current); $pages=max(1,(int)$pages);
     if ($pages<=1) return '';
-    $window = 1; // neighbors on each side
+    $window = 1; 
     $show = [1,$pages,$current];
     for($i=$current-$window;$i<=$current+$window;$i++){ if($i>0 && $i<=$pages) $show[]=$i; }
     $show = array_values(array_unique($show)); sort($show);
     $out = '';
 
-    // Prev
+
     if ($current>1){
         $qs['page']=$current-1; $out.='<a href="'.h($base.'?'.http_build_query($qs).$anchor).'" aria-label="Previous">‹</a>';
     } else {
         $out.='<span class="disabled">‹</span>';
     }
 
-    // Pages with gaps
+
     $prev = 0;
     foreach($show as $p){
         if($prev && $p>$prev+1){ $out.='<span class="gap">…</span>'; }
@@ -58,7 +49,7 @@ function pager_links($current,$pages,$qs,$base='wallet.php',$anchor=''){
         $prev=$p;
     }
 
-    // Next
+  
     if ($current<$pages){
         $qs['page']=$current+1; $out.='<a href="'.h($base.'?'.http_build_query($qs).$anchor).'" aria-label="Next">›</a>';
     } else {
@@ -67,11 +58,11 @@ function pager_links($current,$pages,$qs,$base='wallet.php',$anchor=''){
     return $out;
 }
 
-/* ------------ CSRF ------------ */
+
 if (empty($_SESSION['csrf_token'])) { $_SESSION['csrf_token'] = bin2hex(random_bytes(32)); }
 $CSRF = $_SESSION['csrf_token'];
 
-/* ------------ Rules (Debit & Refund removed) ------------ */
+
 $ALLOWED_TYPES   = ['topup','adjustment'];
 $ALLOWED_METHODS = ['GCash','Maya','Admin'];
 function methodAllowedForType($type,$method){
@@ -82,7 +73,6 @@ function methodAllowedForType($type,$method){
     return in_array($method, $map[$type] ?? [], true);
 }
 
-/* ------------ Create (no refund/debit) ------------ */
 if ($_SERVER['REQUEST_METHOD']==='POST' && ($_POST['action']??'')==='create_tx'){
     try{
         if (!hash_equals($CSRF, $_POST['csrf'] ?? '')) throw new Exception('Invalid session token, refresh and try again.');
@@ -151,16 +141,16 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && ($_POST['action']??'')==='create_tx')
     }
 }
 
-/* ------------ Page state ------------ */
+
 $mode_user_id = isset($_GET['user_id']) ? (int)$_GET['user_id'] : 0;
 
-/* ------------ Stats ------------ */
+
 $total_balance = (float)$pdo->query("SELECT COALESCE(SUM(balance),0) FROM user_wallets")->fetchColumn();
 $active_wallets= (int)$pdo->query("SELECT COUNT(*) FROM user_wallets")->fetchColumn();
 $topups_30d    = (float)$pdo->query("SELECT COALESCE(SUM(amount),0) FROM wallet_transactions WHERE type='topup' AND created_at>=NOW()-INTERVAL 30 DAY")->fetchColumn();
 $debits_30d    = (float)$pdo->query("SELECT COALESCE(SUM(amount),0) FROM wallet_transactions WHERE type='debit' AND created_at>=NOW()-INTERVAL 30 DAY")->fetchColumn(); // historic display only
 
-/* ------------ Users list ------------ */
+
 $q    = trim($_GET['q'] ?? '');
 $sort = $_GET['sort'] ?? 'name_asc';
 $page = max(1,(int)($_GET['page'] ?? 1));
@@ -197,12 +187,12 @@ $st = $pdo->prepare($sqlList);
 $st->execute($params);
 $list = $st->fetchAll(PDO::FETCH_ASSOC);
 
-/* ------------ User detail + transactions (for modal / partial) ------------ */
+
 $userDetail = null;
 $tx = [];
 $tx_total=0; $txPage=max(1,(int)($_GET['tx_page']??1)); $txPer=min(100,max(5,(int)($_GET['tx_per']??10)));
-$filter_type = (!empty($_GET['type']) && in_array($_GET['type'],$ALLOWED_TYPES,true)) ? $_GET['type'] : ''; // only topup/adjustment
-$filter_method = (!empty($_GET['method']) && in_array($_GET['method'],$ALLOWED_METHODS,true)) ? $_GET['method'] : ''; // GCash/Maya/Admin
+$filter_type = (!empty($_GET['type']) && in_array($_GET['type'],$ALLOWED_TYPES,true)) ? $_GET['type'] : ''; 
+$filter_method = (!empty($_GET['method']) && in_array($_GET['method'],$ALLOWED_METHODS,true)) ? $_GET['method'] : ''; 
 $filter_from = trim($_GET['from'] ?? '');
 $filter_to   = trim($_GET['to'] ?? '');
 
@@ -234,7 +224,7 @@ if ($mode_user_id>0){
     }
 }
 
-/* ------------ Partial: render user detail for modal (AJAX) ------------ */
+
 function render_user_detail_fragment($ctx){
     $u = $ctx['userDetail'];
     $ALLOWED_TYPES   = $ctx['ALLOWED_TYPES'];
@@ -251,7 +241,7 @@ function render_user_detail_fragment($ctx){
     $fullName = h($u['first_name'].' '.$u['last_name']);
     $avatar   = !empty($u['profile_image']) ? $u['profile_image'] : 'default.jpg';
 
-    // base QS for pager links
+
     $baseQS = [
         'partial'=>'detail',
         'user_id'=>(int)$u['id'],
@@ -334,7 +324,7 @@ function render_user_detail_fragment($ctx){
             <tr><td colspan="7"><div class="empty"><i class="fa-regular fa-note-sticky"></i> No transactions yet.</div></td></tr>
           <?php else: foreach($tx as $row): ?>
             <?php
-              $chipClass = ($row['type']==='debit') ? 'red' : 'green'; // historic debits render red
+              $chipClass = ($row['type']==='debit') ? 'red' : 'green'; 
               $sign = ($row['type']==='debit') ? '-' : '+'; ?>
             <tr>
               <td data-th="Date"><?= h(date('Y-m-d H:i', strtotime($row['created_at']))) ?></td>
@@ -344,7 +334,7 @@ function render_user_detail_fragment($ctx){
               <td data-th="Reference"><code><?= h($row['reference_no']) ?></code></td>
               <td class="muted" data-th="Notes"><?= $row['notes'] ? h($row['notes']) : '—' ?></td>
               <td class="actions-cell" data-th="">
-                <div class="row-actions"><!-- no actions in rows --></div>
+                <div class="row-actions"></div>
               </td>
             </tr>
           <?php endforeach; endif; ?>
@@ -382,7 +372,7 @@ function render_user_detail_fragment($ctx){
     <?php endif;
 }
 
-/* Emit partial (AJAX) and exit */
+
 if (isset($_GET['partial']) && $_GET['partial']==='detail'){
     if (!$userDetail){
         http_response_code(404);
@@ -472,7 +462,7 @@ if (isset($_GET['partial']) && $_GET['partial']==='detail'){
                 <th>User</th>
                 <th>Email</th>
                 <th class="t-num">Balance</th>
-                <th class="t-right">Actions</th> <!-- centered -->
+                <th class="t-right">Actions</th> 
               </tr>
               </thead>
               <tbody>
@@ -525,7 +515,7 @@ if (isset($_GET['partial']) && $_GET['partial']==='detail'){
     </div>
   </main>
 
-  <!-- User Wallet Modal -->
+
   <div class="modal" id="userModal" role="dialog" aria-modal="true" aria-labelledby="userTitle">
     <div class="panel">
       <header id="userHeader">
@@ -543,7 +533,7 @@ if (isset($_GET['partial']) && $_GET['partial']==='detail'){
     </div>
   </div>
 
-  <!-- New Transaction Modal -->
+
   <div class="modal" id="txModal" role="dialog" aria-modal="true" aria-labelledby="txTitle">
     <div class="panel">
       <header>
@@ -604,7 +594,7 @@ if (isset($_GET['partial']) && $_GET['partial']==='detail'){
 
   <script src="../../assets/js/wallet.js"></script>
 
-  <!-- Flash (kept inline because it needs server-side data) -->
+
   <script>
   <?php if ($f = take_flash()): ?>
     Swal.fire({

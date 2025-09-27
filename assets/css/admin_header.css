@@ -1,16 +1,13 @@
-/* ===============================
-   Design Tokens (Header Blue, Sidebar Indigo, Active Green)
-================================== */
 :root{
-  /* Brand gradient endpoints (header) */
+
   --brand-1:#3353bb;
   --brand-2:#4f6ed1;
 
-  /* Sidebar gradient endpoints (indigo) */
+
   --sidebar-1: #2a3f93;
   --sidebar-2: #1f2e78;
 
-  /* Sidebar text + accents */
+
   --sidebar-text: #eef3ff;
   --sidebar-muted: #cfe0ff;
   --sidebar-icon: #f3f7ff;
@@ -19,13 +16,13 @@
   --sidebar-border: rgba(255,255,255,.14);
   --sidebar-scrollbar: rgba(255,255,255,.25);
 
-  /* Active GREEN tokens */
-  --active-green-1: #16a34a;   /* emerald-600 */
-  --active-green-2: #22c55e;   /* emerald-500 */
-  --active-green-bg: #e9f7ee;  /* used in light surfaces */
+ 
+  --active-green-1: #16a34a;  
+  --active-green-2: #22c55e;  
+  --active-green-bg: #e9f7ee; 
   --active-green-border: #cdebd8;
 
-  /* Light surfaces (main area) */
+
   --bg: #f6f8ff;
   --surface: #ffffff;
   --surface-2: #fbfdff;
@@ -47,14 +44,12 @@
   --shadow-2: 0 4px 14px rgba(15, 23, 42, 0.08);
 }
 
-/* Reduce motion */
+
 @media (prefers-reduced-motion: reduce){
   *{animation:none !important; transition:none !important; scroll-behavior:auto !important;}
 }
 
-/* ===============================
-   Base Reset
-================================== */
+
 *{margin:0; padding:0; box-sizing:border-box;}
 html, body{height:100%;}
 body{
@@ -64,9 +59,6 @@ body{
   -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
 }
 
-/* ===============================
-   Header (Brand Gradient)
-================================== */
 .admin-header{
   position: fixed; inset: 0 0 auto 0; height: var(--header-h);
   display: flex; align-items: center; gap: .75rem; padding: 0 .9rem;
@@ -76,7 +68,7 @@ body{
   border-bottom: 1px solid rgba(255,255,255,.18);
 }
 
-/* Skip link (a11y) */
+
 .skip-link{position:absolute; left:-9999px; top:-9999px;}
 .skip-link:focus{
   left:.75rem; top:.75rem; background:#fff; color:var(--primary-700);
@@ -99,9 +91,7 @@ body{
   border:1px solid rgba(255,255,255,.25);
 }
 
-/* ===============================
-   Sidebar (Indigo Gradient + Light Text)
-================================== */
+
 .sidebar{
   position: fixed; top: var(--header-h); left: 0;
   width: var(--sidebar-w); height: calc(100vh - var(--header-h));
@@ -135,7 +125,7 @@ body{
   color:var(--sidebar-muted); margin:.9rem 1.6rem .5rem;
 }
 
-/* Links */
+
 .sidebar-links{list-style:none; padding:.3rem 0; margin:0;}
 .sidebar-links li{margin:.12rem 0;}
 .sidebar-links a{
@@ -152,7 +142,7 @@ body{
   width:22px; text-align:center; font-size:1rem; color: var(--sidebar-icon);
 }
 
-/* Left accent bar – light by default/hover, GREEN when active */
+ */
 .sidebar-links a::before{
   content:""; position:absolute; left:8px; top:50%; transform:translateY(-50%);
   width:4px; height:0; border-radius:4px;
@@ -165,38 +155,34 @@ body{
   height: 65%;
 }
 
-/* Hover */
+
 .sidebar-links a:hover{
   background: var(--sidebar-hover-bg);
   border-color: var(--sidebar-hover-border);
 }
 
-/* Active link container: GREEN on dark bg */
+
 .sidebar-links a.active{
-  background: rgba(34, 197, 94, .18); /* emerald-500 at ~18% */
+  background: rgba(34, 197, 94, .18); 
   border-color: rgba(34, 197, 94, .35);
   box-shadow: inset 0 0 0 1px rgba(34, 197, 94, .28);
 }
 
-/* Ensure focus rings are visible on dark sidebar */
+
 .sidebar-links a:focus-visible{
   outline: 2px solid #ffffff;
   outline-offset: 3px;
   box-shadow: 0 0 0 2px rgba(255,255,255,.25);
 }
 
-/* ===============================
-   Overlay (mobile)
-================================== */
+
 .overlay{
   position: fixed; inset: 0; background: rgba(51, 83, 187, .35);
   z-index:1040; display:none;
 }
 .overlay.show{display:block;}
 
-/* ===============================
-   Main layout offsets
-================================== */
+
 body > main#content{
   margin-top: var(--header-h);
   margin-left: var(--sidebar-w);
@@ -205,7 +191,7 @@ body > main#content{
   background: linear-gradient(180deg, var(--surface-2), var(--bg));
 }
 
-/* Optional content card helper */
+
 .container-card{
   background: var(--surface);
   border: 1px solid var(--border);
@@ -214,7 +200,7 @@ body > main#content{
   padding: 1rem;
 }
 
-/* Status badge (kept green for consistency on light content surfaces) */
+
 .badge{
   display:inline-flex; align-items:center; gap:.4rem;
   font-size:.75rem; font-weight:700; letter-spacing:.02em;
@@ -226,9 +212,7 @@ body > main#content{
 }
 .badge i{ color: var(--active-green-1); }
 
-/* ===============================
-   Responsive
-================================== */
+
 @media (max-width: 1024px){ :root{ --sidebar-w: 260px; } }
 @media (max-width: 860px){
   .hamburger{display:inline-grid; place-items:center;}
@@ -236,12 +220,12 @@ body > main#content{
   body > main#content{margin-left:0;}
 }
 @media (min-width: 861px){ .overlay{display:none !important;} }
-/* Replace the button-like styling for the logo anchor */
+
 .logo {
   display:inline-flex;
   align-items:center;
   justify-content:center;
-  height: 42px;            /* matches the hamburger height for visual rhythm */
+  height: 42px;            
   width: 42px;
   border-radius: 10px;
   background: rgba(255,255,255,.14);
@@ -249,12 +233,12 @@ body > main#content{
   text-decoration: none;
 }
 
-/* Size and align the image cleanly */
+
 .logo img {
   display:block;
-  height: 28px;            /* inside a 42px box, gives nice breathing room */
+  height: 28px;            
   width: auto;
 }
 
-/* If you keep .logo-text elsewhere, make sure it doesn't affect the logo */
+
 .logo-text { all: unset; }

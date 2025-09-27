@@ -14,12 +14,11 @@ document.addEventListener('DOMContentLoaded', () => {
   hamburger?.addEventListener('click', () => setSidebar(!sidebar.classList.contains('open')));
   overlay?.addEventListener('click', () => setSidebar(false));
 
-  // Close on ESC
   window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && sidebar.classList.contains('open')) setSidebar(false);
   });
 
-  // Focus trap (mobile)
+
   const focusableSel = 'a[href], button:not([disabled])';
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Tab' || !sidebar.classList.contains('open')) return;
@@ -30,7 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
     else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
   });
 
-  // Logout confirm (SweetAlert2) – uses your brand color
+r
   const attachLogoutHandler = (el) => {
     el.addEventListener('click', (event) => {
       event.preventDefault();
@@ -55,7 +54,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
   document.querySelectorAll('a[href$="logout.php"], a.logout-link').forEach(attachLogoutHandler);
 
-  // Auto-close sidebar when resizing to desktop
+
   let width = window.innerWidth;
   window.addEventListener('resize', () => {
     const now = window.innerWidth;

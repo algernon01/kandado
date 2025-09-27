@@ -53,16 +53,16 @@ main{margin-top:var(--header-h,60px);margin-left:var(--sidebar-w,280px);min-heig
 .meta{font-size:.8rem;color:#64748b}
 .selection{font-size:.9rem;color:#334155}
 
-/* MOBILE — toolbar + table cards */
+
 @media (max-width:720px){
-  /* ---------- Toolbar / Controls ---------- */
+
   .toolbar{
     flex-direction:column;
     align-items:stretch;
     gap:12px;
   }
 
-  /* Make the controls a clean, single column */
+ 
   .controls{
     display:grid;
     grid-template-columns:1fr;
@@ -70,7 +70,7 @@ main{margin-top:var(--header-h,60px);margin-left:var(--sidebar-w,280px);min-heig
     width:100%;
   }
 
-  /* Remove the “box-in-a-box” look; keep things airy */
+  
   .control{
     width:100%;
     padding:0;
@@ -98,7 +98,7 @@ main{margin-top:var(--header-h,60px);margin-left:var(--sidebar-w,280px);min-heig
     background:#fff;
   }
 
-  /* Date range: label | input – to – input (no crowding) */
+
   .control .inline{
     display:grid;
     grid-template-columns:1fr auto 1fr;
@@ -111,7 +111,7 @@ main{margin-top:var(--header-h,60px);margin-left:var(--sidebar-w,280px);min-heig
     padding:0 2px;
   }
 
-  /* Apply / Reset: full-width and comfy to tap */
+
   .controls .control:nth-last-child(2),
   .controls .control:last-child{
     display:flex;
@@ -124,7 +124,7 @@ main{margin-top:var(--header-h,60px);margin-left:var(--sidebar-w,280px);min-heig
     border-radius:14px;
   }
 
-  /* Secondary buttons (Show Codes / Undo / Archive) stack nicely */
+
   .buttons{
     flex-direction:column;
     width:100%;
@@ -135,11 +135,11 @@ main{margin-top:var(--header-h,60px);margin-left:var(--sidebar-w,280px);min-heig
     justify-content:center;
   }
 
-  /* Tighter headings */
+
   .date-title{font-size:1rem;margin:1rem 0 .5rem}
   .meta,.selection{font-size:.9rem}
 
-  /* ---------- Table as mobile cards (refined) ---------- */
+
   .card{padding:.9rem}
   .table,
   .table thead,

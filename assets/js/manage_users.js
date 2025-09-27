@@ -1,4 +1,4 @@
-// Columns dropdown
+
 (() => {
   const toggle = document.getElementById('colsToggle');
   const menu = document.getElementById('colsMenu');
@@ -8,7 +8,7 @@
   document.addEventListener('click', (e)=>{ if(!menu.contains(e.target) && e.target!==toggle) close(); });
 })();
 
-// Selection helpers
+
 const selAll = document.getElementById('selectAll');
 function selCount(){ return document.querySelectorAll("input[name='user_ids[]']:checked").length; }
 function updateSelState(){
@@ -26,7 +26,7 @@ Array.from(document.querySelectorAll('.row-check')).forEach(cb=> cb.addEventList
 window.addEventListener('resize', updateSelState);
 document.addEventListener('DOMContentLoaded', updateSelState);
 
-// SweetAlert confirms
+
 function confirmBulk(action){
   const checked=Array.from(document.querySelectorAll("input[name='user_ids[]']:checked")).map(i=>i.value);
   if(!checked.length){
@@ -45,14 +45,14 @@ function confirmRow(form, message){
     .then(r=>{ if(r.isConfirmed){ form.submit(); } return false; }), false;
 }
 
-// Copy helper
+
 function copyText(txt){
   navigator.clipboard.writeText(txt).then(()=>{
     Swal.fire({ icon:'success', title:'Copied', text:'Copied to clipboard.', timer:1100, showConfirmButton:false });
   });
 }
 
-// Column visibility persistence
+
 (function(){
   const key='col_visibility_users';
   const state=JSON.parse(localStorage.getItem(key)||'{}');
@@ -70,13 +70,13 @@ function copyText(txt){
   apply();
 })();
 
-// Live search debounce (500ms)
+
 (function(){
   const input=document.getElementById('searchInput'); const form=document.getElementById('filtersForm'); let t; if(!input) return;
   input.addEventListener('input',()=>{ clearTimeout(t); t=setTimeout(()=>{ form.submit(); },500); });
 })();
 
-// Custom modal
+l
 (function(){
   const modal=document.getElementById('viewModal');
   if(!modal) return;
@@ -116,7 +116,7 @@ function copyText(txt){
   document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') close(); });
 })();
 
-// Success / Error alerts moved from PHP-embedded inline script
+
 (function(){
   const body = document.body;
   if (!body) return;

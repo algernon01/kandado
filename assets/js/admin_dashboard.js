@@ -14,7 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
       chip.setAttribute('aria-pressed','true');
       currentFilter = chip.dataset.filter;
       cards.forEach(card => {
-        const status = card.getAttribute('data-status'); // available | occupied | hold
+        const status = card.getAttribute('data-status'); 
         const maint  = card.getAttribute('data-maintenance') === '1';
         let show = true;
         if (currentFilter === 'available') show = !maint && status === 'available';
@@ -411,7 +411,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const rowsPerPage = 5;
     const groupSize = 3;
     let currentPage = 1;
-    let filtered = itemsAll; // reserved if you later add search/filter
+    let filtered = itemsAll; 
 
     function renderList(){
       itemsAll.forEach(it => it.style.display = 'none');
@@ -479,7 +479,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (!salesStart || !salesEnd) return;
 
-    // Default range: 30D
+
     const today = new Date();
     const defEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate());
     const defStart = new Date(defEnd); defStart.setDate(defEnd.getDate() - 29);
@@ -488,7 +488,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     salesChips.forEach(c => c.setAttribute('aria-pressed', c.dataset.range === '30d' ? 'true' : 'false'));
 
-    // Charts
+   
     let salesTimeChart, salesMethodChart, salesDurationChart;
     const timeCtx = document.getElementById('salesTimeChart')?.getContext('2d');
     const methodCtx = document.getElementById('salesMethodChart')?.getContext('2d');
@@ -582,7 +582,7 @@ document.addEventListener('DOMContentLoaded', () => {
           start = new Date(end.getFullYear(), 0, 1);
           break;
         case 'all':
-          start = new Date(2000,0,1); // safe lower bound for TIMESTAMP
+          start = new Date(2000,0,1); 
           break;
       }
       salesStart.value = toYMD(start);
@@ -625,26 +625,26 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateSalesUI(data){
       if (!data || !data.success) return;
 
-      // KPIs
+   
       kpiRevenue.textContent = peso.format(data.kpis.revenue || 0);
       kpiOrders.textContent = numberFmt.format(data.kpis.orders || 0);
       kpiAOV.textContent = peso.format(data.kpis.aov || 0);
       kpiCustomers.textContent = numberFmt.format(data.kpis.unique_customers || 0);
 
-      // Time chart
+      
       const labels = data.daily.map(d=>d.day);
       const revs   = data.daily.map(d=>+(d.revenue||0));
       salesTimeChart.data.labels = labels;
       salesTimeChart.data.datasets[0].data = revs;
       salesTimeChart.update();
 
-      // Method chart
+    
       const map = {GCash:0, Maya:0, Wallet:0};
       (data.by_method||[]).forEach(m => { map[m.method] = +m.revenue || 0; });
       const arr = [map.GCash||0, map.Maya||0, map.Wallet||0];
       const total = arr.reduce((a,b)=>a+(+b||0),0);
 
-      // FIX #2: show a neutral ring when all values are zero
+
       if (total <= 0){
         salesMethodChart.data.labels = ['No data'];
         salesMethodChart.data.datasets[0].data = [1];
@@ -656,7 +656,6 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       salesMethodChart.update();
 
-      // Duration chart (top 8 + Others)
       const durations = (data.by_duration||[]).slice();
       const top = durations.slice(0,8);
       const othersSum = durations.slice(8).reduce((s,x)=>s+(+x.revenue||0),0);
@@ -667,7 +666,7 @@ document.addEventListener('DOMContentLoaded', () => {
       salesDurationChart.data.datasets[0].data = dData;
       salesDurationChart.update();
 
-      // Top customers
+
       tcBody.innerHTML = '';
       if ((data.top_customers||[]).length === 0){
         tcBody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:#64748b;">No data.</td></tr>`;
@@ -684,7 +683,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
       }
 
-      // Top lockers
+
       tlBody.innerHTML = '';
       if ((data.top_lockers||[]).length === 0){
         tlBody.innerHTML = `<tr><td colspan="3" style="text-align:center;color:#64748b;">No data.</td></tr>`;
@@ -700,7 +699,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
       }
 
-      // Recent payments (with pagination)
+
       renderRecentPayments(data.recent||[]);
     }
 
@@ -715,7 +714,7 @@ document.addEventListener('DOMContentLoaded', () => {
         recentPager.innerHTML = '';
         return;
       }
-      // Build items
+ 
       items.forEach(p=>{
         const dt = new Date(p.created_at);
         const when = dt.toLocaleString();
@@ -734,7 +733,7 @@ document.addEventListener('DOMContentLoaded', () => {
         recentList.appendChild(li);
       });
 
-      // Pagination (8/page)
+
       const rowsPerPage = 8;
       const all = Array.from(recentList.querySelectorAll('[data-sp="1"]'));
       let currentPage = 1;
@@ -815,7 +814,6 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     }
 
-    // Initial load
     loadSales();
   })();
 });

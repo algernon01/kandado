@@ -1,13 +1,13 @@
 const API_BASE = `${window.location.origin}/kandado/api`;
 
-// helpers
+
 const $ = (s, c=document)=>c.querySelector(s);
 const $$ = (s, c=document)=>Array.from(c.querySelectorAll(s));
 const peso = (n)=>`₱${Number(n||0).toFixed(2)}`;
 const sleep = (ms) => new Promise((r)=>setTimeout(r, ms));
 const randomRef = (prefix)=> `${prefix}-${Math.floor(100000000 + Math.random()*900000000)}`;
 
-// Keep a single reference while retrying (so API merges rows)
+
 let currentTopupRef = localStorage.getItem('KD_TOPUP_REF') || null;
 
 async function loadBalance(){
@@ -50,7 +50,7 @@ async function doTopup(){
     const r = await fetch(url, { credentials:'same-origin', cache:'no-store' });
     const d = await r.json();
     const elapsed = Date.now() - t0;
-    if (elapsed < 5000) await sleep(5000 - elapsed); // keep a short consistent wait
+    if (elapsed < 5000) await sleep(5000 - elapsed); 
 
     if (!r.ok || d?.error){
       const msg = d?.message || d?.error || `HTTP ${r.status}`;
@@ -67,7 +67,7 @@ async function doTopup(){
       showCancelButton:true,
       cancelButtonText:'Stay Here'
     }).then((res)=>{
-      // Reset ref AFTER a confirmed successful top-up (new top-up will create a new row)
+
       localStorage.removeItem('KD_TOPUP_REF');
       currentTopupRef = null;
       if (res.isConfirmed) window.location = '/kandado/public/user/dashboard.php';

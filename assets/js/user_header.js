@@ -10,7 +10,7 @@
   const onScroll = () => header.classList.toggle('elevated', (window.scrollY||document.documentElement.scrollTop) > 6);
   onScroll(); window.addEventListener('scroll', onScroll, {passive:true});
 
-  /* profile menu */
+
   const menuLinks = () => menu ? [...menu.querySelectorAll('a[href], button:not([disabled])')] : [];
   const outsideClose = (e) => { if (menu && avatarBtn && !menu.contains(e.target) && !avatarBtn.contains(e.target)) closeMenu(); };
   const keyClose = (e) => {
@@ -54,7 +54,7 @@
   document.querySelectorAll('.drawer a').forEach(a => a.addEventListener('click', closeDrawer));
   window.addEventListener('resize', () => { closeDrawer(); closeMenu(); });
 
-  /* logout */
+
   function doLogout(){ window.location.href='../../auth/logout.php'; }
   async function confirmLogout(){
     if (window.Swal && typeof Swal.fire === 'function') {

@@ -116,7 +116,7 @@ unset($_SESSION['register_errors'], $_SESSION['register_old']);
         <button type="button" class="toggle-btn js-toggle-password" data-target="#confirm_password" aria-pressed="false" aria-label="Show password">Show</button>
       </div>
 
-      <!-- Strength meter -->
+ 
       <div class="strength" aria-live="polite">
         <div id="strength-meter"><div id="strength-bar"></div></div>
         <p id="strength-label">Enter a password</p>

@@ -1,12 +1,11 @@
 // ---------- Filter form: clean 'locker' on submit ----------
-// Accept 'locker 2', 'Locker2', etc. Keep only the FIRST number.
 document.addEventListener('DOMContentLoaded', function () {
   const filterForm = document.getElementById('filterForm');
   filterForm?.addEventListener('submit', function(){
     const lockerEl = document.getElementById('locker');
     if (!lockerEl) return;
     const m = (lockerEl.value || '').match(/\d+/);
-    lockerEl.value = m ? m[0] : ''; // so backend gets just the digits
+    lockerEl.value = m ? m[0] : ''; 
   });
 
   // ---------- Selection handling ----------
@@ -36,7 +35,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   });
 
-  // Submit bulk with confirmation
+
   if (bulkForm) {
     bulkForm.addEventListener('submit', (e)=>{
       const ids = rowChecks.filter(cb=>cb.checked).map(cb=>cb.value);
@@ -82,7 +81,6 @@ document.addEventListener('DOMContentLoaded', function () {
     try { localStorage.setItem(LS_KEY, hide ? '1':'0'); } catch(_e){}
   }
 
-  // initialize from storage (default hidden)
   let initialHidden = true;
   try {
     const v = localStorage.getItem(LS_KEY);

@@ -11,10 +11,10 @@ ob_start();
 
 date_default_timezone_set('Asia/Manila');
 
-// Include your header + sidebar (unchanged)
+
 include '../../includes/admin_header.php';
 
-// --- DB (mysqli) ---
+
 $host = 'localhost';
 $dbname = 'kandado';
 $user = 'root';
@@ -26,7 +26,7 @@ if ($conn->connect_error) {
   die("Connection failed: " . $conn->connect_error);
 }
 
-// Make MySQL's NOW() match PHP time (prevents "stale until logout" issue)
+
 $tzOffset = (new DateTime())->format('P'); // e.g. +08:00
 $conn->query("SET time_zone = '{$conn->real_escape_string($tzOffset)}'");
 
@@ -52,10 +52,7 @@ function _fetch_all_stmt(mysqli_stmt $stmt){
 }
 
 if (isset($_GET['sales_json'])) {
-  /**
-   * FIX #1 (part B): remove any buffered HTML and send clean JSON.
-   * This prevents "Failed to load sales data" (JSON parse) in the browser.
-   */
+
   while (ob_get_level()) { ob_end_clean(); }
 
   header('Content-Type: application/json; charset=utf-8');
@@ -68,13 +65,13 @@ if (isset($_GET['sales_json'])) {
   $end   = _ymd($_GET['end'] ?? '') ?: null;
   if (!$start || !$end) list($start, $end) = _range_default();
 
-  // Build datetime bounds (inclusive days)
+
   $startDT = $start . ' 00:00:00';
   $endDT   = $end   . ' 23:59:59';
 
   $mCond = ($method === 'all') ? '' : ' AND method = ? ';
 
-  // KPIs
+
   $stmt = $conn->prepare("SELECT COUNT(*) AS orders, COALESCE(SUM(amount),0) AS revenue, COALESCE(AVG(amount),0) AS aov FROM payments WHERE created_at BETWEEN ? AND ? {$mCond}");
   _bind_range_method($stmt, $startDT, $endDT, $method);
   $stmt->execute();
@@ -88,7 +85,7 @@ if (isset($_GET['sales_json'])) {
   $kpis['unique_customers'] = (int)($uc['users'] ?? 0);
   $stmt->close();
 
-  // Daily (zero-filled)
+
   $stmt = $conn->prepare("
     SELECT DATE(created_at) AS day, COALESCE(SUM(amount),0) AS revenue, COUNT(*) AS orders
     FROM payments
@@ -101,7 +98,7 @@ if (isset($_GET['sales_json'])) {
   $dailyRows = _fetch_all_stmt($stmt);
   $stmt->close();
 
-  // Zero fill
+
   $dailyMap = [];
   foreach ($dailyRows as $r) $dailyMap[$r['day']] = ['revenue'=>(float)$r['revenue'], 'orders'=>(int)$r['orders']];
   $daily = [];
@@ -115,7 +112,7 @@ if (isset($_GET['sales_json'])) {
     ];
   }
 
-  // By method
+
   $stmt = $conn->prepare("
     SELECT method, COUNT(*) AS cnt, COALESCE(SUM(amount),0) AS revenue
     FROM payments
@@ -127,7 +124,7 @@ if (isset($_GET['sales_json'])) {
   $by_method = _fetch_all_stmt($stmt);
   $stmt->close();
 
-  // By duration
+
   $stmt = $conn->prepare("
     SELECT duration, COUNT(*) AS cnt, COALESCE(SUM(amount),0) AS revenue
     FROM payments
@@ -140,7 +137,7 @@ if (isset($_GET['sales_json'])) {
   $by_duration = _fetch_all_stmt($stmt);
   $stmt->close();
 
-  // Top customers
+
   $stmt = $conn->prepare("
     SELECT u.id AS user_id,
            CONCAT(u.first_name,' ',u.last_name) AS name,
@@ -159,7 +156,7 @@ if (isset($_GET['sales_json'])) {
   $top_customers = _fetch_all_stmt($stmt);
   $stmt->close();
 
-  // Top lockers
+ 
   $stmt = $conn->prepare("
     SELECT locker_number, COUNT(*) AS orders, COALESCE(SUM(amount),0) AS revenue
     FROM payments
@@ -173,7 +170,6 @@ if (isset($_GET['sales_json'])) {
   $top_lockers = _fetch_all_stmt($stmt);
   $stmt->close();
 
-  // Recent payments (last 100 within range)
   $stmt = $conn->prepare("
     SELECT p.id, p.reference_no, p.method, p.amount, p.duration, p.locker_number, p.created_at,
            u.first_name, u.last_name, u.email
@@ -208,9 +204,7 @@ if (isset($_GET['sales_json'])) {
 }
 
 if (isset($_GET['sales_csv'])) {
-  /**
-   * FIX #1 (part C): ensure the CSV download isn’t prefixed by any HTML.
-   */
+
   while (ob_get_level()) { ob_end_clean(); }
 
   $allowed = ['all','GCash','Maya','Wallet'];
@@ -280,7 +274,7 @@ $clear_sql = "
 ";
 $conn->query($clear_sql);
 
-// --- Summary counts (maintenance is its own category) ---
+
 $total_lockers         = (int)$conn->query("SELECT COUNT(*) AS c FROM locker_qr")->fetch_assoc()['c'];
 $maintenance_lockers   = (int)$conn->query("SELECT COUNT(*) AS c FROM locker_qr WHERE maintenance=1")->fetch_assoc()['c'];
 $occupied_lockers      = (int)$conn->query("SELECT COUNT(*) AS c FROM locker_qr WHERE status='occupied' AND maintenance=0")->fetch_assoc()['c'];
@@ -288,7 +282,7 @@ $available_lockers     = (int)$conn->query("SELECT COUNT(*) AS c FROM locker_qr 
 $hold_lockers          = (int)$conn->query("SELECT COUNT(*) AS c FROM locker_qr WHERE status='hold' AND maintenance=0")->fetch_assoc()['c'];
 $total_users           = (int)$conn->query("SELECT COUNT(*) AS c FROM users")->fetch_assoc()['c'];
 
-// --- Locker details (include maintenance flag) ---
+
 $locker_sql = "
     SELECT
         l.locker_number, l.status, l.code, l.item, l.expires_at, l.duration_minutes, l.maintenance,
@@ -299,10 +293,10 @@ $locker_sql = "
 ";
 $locker_result = $conn->query($locker_sql);
 
-// --- Available lockers for selects (exclude maintenance) ---
+
 $available_result = $conn->query("SELECT locker_number FROM locker_qr WHERE status='available' AND maintenance=0");
 
-// --- Locker usage (last 7 days) with zero-fill ---
+
 $usage_rs = $conn->query("
     SELECT DATE(used_at) AS day, COUNT(*) AS usage_count
     FROM locker_history
@@ -325,7 +319,7 @@ for ($i = 6; $i >= 0; $i--) {
 }
 if ($usage_rs) $usage_rs->free();
 
-// --- Recent activity: grab latest up to 150 (client paginates @10/page)
+
 $recent_rs = $conn->query("
     SELECT locker_number, user_fullname, user_email, duration_minutes, expires_at, used_at, code
     FROM locker_history
@@ -334,7 +328,7 @@ $recent_rs = $conn->query("
     LIMIT 150
 ");
 
-// For charts
+
 $occupied   = $occupied_lockers;
 $available  = $available_lockers;
 $hold       = $hold_lockers;
@@ -352,12 +346,12 @@ $maint      = $maintenance_lockers;
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 <link rel="icon" href="/kandado/assets/icon/icon_tab.png" sizes="any">
-<!-- Externalized CSS -->
+
 <link rel="stylesheet" href="../../assets/css/admin_dashboard.css">
 </head>
 <body>
 <main id="content" aria-label="Admin dashboard">
-  <!-- Page Header -->
+
   <div class="page-head">
     <h1 class="page-title" style="color:#223b8f">Admin Dashboard</h1>
     <div class="page-actions">
@@ -365,7 +359,7 @@ $maint      = $maintenance_lockers;
     </div>
   </div>
 
-  <!-- KPIs -->
+ 
   <section class="kpis" aria-label="Key performance indicators">
     <div class="kpi kpi--total" aria-label="Total lockers">
       <div class="ico" aria-hidden="true"><i class="fa-solid fa-cubes"></i></div>
@@ -393,15 +387,15 @@ $maint      = $maintenance_lockers;
     </div>
   </section>
 
-  <!-- Main Sections -->
+
   <div class="section-grid">
-    <!-- Left: Manage Lockers -->
+  
     <section class="panel" aria-label="Manage lockers">
       <div class="panel-head">
         <div class="panel-title"><i class="fa-solid fa-screwdriver-wrench"></i>Manage Lockers</div>
       </div>
 
-      <!-- Filter Chips -->
+  
       <div class="filter-bar" role="toolbar" aria-label="Locker filters">
         <button class="filter-chip" data-filter="all" aria-pressed="true"><i class="fa-solid fa-layer-group"></i> All <span class="count"><?= (int)$total_lockers ?></span></button>
         <button class="filter-chip" data-filter="available" aria-pressed="false"><i class="fa-solid fa-unlock"></i> Available <span class="count"><?= (int)$available_lockers ?></span></button>
@@ -411,7 +405,7 @@ $maint      = $maintenance_lockers;
       </div>
 
       <div class="panel-body">
-        <!-- Flex wrapper for right alignment -->
+    
         <div style="display:flex; justify-content:flex-end; width:100%;">
           <button id="globalPowerAlert" class="global-power-toggle" type="button">
             <i class="fa-solid fa-bolt"></i> Power Notice to Users
@@ -505,7 +499,7 @@ $maint      = $maintenance_lockers;
       </div>
     </section>
 
-    <!-- Right: Quick Controls + Assign -->
+   
     <section class="panel panel--sticky" aria-label="Force unlock and assign">
       <div class="panel-head">
         <div class="panel-title"><i class="fa-solid fa-key"></i> Quick Controls</div>
@@ -591,7 +585,7 @@ $maint      = $maintenance_lockers;
     </section>
   </div>
 
-  <!-- Recent Activity (with client-side pagination: 10/page) -->
+
   <section style="margin-top:16px;">
     <div class="panel">
       <div class="panel-head">
@@ -772,11 +766,11 @@ $maint      = $maintenance_lockers;
   </section>
 </main>
 
-<!-- Vendor libraries (same CDNs as before) -->
+
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-<!-- Data bootstrap for charts that used inline PHP values -->
+
 <script>
   window.DASHBOARD_DATA = {
     dates: <?= json_encode($dates) ?>,
@@ -790,7 +784,7 @@ $maint      = $maintenance_lockers;
   };
 </script>
 
-<!-- Externalized JS -->
+
 <script src="../../assets/js/admin_dashboard.js"></script>
 </body>
 </html>

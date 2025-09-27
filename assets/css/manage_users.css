@@ -153,7 +153,7 @@
 
 /* Badges */
 #manage-users .badge{ display:inline-flex; align-items:center; gap:.35rem; padding:.35rem .6rem; border-radius:999px; font-size:.78rem; }
-#manage-users .badge-admin{ background:var(--brand); color:#fff; }
+#manage-users .badge-admin{ background:#1e293b; color:#fff; }
 #manage-users .badge-user{ background:#e2e8f0; color:#1e293b; }
 #manage-users .badge-active{ background:#e9f7ee; color:#166534; border:1px solid #cdebd8; }
 #manage-users .badge-archived{ background:#fff7ed; color:#b45309; border:1px solid #fed7aa; }

@@ -3,7 +3,6 @@
   const byId = (id) => document.getElementById(id);
 
   /* ===== Show/Hide password (works on Login & Register) =====
-     - Supports buttons like: <button class="toggle-btn js-toggle-password" data-target="#id">Show</button>
   */
   document.addEventListener('click', (e) => {
     const btn = e.target.closest('.js-toggle-password');

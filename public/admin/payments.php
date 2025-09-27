@@ -1,30 +1,25 @@
 <?php
-/**
- * payments.php — Admin payments panel (fixed + searchable user picker + inline copy + friendly action colors)
- *
- * NOTE: Duration is now entered as a human string like "2d 3h 15m" and is stored as total minutes.
- *       It is displayed as "Xd Yh Zm" (omitting zero parts, e.g., "7d 20m", "1h 5m", "30m").
- */
+
 
 if (session_status() === PHP_SESSION_NONE) session_start();
 
-// ---------------- Guard: Admin only ----------------
+
 if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
   header('Location: ../login.php');
   exit();
 }
 
-// ---------------- DB ----------------
-require_once '../../config/db.php'; // safe even if included by header
+
+require_once '../../config/db.php'; 
 $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-// ---------------- CSRF ----------------
+
 if (empty($_SESSION['csrf_token'])) {
   $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
 $CSRF = $_SESSION['csrf_token'];
 
-// ---------------- Helpers ----------------
+
 function e(string $s): string { return htmlspecialchars($s, ENT_QUOTES, 'UTF-8'); }
 function money($n): string    { return number_format((float)$n, 2, '.', ','); }
 function dt_out(?string $dt): string {
@@ -50,13 +45,13 @@ function duration_to_minutes(string $raw): ?int {
   $s = strtolower(trim($raw));
   if ($s === '') return null;
 
-  // Legacy format DD:HH:MM
+
   if (preg_match('/^(\d+):([0-1]?\d|2[0-3]):([0-5]?\d)$/', $s, $m)) {
     $d = (int)$m[1]; $h = (int)$m[2]; $min = (int)$m[3];
     return $d * 1440 + $h * 60 + $min;
   }
 
-  // "2d 3h 15m" (order-insensitive)
+
   if (preg_match_all('/(\d+)\s*([dhm])/i', $s, $matches, PREG_SET_ORDER)) {
     $total = 0;
     foreach ($matches as $part) {
@@ -70,13 +65,13 @@ function duration_to_minutes(string $raw): ?int {
     return $total;
   }
 
-  // Plain digits -> treat as minutes
+ 
   if (ctype_digit($s)) return (int)$s;
 
   return null;
 }
 
-/** Convert minutes (or any supported string) to "Xd Yh Zm", omitting zeros. */
+
 function minutes_to_human($value): string {
   if ($value === null || $value === '') return '';
   $mins = is_numeric($value) ? (int)$value : duration_to_minutes((string)$value);
@@ -90,14 +85,12 @@ function minutes_to_human($value): string {
   $parts = [];
   if ($d > 0) $parts[] = $d . 'd';
   if ($h > 0) $parts[] = $h . 'h';
-  // Always show minutes (even if 0) when everything else is 0
+
   if ($m > 0 || !$parts) $parts[] = $m . 'm';
 
   return implode(' ', $parts);
 }
-/* ----------------------------------------------------------------------- */
 
-// ---------------- Parse Filters/Sorting/Pagination ----------------
 $allowedSorts = [
   'date'      => 'p.created_at',
   'amount'    => 'p.amount',
@@ -129,7 +122,7 @@ $filters = [
   'max'        => ($_GET['max'] ?? '') !== '' ? (float)$_GET['max'] : '',
 ];
 
-// Quick ranges
+
 if ($filters['range']) {
   $start = null; $end = null;
   switch ($filters['range']) {
@@ -151,7 +144,7 @@ if ($filters['range']) {
 }
 unset($filters['range']);
 
-// WHERE
+
 $params = [];
 $where  = 'WHERE 1=1 ';
 if ($filters['q'] !== '') {
@@ -175,7 +168,7 @@ if ($filters['to'] !== '')   { $where .= " AND p.created_at <= ? "; $params[] = 
 if ($filters['min'] !== '')  { $where .= " AND p.amount >= ? "; $params[] = (float)$filters['min']; }
 if ($filters['max'] !== '')  { $where .= " AND p.amount <= ? "; $params[] = (float)$filters['max']; }
 
-// ---------------- Export CSV BEFORE any output ----------------
+
 if (isset($_GET['export']) && $_GET['export'] === 'csv') {
   $limitForExport = 10000;
   $sql = "
@@ -194,7 +187,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
   header('Content-Type: text/csv; charset=utf-8');
   header('Content-Disposition: attachment; filename=payments_' . date('Ymd_His') . '.csv');
   $out = fopen('php://output', 'w');
-  fprintf($out, chr(0xEF).chr(0xBB).chr(0xBF)); // BOM
+  fprintf($out, chr(0xEF).chr(0xBB).chr(0xBF)); 
   fputcsv($out, ['ID','Date','User','Email','Locker #','Method','Amount','Reference #','Duration']);
   foreach ($rows as $r) {
     fputcsv($out, [
@@ -207,7 +200,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
   exit();
 }
 
-// ---------------- POST actions ----------------
+
 function validate_payment(array $in, bool $forUpdate = false): array {
   $errors = []; $clean  = [];
   if ($forUpdate) {
@@ -231,7 +224,7 @@ function validate_payment(array $in, bool $forUpdate = false): array {
   if (strlen($ref) > 50) $errors['reference_no'] = 'Reference number is too long.';
   $clean['reference_no'] = $ref;
 
-  // --------- Duration (ONLY change): accept "2d 3h 15m" and store minutes ---------
+ 
   $durationRaw = trim((string)($in['duration'] ?? ''));
   if ($durationRaw === '') {
     $errors['duration'] = 'Duration is required.';
@@ -240,10 +233,10 @@ function validate_payment(array $in, bool $forUpdate = false): array {
     if ($mins === null) {
       $errors['duration'] = 'Invalid duration. Use e.g., "2d 3h 15m", "1h", or "30m".';
     } else {
-      $clean['duration'] = (string)$mins; // store as minutes
+      $clean['duration'] = (string)$mins; 
     }
   }
-  // ---------------------------------------------------------------------------
+
 
   $created_at = $in['created_at'] ?? '';
   $clean['created_at'] = $created_at ? dt_to_mysql($created_at) : null;
@@ -328,11 +321,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   }
 }
 
-// ---------------- Fetch data for selects ----------------
+
 $users = $pdo->query("SELECT id, first_name, last_name, email FROM users WHERE archived = 0 ORDER BY first_name, last_name")->fetchAll(PDO::FETCH_ASSOC);
 $lockers = $pdo->query("SELECT locker_number FROM locker_qr ORDER BY locker_number")->fetchAll(PDO::FETCH_COLUMN);
 
-// Build small array for the JS user picker (id + label)
+
 $usersForJs = array_map(function ($u) {
   return [
     'id'    => (int)$u['id'],
@@ -340,13 +333,13 @@ $usersForJs = array_map(function ($u) {
   ];
 }, $users);
 
-// ---------------- Stats ----------------
+
 $stats = $pdo->query("SELECT COALESCE(SUM(amount),0) AS total, COUNT(*) AS cnt, COALESCE(AVG(amount),0) AS avg FROM payments")->fetch(PDO::FETCH_ASSOC);
 $todayRevenue = (float)$pdo->query("SELECT COALESCE(SUM(amount),0) FROM payments WHERE DATE(created_at) = CURDATE()")->fetchColumn();
 $last7Revenue = (float)$pdo->query("SELECT COALESCE(SUM(amount),0) FROM payments WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)")->fetchColumn();
 $byMethod = $pdo->query("SELECT method, COUNT(*) cnt, COALESCE(SUM(amount),0) sum FROM payments GROUP BY method")->fetchAll(PDO::FETCH_ASSOC);
 
-// ---------------- List query (with filters) ----------------
+
 $countSql = "
   SELECT COUNT(*)
   FROM payments p
@@ -374,25 +367,25 @@ $listStmt = $pdo->prepare($listSql);
 $listStmt->execute($params);
 $rows = $listStmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Old form state
+
 $form_old  = $_SESSION['form_old']  ?? [];
 $form_errs = $_SESSION['form_errors'] ?? [];
 $edit_old  = $_SESSION['edit_old']  ?? [];
 $edit_errs = $_SESSION['edit_errors'] ?? [];
 unset($_SESSION['form_old'], $_SESSION['form_errors'], $_SESSION['edit_old'], $_SESSION['edit_errors']);
 
-// Flash for SweetAlert
+
 $flash = $_SESSION['flash'] ?? null;
 unset($_SESSION['flash']);
 
-// ---------------- UI Shell ----------------
+
 include '../../includes/admin_header.php';
 ?>
 
-<!-- external styles -->
+
 <link rel="stylesheet" href="../../assets/css/payments.css">
 
-<!-- bootstrap app data for external JS -->
+
 <script>
 window.APP = {
   USERS: <?= json_encode($usersForJs, JSON_HEX_TAG|JSON_HEX_APOS|JSON_HEX_AMP|JSON_HEX_QUOT) ?>,
@@ -405,7 +398,7 @@ window.APP = {
 };
 </script>
 
-<!-- external script (deferred) -->
+
 <script src="../../assets/js/payments.js" defer></script>
 <title>Payments · Admin</title>
 <link rel="icon" type="image/png" sizes="any" href="../../assets/icon/icon_tab.png">
@@ -419,7 +412,7 @@ window.APP = {
     </div>
   </div>
 
-  <!-- Metrics -->
+
   <section class="metrics" aria-label="Payment metrics">
     <div class="metric-card">
       <div class="metric-top">
@@ -454,7 +447,7 @@ window.APP = {
     </div>
   </section>
 
-  <!-- Filters -->
+
   <section class="filter-bar" aria-label="Filters">
     <form method="get" id="filter-form" class="filters">
       <div class="filter-row">
@@ -609,7 +602,7 @@ window.APP = {
                 </td>
                 <td data-label="Amount" class="amount">₱ <?= money($r['amount']) ?></td>
 
-                <!-- Reference # + Copy inline -->
+
                 <td data-label="Reference #">
                   <div class="ref-inline">
                     <code id="ref-<?= (int)$r['id'] ?>"><?= e($r['reference_no']) ?></code>
@@ -664,7 +657,7 @@ window.APP = {
         </table>
       </div>
 
-      <!-- Pagination -->
+
       <div class="pagination" aria-label="Pagination">
         <?php
           $makePageUrl = function(int $p) {
@@ -686,7 +679,6 @@ window.APP = {
   </section>
 </main>
 
-<!-- VIEW MODAL -->
 <div class="modal" id="view-modal" aria-hidden="true" aria-labelledby="view-title" role="dialog">
   <div class="modal-card">
     <div class="modal-head">
@@ -700,7 +692,6 @@ window.APP = {
   </div>
 </div>
 
-<!-- CREATE MODAL -->
 <div class="modal" id="create-modal" aria-hidden="true" aria-labelledby="create-title" role="dialog">
   <div class="modal-card">
     <div class="modal-head">
@@ -711,7 +702,7 @@ window.APP = {
       <input type="hidden" name="csrf" value="<?= e($CSRF) ?>">
       <input type="hidden" name="action" value="create_payment">
       <div class="modal-grid">
-        <!-- Searchable User Picker -->
+
         <div class="field">
           <label for="c_user_input">User</label>
           <div class="combo" id="c_combo">
@@ -796,7 +787,7 @@ window.APP = {
       <input type="hidden" name="action" value="update_payment">
       <input type="hidden" name="id" id="e_id">
       <div class="modal-grid">
-        <!-- Searchable User Picker (edit) -->
+       
         <div class="field">
           <label for="e_user_input">User</label>
           <div class="combo" id="e_combo">

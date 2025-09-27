@@ -262,7 +262,7 @@ a.btn{ text-decoration:none; }
 .pager a, .pager span{ padding:6px 10px; border-radius:8px; border:1px solid #e2e6f2; background:#fff; color:#2d3a69; text-decoration:none; font-weight:var(--w-medium); font-size:13px; }
 .pager a.active{ background:#2f54eb; color:#fff; border-color:#2f54eb; }
 .pager .sep{ pointer-events:none; border:none; background:transparent; padding:0 2px; }
-/* SweetAlert2 always in front */
+
 .swal2-container{ z-index:2147483647 !important; }
 .swal2-title{ font-weight:var(--w-medium) !important; }
 .swal2-html-container{ font-weight:var(--w-normal) !important; }
@@ -380,7 +380,7 @@ a.btn{ text-decoration:none; }
                 $dot = $badgeColors[$c] ?? '#64748B';
                 $epoch = sa_epoch_from_local($r['created_at'], $STORED_TZ);   // parse using the DB’s TZ
                 $ago   = sa_time_ago(time() - $epoch);
-                $local = sa_fmt_local_from_epoch($epoch, $DISPLAY_TZ);        // show in PH
+                $local = sa_fmt_local_from_epoch($epoch, $DISPLAY_TZ);        
               ?>
               <tr class="<?= $isUnread ? 'row-unread' : '' ?>">
                 <td><input type="checkbox" class="rowcheck" name="ids[]" value="<?= (int)$r['id'] ?>" form="bulkForm"></td>
@@ -508,7 +508,7 @@ a.btn{ text-decoration:none; }
 
 <?php if ($flash): ?>
 <script>
-  // Sweet toast (always on top)
+
   Swal.fire({
     toast:true, position:'top-end',
     icon:'<?= $flashType === 'ok' ? 'success' : 'error' ?>',

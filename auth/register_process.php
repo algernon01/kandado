@@ -11,9 +11,9 @@ session_start();
 $errors = [];
 
 // === Config ===
-const VERIFICATION_TTL_ISO8601 = 'PT2H'; // <-- change this to adjust the window (e.g., PT30M, PT24H)
+const VERIFICATION_TTL_ISO8601 = 'PT1H'; // <-- change this to adjust the window (e.g., PT30M, PT24H)
 const NGROK_BASE = 'https://longhorn-settling-precisely.ngrok-free.app';
-const LAN_BASE   = 'http://192.168.100.15'; // switch to https:// if you have a valid cert
+const LAN_BASE   = 'http://192.168.1.110'; // switch to https:// if you have a valid cert
 
 /**
  * Determine if an IP is private (RFC1918, loopback, link-local).
@@ -112,7 +112,7 @@ if (($_SERVER["REQUEST_METHOD"] ?? '') === "POST") {
             $token = bin2hex(random_bytes(32));
             $hashedPassword = password_hash($password, PASSWORD_BCRYPT);
 
-            // Expiry in 2 hours, explicitly using PH time (Asia/Manila)
+            // Expiry in 1 hour, explicitly using PH time (Asia/Manila)
             $tzManila  = new DateTimeZone('Asia/Manila');
             $expiresAt = (new DateTimeImmutable('now', $tzManila))
                 ->add(new DateInterval(VERIFICATION_TTL_ISO8601))
@@ -172,7 +172,7 @@ if (($_SERVER["REQUEST_METHOD"] ?? '') === "POST") {
             if ($emailSent) {
                 // Clear any old input on success
                 unset($_SESSION['register_old'], $_SESSION['register_errors']);
-                $_SESSION['success_message'] = "Registration successful! Please check your email to verify your account. The link expires in 2 hours.";
+                $_SESSION['success_message'] = "Registration successful! Please check your email to verify your account. The link expires in 1 hour.";
                 header("Location: ../public/verify.php");
                 exit;
             } else {

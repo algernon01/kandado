@@ -21,8 +21,8 @@ unset($_SESSION['forgot_success'], $_SESSION['forgot_error']);
       --text: #0f172a;
       --muted: #64748b;
 
-      --action: #2563EB;        /* bright blue */
-      --action-700: #1D4ED8;    /* hover */
+      --action: #2563EB;        
+      --action-700: #1D4ED8;   
       --success: #16a34a;
       --error: #e11d48;
 
@@ -45,7 +45,7 @@ unset($_SESSION['forgot_success'], $_SESSION['forgot_error']);
       line-height: 1.45;
     }
 
-    /* =============== Container & Card =============== */
+
     .container{
       width: 100%;
       max-width: 520px;
@@ -53,7 +53,7 @@ unset($_SESSION['forgot_success'], $_SESSION['forgot_error']);
     }
     .card{
       position: relative;
-      z-index: 0;            /* create stacking context */
+      z-index: 0;          
       background: var(--card);
       border: 1px solid var(--border);
       border-radius: var(--radius-lg);
@@ -63,7 +63,7 @@ unset($_SESSION['forgot_success'], $_SESSION['forgot_error']);
       overflow: hidden;
       animation: rise .45s ease both;
     }
-    /* soft decorative flare — sits behind content */
+
     .card::after{
       content: "";
       position: absolute; right: -90px; top: -90px;
@@ -72,7 +72,7 @@ unset($_SESSION['forgot_success'], $_SESSION['forgot_error']);
       background: conic-gradient(from 200deg at 50% 50%, #eff5ff, #eef3fb, #eff5ff);
       opacity: .7;
       pointer-events: none;
-      z-index: -1; /* behind content */
+      z-index: -1; 
     }
 
     @keyframes rise{
@@ -80,7 +80,6 @@ unset($_SESSION['forgot_success'], $_SESSION['forgot_error']);
       to{ opacity:1; transform: translateY(0) scale(1) }
     }
 
-    /* =============== Text =============== */
     .title{
       font-size: 30px;
       font-weight: 800;
@@ -93,7 +92,7 @@ unset($_SESSION['forgot_success'], $_SESSION['forgot_error']);
       margin-bottom: 18px;
     }
 
-    /* =============== Messages =============== */
+
     .msg{
       text-align: left;
       border-radius: var(--radius-md);
@@ -113,7 +112,6 @@ unset($_SESSION['forgot_success'], $_SESSION['forgot_error']);
       color: #8f1a37;
     }
 
-    /* =============== Button =============== */
     .btn{
       display: inline-block;
       width: 100%;
@@ -140,7 +138,7 @@ unset($_SESSION['forgot_success'], $_SESSION['forgot_error']);
       font-size: 14px;
     }
 
-    /* =============== Responsive =============== */
+
     @media (max-width: 560px){
       body{ padding: 16px; }
       .card{ padding: 26px 18px 18px; border-radius: 16px; }
@@ -148,7 +146,7 @@ unset($_SESSION['forgot_success'], $_SESSION['forgot_error']);
       .subtitle{ font-size: 14.5px; }
     }
 
-    /* Reduced motion */
+
     @media (prefers-reduced-motion: reduce){
       *{ animation: none !important; transition: none !important; }
     }

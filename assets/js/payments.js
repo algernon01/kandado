@@ -6,7 +6,7 @@
   const USERS = Array.isArray(APP.USERS) ? APP.USERS : [];
   const FLASH = APP.FLASH || null;
 
-  // Flash
+
   if (FLASH) {
     Swal.fire({
       icon: FLASH.type,
@@ -16,11 +16,11 @@
     });
   }
 
-  // Open/Close Modals
+  
   const open = (id) => $(id)?.classList.add('open');
   const close = (id) => $(id)?.classList.remove('open');
   $$('#open-create, #open-create-2').forEach(b => b?.addEventListener('click', () => {
-    // Auto-fill reference if empty
+    
     const ref = $('#c_reference_no');
     if (ref && !ref.value) genRef(ref);
     open('#create-modal');
@@ -31,7 +31,7 @@
     window.addEventListener('keydown', (e) => { if (e.key === 'Escape') close('#'+m.id); }, { once: true });
   });
 
-  // Reference generator
+
   function genRef(inputEl) {
     const d = new Date();
     const pad = n => n.toString().padStart(2,'0');
@@ -40,7 +40,7 @@
   }
   $('#gen-ref')?.addEventListener('click', () => genRef($('#c_reference_no')));
 
-  // Copy to clipboard (inline button)
+
   $$('[data-copy]').forEach(btn => {
     btn.addEventListener('click', () => {
       const sel = btn.getAttribute('data-copy');
@@ -53,7 +53,7 @@
     });
   });
 
-  // Delete confirm
+
   $$('.btn-delete').forEach(btn => {
     btn.addEventListener('click', () => {
       Swal.fire({
@@ -68,7 +68,7 @@
     });
   });
 
-  // View modal fill
+
   $$('.btn-view').forEach(btn => {
     btn.addEventListener('click', () => {
       const body = $('#view-body'); body.innerHTML = '';
@@ -159,7 +159,7 @@
     document.addEventListener('click', (e) => { if (!combo.contains(e.target)) closeList(); });
     clearBtn?.addEventListener('click', () => { input.value=''; hidden.value=''; input.focus(); filter(''); });
 
-    // If there is an initial hidden value, show label
+
     if (hidden.value) {
       const id = parseInt(hidden.value, 10);
       const label = USERS.find(u => u.id === id)?.label || '';
@@ -167,11 +167,11 @@
     }
   }
 
-  // Init pickers
+
   initUserPicker('#c_combo', '#c_user_input', '#c_user_list', '#c_user_id');
   initUserPicker('#e_combo', '#e_user_input', '#e_user_list', '#e_user_id');
 
-  // Edit modal prefill
+l
   function findUserLabel(id) {
     id = parseInt(id,10);
     const u = USERS.find(u => u.id===id);

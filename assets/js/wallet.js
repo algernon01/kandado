@@ -1,13 +1,13 @@
 (function(){
   const root = document.documentElement;
 
-  /* helpers */
+  
   const lockScroll   = ()=>{ root.style.overflow = 'hidden'; };
   const unlockScroll = ()=>{ root.style.overflow = ''; };
   const show = el => { el.classList.add('show'); lockScroll(); };
   const hide = el => { el.classList.remove('show'); unlockScroll(); };
 
-  /* New Tx modal */
+  
   const txModal = document.getElementById('txModal');
   const txForm  = document.getElementById('txForm');
   const type    = document.getElementById('tx_type');
@@ -46,7 +46,7 @@
     txAmount.value = preAmount;
 
     if (preType === 'topup') method.value = 'GCash';
-    else { method.value = 'Admin'; } // adjustment default
+    else { method.value = 'Admin'; } 
 
     updateControls();
     show(txModal);
@@ -68,7 +68,7 @@
     });
   });
 
-  /* User (View) modal */
+  
   const userModal = document.getElementById('userModal');
   const userBody  = document.getElementById('userModalBody');
   const userTitle = document.getElementById('userTitle');
@@ -124,5 +124,5 @@
     if (uid) openUserModal(uid);
   });
 
-  /* (Flash stays inline in PHP because it needs server-side values) */
+  
 })();

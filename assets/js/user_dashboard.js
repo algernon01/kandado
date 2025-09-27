@@ -1,12 +1,10 @@
-// user_dashboard.js — Wallet-enabled, modal-based duration picker (no selects on cards)
-
 /* ------------------ Config ------------------ */
 const API_BASE = `${window.location.origin}/kandado/api`;
 const TOPUP_URL = `/kandado/public/user/topup.php`;
 
-// Client price map (synced from API /prices at boot)
+
 let prices = {
-  '30s': 0.5,     // for testing
+  '30s': 0.5,    
   '20min': 2,
   '30min': 3,
   '1hour': 5,
@@ -19,7 +17,7 @@ let prices = {
   '7days': 150
 };
 
-// Initial selection when opening the modal
+
 const DEFAULT_DURATION = localStorage.getItem('kd_last_duration') || '30min';
 
 const durationOptions = [
@@ -67,7 +65,7 @@ function formatDuration(ms){
   return parts.slice(0,3).join(' ');
 }
 
-// Choose donut color by % (<=50 green, 51-80 orange, >80 red)
+
 function getOccColor(pct){
   if (pct <= 50) return cssVar('--occ-green') || '#16a34a';
   if (pct <= 80) return cssVar('--occ-orange') || '#f59e0b';
@@ -180,11 +178,11 @@ async function refreshWalletBalance() {
       if (v) v.textContent = peso(data.balance);
     }
   } catch (e) {
-    // ignore display errors
+    
   }
 }
 
-// helper that also returns a number for modal logic
+
 async function getWalletBalance(){
   try{
     const r = await fetch(`${API_BASE}/locker_api.php?wallet=1`, {
@@ -309,7 +307,7 @@ async function fetchActiveLockers(showToast = false) {
       const isMaintenance = Number(lockerData?.maintenance) === 1;
       const hasItem = Number(lockerData?.item) === 1;
 
-      // Maintenance overrides everything
+      
       if (isMaintenance) {
         textEl.textContent = 'Maintenance';
         statusClasses(statusDiv, 'maintenance');
@@ -377,7 +375,7 @@ async function fetchActiveLockers(showToast = false) {
       });
     }
 
-    // also refresh wallet (but not every 3s via separate timer)
+    
     refreshWalletBalance();
 
   } catch (err) {
@@ -399,7 +397,7 @@ function labelForDuration(value){
   return durationOptions.find(o=>o.value===value)?.text || value;
 }
 
-// Renders a single option card (value comes from your durationOptions list)
+
 function optionCardHTML(value, text){
   const price = prices[value] ?? 0;
   const id = `dur-${value.replace(/[^a-zA-Z0-9_-]/g, '')}`;
@@ -465,7 +463,7 @@ async function openReserveModal(locker){
       return checked.value;
     },
     didOpen: () => {
-      // mark initial selection
+     
       const initEl = document.querySelector(`#dur-${CSS.escape(initial)}`);
       if (initEl) initEl.checked = true;
 
@@ -475,7 +473,7 @@ async function openReserveModal(locker){
       const selectedEl = document.getElementById('rm-selected');
       const confirmBtn = Swal.getConfirmButton();
 
-      // visual affordability markers
+   
       function markAffordability(){
         grid.querySelectorAll('.option-card').forEach(card => {
           const value = card.getAttribute('data-value');
@@ -506,7 +504,7 @@ async function openReserveModal(locker){
         }
       }
 
-      // Click-to-select anywhere on the card
+      
       grid.addEventListener('click', (e) => {
         const card = e.target.closest('.option-card');
         if (!card) return;
@@ -525,7 +523,7 @@ async function openReserveModal(locker){
   });
 }
 
-/* Entry point from the card */
+
 async function startCheckout(locker) {
   const btn = document.getElementById(`btn${locker}`);
   if (!btn) return;
@@ -554,7 +552,7 @@ async function startCheckout(locker) {
       return;
     }
 
-    // Show duration + wallet modal
+   
     const result = await openReserveModal(locker);
     if (result.isConfirmed && result.value) {
       const chosen = result.value;
@@ -570,7 +568,7 @@ async function startCheckout(locker) {
     btn.removeAttribute('aria-disabled');
   }
 }
-window.startCheckout = startCheckout; // needed for onclick in generated markup
+window.startCheckout = startCheckout; 
 
 /* ------------------ Wallet reservation ------------------ */
 async function reserveWithWallet(locker, duration) {
@@ -645,7 +643,7 @@ async function reserveWithWallet(locker, duration) {
   } catch (err) {
     if (window.Swal) Swal.fire({ icon:'error', title:'Network Error', text: err.message });
   } finally {
-    // Refresh UI & wallet after any attempt
+    
     fetchActiveLockers();
     refreshWalletBalance();
   }
@@ -667,13 +665,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     lockerGrid.appendChild(buildLockerCard(i));
   }
 
-  // Filters
+  
   $$('.segmented .seg').forEach(btn=>{
     btn.addEventListener('click', ()=> setStatusFilter(btn.dataset.filter));
   });
   setStatusFilter(currentStatusFilter);
 
-  // Search
+ 
   const searchInput = $('#searchInput');
   const clearBtn = $('#clearSearch');
   searchInput?.addEventListener('input', debounce(()=>{
@@ -690,26 +688,26 @@ document.addEventListener('DOMContentLoaded', async () => {
     searchInput.focus();
   });
 
-  // Online/offline banners
+
   window.addEventListener('offline', ()=> setOffline(true));
   window.addEventListener('online',  ()=> setOffline(false));
 
-  // Wallet widget + balance polling
+
   ensureWalletWidget();
   await refreshWalletBalance();
   startWalletPolling(10000);
 
-  // Sync prices from API (keeps UI aligned with server)
+  
   await syncPricesFromAPI();
 
-  // Initial data & polling
+ 
   fetchActiveLockers();
   startPolling();
 
-  // Manual refresh button
+ 
   $('#refreshBtn')?.addEventListener('click', () => fetchActiveLockers(true));
 
-  // Pause polling when tab hidden
+ 
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
       stopPolling();

@@ -10,7 +10,7 @@ $message = $_GET['msg'] ?? 'Something went wrong.';
   <title>Email Verification - Kandado</title>
   <link rel="icon" href="../assets/icon/icon_tab.png" sizes="any">
   <style>
-    /* === Reset === */
+
     * {
       margin: 0;
       padding: 0;

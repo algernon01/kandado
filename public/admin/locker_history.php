@@ -1,24 +1,22 @@
 <?php
-// locker_history_admin.php — admin view (CSS/JS externalized)
 
-// ---------------- Boot ----------------
 if (session_status() === PHP_SESSION_NONE) session_start();
 
-// Admin-only
+
 if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
   header('Location: ../login.php');
   exit();
 }
 
-// Local display timezone (no effect on DB timestamps)
+
 @date_default_timezone_set('Asia/Manila');
 
-// Security headers
+
 header('X-Frame-Options: SAMEORIGIN');
 header('X-Content-Type-Options: nosniff');
 header('Referrer-Policy: no-referrer-when-downgrade');
 
-// ---------------- CSRF ----------------
+
 if (empty($_SESSION['csrf_token'])) {
   $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
@@ -30,7 +28,7 @@ function csrf_ok($token) {
   return isset($_SESSION['csrf_token']) && hash_equals($_SESSION['csrf_token'], (string)$token);
 }
 
-// ---------------- DB (PDO) ----------------
+
 $host='localhost'; $dbname='kandado'; $user='root'; $pass='';
 try {
   $pdo = new PDO(
@@ -45,7 +43,7 @@ try {
   exit();
 }
 
-// ---------------- Helpers ----------------
+
 function h($v){ return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
 
 function toLabelDate($dt){
@@ -69,17 +67,9 @@ function groupByDateLabel($rows){
 
 function redirect($url){ header('Location: '.$url); exit(); }
 
-/**
- * Format a duration in minutes as compact d/h/m.
- * Examples: 2d 3h 5m · 1h 00m · 37m · 1d 4h
- * Rules:
- *  - If days > 0, show days, then hours if >0, then minutes if >0.
- *  - Else if hours > 0, show hours and minutes (even 0m).
- *  - Else show minutes (even 0m).
- */
 function formatDurationMinutes($minutes): string {
   $minutes = max(0, (int)$minutes);
-  $d = intdiv($minutes, 1440);            // 60 * 24
+  $d = intdiv($minutes, 1440);         
   $rem = $minutes % 1440;
   $h = intdiv($rem, 60);
   $m = $rem % 60;
@@ -93,17 +83,17 @@ function formatDurationMinutes($minutes): string {
   }
 
   if ($h > 0) {
-    // Show hours and minutes even if minutes is 0, to mirror old behavior
+ 
     $parts[] = $h.'h';
     $parts[] = str_pad((string)$m, 2, '0', STR_PAD_LEFT).'m';
     return implode(' ', $parts);
   }
 
-  // Only minutes
+
   return $m.'m';
 }
 
-// ---------------- Inputs (GET) ----------------
+
 $view = isset($_GET['view']) && $_GET['view']==='archived' ? 'archived' : 'active';
 $archivedFlag = $view === 'archived' ? 1 : 0;
 
@@ -112,27 +102,27 @@ $q = trim((string)($_GET['q'] ?? ''));
 $date_from = trim((string)($_GET['date_from'] ?? ''));
 $date_to   = trim((string)($_GET['date_to'] ?? ''));
 
-// Locker: accept "2" or "locker 2" or any text with a number; keep only the first number
+
 $lockerRaw = trim((string)($_GET['locker'] ?? ''));
 $locker = '';
 if ($lockerRaw !== '' && preg_match('/\d+/', $lockerRaw, $m)) {
-  $locker = $m[0]; // first number sequence only
+  $locker = $m[0]; 
 }
 
-// Sorting (whitelist)
+
 $sort = $_GET['sort'] ?? 'used_at';
 $dir  = strtolower($_GET['dir'] ?? 'desc');
 $allowedSort = ['id','locker_number','user_fullname','user_email','code','duration_minutes','expires_at','used_at'];
 if(!in_array($sort, $allowedSort, true)) $sort = 'used_at';
 $dir = $dir === 'asc' ? 'ASC' : 'DESC';
 
-// Pagination
+
 $per_page = (int)($_GET['per_page'] ?? 50);
 if (!in_array($per_page, [25,50,100,200], true)) $per_page = 50;
 $page = max(1, (int)($_GET['page'] ?? 1));
 $offset = ($page-1) * $per_page;
 
-// ---------------- Actions (POST) ----------------
+
 $flash = $_SESSION['flash'] ?? null; unset($_SESSION['flash']);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -149,7 +139,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       $flag = $action === 'bulk_archive' ? 1 : 0;
       $stmt = $pdo->prepare("UPDATE locker_history SET archived=? WHERE id IN ($in)");
       $stmt->execute(array_merge([$flag], $ids));
-      if ($flag === 1) $_SESSION['last_deleted'] = $ids; // enable Undo for archive
+      if ($flag === 1) $_SESSION['last_deleted'] = $ids; 
       $_SESSION['flash'] = ['type'=>'success','msg'=>($flag? 'Archived' : 'Restored').' '.count($ids).' record(s).'];
     } else {
       $_SESSION['flash'] = ['type'=>'info','msg'=>'No records were selected.'];
@@ -172,7 +162,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $undoAvailable = !empty($_SESSION['last_deleted']);
 
-// ---------------- Stats ----------------
+
 $stats = $pdo->query("SELECT 
     COUNT(CASE WHEN MONTH(used_at)=MONTH(CURDATE()) AND YEAR(used_at)=YEAR(CURDATE()) AND archived=0 THEN 1 END) AS total_used_this_month,
     COUNT(CASE WHEN DATE(used_at)=CURDATE() AND archived=0 THEN 1 END) AS today_used,
@@ -180,11 +170,11 @@ $stats = $pdo->query("SELECT
     COUNT(CASE WHEN MONTH(used_at)=MONTH(CURDATE()-INTERVAL 1 MONTH) AND YEAR(used_at)=YEAR(CURDATE()-INTERVAL 1 MONTH) AND archived=0 THEN 1 END) AS last_month_used
   FROM locker_history")->fetch();
 
-// ---------------- Build WHERE ----------------
+
 [$whereSQL, $params] = (function() use($archivedFlag,$filter,$q,$date_from,$date_to,$locker){
   $w = ['archived = ?']; $p = [$archivedFlag];
 
-  // search box
+
   if ($q !== '') {
     $like = '%'.$q.'%';
     switch ($filter) {
@@ -198,26 +188,25 @@ $stats = $pdo->query("SELECT
     }
   }
 
-  // locker filter (exact number)
+
   if ($locker !== '') { $w[]='locker_number = ?'; $p[] = (int)$locker; }
 
-  // date range (inclusive)
   if ($date_from !== '') { $w[]='DATE(used_at) >= ?'; $p[]=$date_from; }
   if ($date_to   !== '') { $w[]='DATE(used_at) <= ?'; $p[]=$date_to; }
 
   return [implode(' AND ', $w), $p];
 })();
 
-// Count for pagination
+
 $countStmt = $pdo->prepare("SELECT COUNT(*) AS cnt FROM locker_history WHERE $whereSQL");
 $countStmt->execute($params);
 $totalRows = (int)$countStmt->fetchColumn();
 $totalPages = max(1, (int)ceil($totalRows / $per_page));
 if ($page > $totalPages) { $page = $totalPages; $offset = ($page-1)*$per_page; }
 
-$orderSQL = "ORDER BY $sort $dir"; // safe
+$orderSQL = "ORDER BY $sort $dir"; 
 
-// Fetch records
+
 $listStmt = $pdo->prepare("SELECT id, locker_number, code, user_fullname, user_email, expires_at, duration_minutes, used_at
                           FROM locker_history WHERE $whereSQL $orderSQL LIMIT ? OFFSET ?");
 $pos = 1;
@@ -228,7 +217,7 @@ $listStmt->execute();
 $records = $listStmt->fetchAll();
 $grouped = groupByDateLabel($records);
 
-// ---------------- UI ----------------
+
 include '../../includes/admin_header.php';
 ?>
 <!doctype html>
@@ -270,7 +259,7 @@ include '../../includes/admin_header.php';
       <div class="flash <?= h($flash['type']) ?>"><?= h($flash['msg']) ?></div>
     <?php endif; ?>
 
-    <!-- Expose flash for JS toast (keeps JS external) -->
+
     <div id="flash-data"
          data-type="<?= h($flash['type'] ?? '') ?>"
          data-msg="<?= h($flash['msg'] ?? '') ?>"
@@ -304,7 +293,7 @@ include '../../includes/admin_header.php';
         </div>
         <div class="control">
           <label for="locker">Locker #</label>
-          <!-- Accepts 2 OR 'locker 2' (case-insensitive); shows friendly tooltip -->
+
           <input
             type="text"
             id="locker"
@@ -428,7 +417,7 @@ include '../../includes/admin_header.php';
       <p style="text-align:center;font-weight:800;color:#6b7280;padding:2rem 1rem">No records match your filters.</p>
     <?php endif; ?>
 
-    <!-- Pagination -->
+
     <?php if ($totalPages > 1): ?>
       <div style="display:flex;gap:8px;align-items:center;justify-content:center;margin:1rem 0 2rem;flex-wrap:wrap">
         <?php
