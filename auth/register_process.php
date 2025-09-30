@@ -13,14 +13,13 @@ $errors = [];
 // === Config ===
 const VERIFICATION_TTL_ISO8601 = 'PT1H'; // <-- change this to adjust the window (e.g., PT30M, PT24H)
 const NGROK_BASE = 'https://longhorn-settling-precisely.ngrok-free.app';
-const LAN_BASE   = 'http://192.168.1.110'; // switch to https:// if you have a valid cert
+const LAN_BASE   = 'http://192.168.207.238'; // switch to https:// if you have a valid cert
 
 /**
  * Determine if an IP is private (RFC1918, loopback, link-local).
  */
 function is_private_ip(string $ip): bool {
     if (!filter_var($ip, FILTER_VALIDATE_IP)) return false;
-    // If it's NOT public (i.e., falls in private/reserved), this returns false. Invert it.
     return !filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE);
 }
 

@@ -4,7 +4,7 @@ const TOPUP_URL = `/kandado/public/user/topup.php`;
 
 
 let prices = {
-  '30s': 0.5,    
+  '5min': 0.5,    
   '20min': 2,
   '30min': 3,
   '1hour': 5,
@@ -21,7 +21,7 @@ let prices = {
 const DEFAULT_DURATION = localStorage.getItem('kd_last_duration') || '30min';
 
 const durationOptions = [
-  { value: '30s',     text: '30 Seconds (Test)' },
+  { value: '5min',     text: '5 Minutes (Testing time)' },
   { value: '20min',   text: '20 Minutes' },
   { value: '30min',   text: '30 Minutes' },
   { value: '1hour',   text: '1 Hour' },

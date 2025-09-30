@@ -36,9 +36,7 @@ function jexit($payload, int $code = 200) {
 try {
     $conn = new mysqli($host, $user, $pass, $dbname);
     $conn->set_charset('utf8mb4');
-    // Strongly recommended: fail on zero dates instead of silently writing them
     $conn->query("SET SESSION sql_mode = 'STRICT_TRANS_TABLES,NO_ZERO_DATE,NO_ZERO_IN_DATE,ERROR_FOR_DIVISION_BY_ZERO,ONLY_FULL_GROUP_BY'");
-    // Philippines time
     $conn->query("SET time_zone = '+08:00'");
 } catch (mysqli_sql_exception $e) {
     jexit(['error'=>'db_connect','message'=>$e->getMessage()],500);
@@ -47,7 +45,7 @@ try {
 /* ---------- Helpers ---------- */
 function duration_minutes_map() {
     return [
-        '30s'    => 0.5,
+        '5min'   => 5,      
         '20min'  => 20,
         '30min'  => 30,
         '1hour'  => 60,
@@ -61,9 +59,8 @@ function duration_minutes_map() {
     ];
 }
 function price_map_php() {
-    // Keep in sync with /assets/js/user_dashboard.js -> prices
     return [
-        '30s'    => 0.50,
+        '5min'   => 0.50,   
         '20min'  => 2.00,
         '30min'  => 3.00,
         '1hour'  => 5.00,
@@ -93,6 +90,24 @@ function require_login() {
     return (int)$_SESSION['user_id'];
 }
 
+/* ---- Named locks (app-level mutex) ---- */
+function acquire_lock(mysqli $conn, string $name, int $timeout_sec = 6): bool {
+    $stmt = $conn->prepare("SELECT GET_LOCK(?, ? ) AS got");
+    $stmt->bind_param("si", $name, $timeout_sec);
+    $stmt->execute();
+    $row = $stmt->get_result()->fetch_assoc();
+    return isset($row['got']) && (int)$row['got'] === 1;
+}
+function release_lock(mysqli $conn, string $name): void {
+    try {
+        $stmt = $conn->prepare("DO RELEASE_LOCK(?)");
+        $stmt->bind_param("s", $name);
+        $stmt->execute();
+    } catch (\Throwable $e) {
+        // ignore
+    }
+}
+
 /* ---------- Wallet helpers ---------- */
 function get_wallet_balance($conn, $user_id) {
     $stmt = $conn->prepare("SELECT balance FROM user_wallets WHERE user_id=? LIMIT 1");
@@ -103,11 +118,7 @@ function get_wallet_balance($conn, $user_id) {
 }
 
 /**
- * Credit wallet (TOPUP).
- * NEW BEHAVIOR:
- * - Keep ONE running row per user for type='topup' in wallet_transactions.
- * - Add to amount; update method/reference_no/notes to the latest.
- * - If the same reference_no is seen again, treat as idempotent (no double count).
+ * Credit wallet (TOPUP) — single running topup row + idempotent by reference_no
  */
 function wallet_credit($conn, $user_id, $amount, $method, $reference_no, $notes = null, $meta = null) {
     if ($amount <= 0) return ['ok'=>false, 'error'=>'invalid_amount'];
@@ -129,7 +140,6 @@ function wallet_credit($conn, $user_id, $amount, $method, $reference_no, $notes 
             $current = (float)$row['balance'];
         }
 
-        // Idempotency guard: if this reference already exists anywhere → no double charge
         if ($reference_no) {
             $stmtRef = $conn->prepare("SELECT id FROM wallet_transactions WHERE reference_no=? LIMIT 1");
             $stmtRef->bind_param("s", $reference_no);
@@ -145,7 +155,6 @@ function wallet_credit($conn, $user_id, $amount, $method, $reference_no, $notes 
         $note   = $notes ?: ('Top-up via ' . $method);
         $metaJson = $meta ? json_encode($meta) : null;
 
-        // Find (or create) the single running TOPUP row for this user
         $tx_id = null;
         $stmtFind = $conn->prepare("SELECT id FROM wallet_transactions WHERE user_id=? AND type='topup' LIMIT 1");
         $stmtFind->bind_param("i", $user_id);
@@ -154,7 +163,6 @@ function wallet_credit($conn, $user_id, $amount, $method, $reference_no, $notes 
 
         if ($existing) {
             $tx_id = (int)$existing['id'];
-            // Try to update including the new reference_no
             try {
                 $stmtU = $conn->prepare("
                     UPDATE wallet_transactions
@@ -164,7 +172,6 @@ function wallet_credit($conn, $user_id, $amount, $method, $reference_no, $notes 
                 $stmtU->bind_param("sdsssi", $method, $delta, $reference_no, $note, $metaJson, $tx_id);
                 $stmtU->execute();
             } catch (mysqli_sql_exception $e) {
-                // Duplicate reference? Keep old reference_no, still add amount.
                 if ((int)$e->getCode() === 1062) {
                     $stmtU2 = $conn->prepare("
                         UPDATE wallet_transactions
@@ -189,7 +196,6 @@ function wallet_credit($conn, $user_id, $amount, $method, $reference_no, $notes 
             $tx_id = $conn->insert_id;
         }
 
-        // Update wallet balance
         $stmtUp = $conn->prepare("UPDATE user_wallets SET balance=? WHERE user_id=?");
         $stmtUp->bind_param("di", $newBal, $user_id);
         $stmtUp->execute();
@@ -198,8 +204,6 @@ function wallet_credit($conn, $user_id, $amount, $method, $reference_no, $notes 
         return ['ok'=>true, 'balance'=>$newBal, 'tx_id'=>$tx_id];
     } catch (mysqli_sql_exception $e) {
         $conn->rollback();
-
-        // If unique constraint exists and duplicate happens, respond idempotently
         if ($e->getCode() === 1062 && $reference_no) {
             $bal = get_wallet_balance($conn, $user_id);
             return ['ok'=>true, 'idempotent'=>true, 'balance'=>$bal];
@@ -209,11 +213,7 @@ function wallet_credit($conn, $user_id, $amount, $method, $reference_no, $notes 
 }
 
 /**
- * Debit wallet (RESERVATION/EXTEND).
- * NEW BEHAVIOR:
- * - Keep ONE running row per user for type='debit' in wallet_transactions.
- * - Add to amount; update reference_no and notes to the latest.
- * - If same reference_no is seen again → idempotent (no double debit).
+ * Debit wallet (RESERVATION/EXTEND) — single running debit row + idempotent by reference_no
  */
 function wallet_debit($conn, $user_id, $amount, $reference_no, $notes = null, $meta = null) {
     if ($amount <= 0) return ['ok'=>false, 'error'=>'invalid_amount'];
@@ -221,7 +221,6 @@ function wallet_debit($conn, $user_id, $amount, $reference_no, $notes = null, $m
     try {
         $conn->begin_transaction();
 
-        // If same ref exists anywhere -> idempotent success (no double debit)
         if ($reference_no) {
             $stmt = $conn->prepare("SELECT id FROM wallet_transactions WHERE reference_no=? LIMIT 1");
             $stmt->bind_param("s", $reference_no);
@@ -233,7 +232,6 @@ function wallet_debit($conn, $user_id, $amount, $reference_no, $notes = null, $m
             }
         }
 
-        // Lock wallet
         $stmt = $conn->prepare("SELECT balance FROM user_wallets WHERE user_id=? FOR UPDATE");
         $stmt->bind_param("i",$user_id);
         $stmt->execute();
@@ -252,7 +250,6 @@ function wallet_debit($conn, $user_id, $amount, $reference_no, $notes = null, $m
 
         $newBal = round($current - $amount, 2);
 
-        // Upsert the single running DEBIT row
         $type = 'debit';
         $method = 'Wallet';
         $metaJson = $meta ? json_encode($meta) : null;
@@ -274,7 +271,6 @@ function wallet_debit($conn, $user_id, $amount, $reference_no, $notes = null, $m
                 $stmtU->execute();
             } catch (mysqli_sql_exception $e) {
                 if ((int)$e->getCode() === 1062) {
-                    // Reference collision: add amount, keep old reference
                     $stmtU2 = $conn->prepare("
                         UPDATE wallet_transactions
                            SET method=?, amount=amount+?, notes=?, meta=COALESCE(?, meta)
@@ -295,7 +291,6 @@ function wallet_debit($conn, $user_id, $amount, $reference_no, $notes = null, $m
             $stmtTx->execute();
         }
 
-        // Update wallet
         $stmtUp = $conn->prepare("UPDATE user_wallets SET balance=? WHERE user_id=?");
         $stmtUp->bind_param("di", $newBal, $user_id);
         $stmtUp->execute();
@@ -315,7 +310,6 @@ function insert_history($conn, int $locker_number, string $code = null, string $
             (locker_number, code, user_fullname, user_email, expires_at, duration_minutes, used_at)
         VALUES (?,?,?,?,?,?,NOW())
     ");
-    // i s s s s i  -> expires_at is correctly bound as string (DATETIME)
     $stmt->bind_param("issssi",
         $locker_number,
         $code,
@@ -366,7 +360,6 @@ function moveExpiredQRs($conn, $qr_folder){
         $duration_minutes = $row['duration_minutes'];
         $item             = (int)$row['item'];
 
-        // --- Get user info ---
         $user_fullname = '';
         $user_email = '';
         if($user_id){
@@ -379,10 +372,8 @@ function moveExpiredQRs($conn, $qr_folder){
             }
         }
 
-        // --- Save expired QR into history (centralized helper) ---
         insert_history($conn, $locker_number, $code, $user_fullname, $user_email, $expires_at, (int)$duration_minutes);
 
-        // Refresh item state (defensive)
         $stmt_item = $conn->prepare("SELECT item FROM locker_qr WHERE locker_number=? LIMIT 1");
         $stmt_item->bind_param("i", $locker_number);
         $stmt_item->execute();
@@ -390,11 +381,10 @@ function moveExpiredQRs($conn, $qr_folder){
         $item = (int)($itemRow['item'] ?? 0);
 
         if ($item === 1) {
-            // Item left inside → HOLD  (CHANGED: KEEP user_id)
             $stmt_update = $conn->prepare("
                 UPDATE locker_qr 
                 SET code=NULL, status='hold', expires_at=NULL, duration_minutes=NULL,
-                    notify30_sent=0, notify15_sent=0, notify10_sent=0
+                    notify30_sent=0, notify15_sent=0, notify10_sent=0, notify2_sent=0
                 WHERE locker_number=?");
             $stmt_update->bind_param("i", $locker_number);
             $stmt_update->execute();
@@ -403,11 +393,10 @@ function moveExpiredQRs($conn, $qr_folder){
                 email_on_hold($user_email, $user_fullname, $locker_number);
             }
         } else {
-            // No item → AVAILABLE
             $stmt_update = $conn->prepare("
                 UPDATE locker_qr 
                 SET code=NULL, user_id=NULL, status='available', expires_at=NULL, duration_minutes=NULL,
-                    notify30_sent=0, notify15_sent=0, notify10_sent=0
+                    notify30_sent=0, notify15_sent=0, notify10_sent=0, notify2_sent=0
                 WHERE locker_number=?");
             $stmt_update->bind_param("i", $locker_number);
             $stmt_update->execute();
@@ -417,7 +406,6 @@ function moveExpiredQRs($conn, $qr_folder){
             }
         }
 
-        // --- Delete QR image file ---
         $qr_file = $qr_folder.'qr_'.$code.'.png';
         if(file_exists($qr_file)) @unlink($qr_file);
     }
@@ -428,59 +416,75 @@ function checkAndSendReminders($conn){
     date_default_timezone_set('Asia/Manila');
     $now = time();
 
+    $in_exact_minute = function(int $remaining_sec, int $threshold_min): bool {
+        $T = $threshold_min * 60;
+        return ($remaining_sec <= $T) && ($remaining_sec > $T - 60);
+    };
+
     $sql = "
-      SELECT l.locker_number, l.code, l.user_id, l.expires_at, l.duration_minutes,
-             l.notify30_sent, l.notify15_sent, l.notify10_sent,
-             u.first_name, u.last_name, u.email
-      FROM locker_qr l
-      LEFT JOIN users u ON u.id = l.user_id
-      WHERE l.status='occupied' AND l.expires_at IS NOT NULL AND l.expires_at > NOW()
+    SELECT l.locker_number, l.code, l.user_id, l.expires_at, l.duration_minutes,
+           l.notify30_sent, l.notify15_sent, l.notify10_sent, l.notify2_sent,
+           u.first_name, u.last_name, u.email
+    FROM locker_qr l
+    LEFT JOIN users u ON u.id = l.user_id
+    WHERE l.status='occupied' AND l.expires_at IS NOT NULL AND l.expires_at > NOW()
     ";
     $res = $conn->query($sql);
-    while($row = $res->fetch_assoc()){
-        $locker        = (int)$row['locker_number'];
-        $expires_ts    = strtotime($row['expires_at']);
+
+    while ($row = $res->fetch_assoc()) {
+        $locker         = (int)$row['locker_number'];
+        $expires_ts     = strtotime($row['expires_at']);
         if ($expires_ts === false) continue;
 
-        $remaining_sec = $expires_ts - $now;
+        $remaining_sec  = $expires_ts - $now;
         if ($remaining_sec <= 0) continue;
 
-        $remaining_min = floor($remaining_sec / 60);
-        $total_min     = (int)$row['duration_minutes'];
-        $sent30        = (int)$row['notify30_sent'];
-        $sent15        = (int)$row['notify15_sent'];
-        $sent10        = (int)$row['notify10_sent'];
-        $name          = trim(($row['first_name'] ?? '').' '.($row['last_name'] ?? ''));
-        $email         = $row['email'] ?? '';
-        $expires_fmt   = date('F j, Y h:i A', $expires_ts);
+        $total_min      = (int)$row['duration_minutes'];
+        $sent30         = (int)$row['notify30_sent'];
+        $sent15         = (int)$row['notify15_sent'];
+        $sent10         = (int)$row['notify10_sent'];
+        $sent2          = (int)$row['notify2_sent'];
+
+        $name           = trim(($row['first_name'] ?? '').' '.($row['last_name'] ?? ''));
+        $email          = $row['email'] ?? '';
+        $expires_fmt    = date('F j, Y h:i A', $expires_ts);
 
         $didUpdate = false;
 
         if ($total_min >= 60) {
-            if ($remaining_min <= 30 && $remaining_min > 15 && !$sent30) {
+            if (!$sent30 && $in_exact_minute($remaining_sec, 30)) {
                 email_time_left($email, $name, $locker, 30, $expires_fmt);
                 $sent30 = 1; $didUpdate = true;
             }
-            if ($remaining_min <= 15 && $remaining_min > 0 && !$sent15) {
+            if (!$sent15 && $in_exact_minute($remaining_sec, 15)) {
                 if (!$sent30) { email_time_left($email, $name, $locker, 30, $expires_fmt); $sent30 = 1; }
                 email_time_left($email, $name, $locker, 15, $expires_fmt);
                 $sent15 = 1; $didUpdate = true;
             }
         } elseif ($total_min >= 30) {
-            if ($remaining_min <= 15 && $remaining_min > 0 && !$sent15) {
+            if (!$sent15 && $in_exact_minute($remaining_sec, 15)) {
                 email_time_left($email, $name, $locker, 15, $expires_fmt);
                 $sent15 = 1; $didUpdate = true;
             }
         } elseif ($total_min >= 20) {
-            if ($remaining_min <= 10 && $remaining_min > 0 && !$sent10) {
+            if (!$sent10 && $in_exact_minute($remaining_sec, 10)) {
                 email_time_left($email, $name, $locker, 10, $expires_fmt);
                 $sent10 = 1; $didUpdate = true;
+            }
+        } elseif ($total_min >= 5) {
+            if (!$sent2 && $in_exact_minute($remaining_sec, 2)) {
+                email_time_left($email, $name, $locker, 2, $expires_fmt);
+                $sent2 = 1; $didUpdate = true;
             }
         }
 
         if ($didUpdate) {
-            $stmt = $conn->prepare("UPDATE locker_qr SET notify30_sent=?, notify15_sent=?, notify10_sent=? WHERE locker_number=?");
-            $stmt->bind_param("iiii", $sent30, $sent15, $sent10, $locker);
+            $stmt = $conn->prepare("
+                UPDATE locker_qr
+                SET notify30_sent=?, notify15_sent=?, notify10_sent=?, notify2_sent=?
+                WHERE locker_number=?
+            ");
+            $stmt->bind_param("iiiii", $sent30, $sent15, $sent10, $sent2, $locker);
             $stmt->execute();
         }
     }
@@ -504,7 +508,7 @@ if (isset($_GET['wallet_topup'])) {
         jexit(['error'=>'invalid_method'],400);
     }
     $amount = (float)($_GET['amount'] ?? 0);
-    $reference_no = $_GET['ref'] ?? null; // PSP or client ref (stable to merge/idempotency)
+    $reference_no = $_GET['ref'] ?? null;
     $res = wallet_credit($conn, $uid, round($amount,2), $method, $reference_no, 'Top-up via '.$method);
     if (!$res['ok']) jexit(['error'=>$res['error'], 'message'=>$res['message'] ?? null], 500);
     jexit(['success'=>true, 'balance'=>$res['balance'], 'idempotent'=>!empty($res['idempotent'])]);
@@ -521,6 +525,7 @@ if(isset($_GET['used'])){
     if($secret !== $esp32_secret) jexit(['error'=>'unauthorized'],401);
     if(empty($code)) jexit(['error'=>'no_code'],400);
 
+    // Optional: per-locker lock while finalizing "used"
     try{
         $conn->begin_transaction();
 
@@ -546,10 +551,9 @@ if(isset($_GET['used'])){
             }
         }
 
-        // Correctly write to history
         insert_history($conn, $locker_number, $code, $user_fullname, $user_email, $expires_at, (int)$duration_minutes);
 
-        $stmt_update = $conn->prepare("UPDATE locker_qr SET code=NULL, user_id=NULL, status='available', expires_at=NULL, duration_minutes=NULL, notify30_sent=0, notify15_sent=0, notify10_sent=0 WHERE locker_number=?");
+        $stmt_update = $conn->prepare("UPDATE locker_qr SET code=NULL, user_id=NULL, status='available', expires_at=NULL, duration_minutes=NULL, notify30_sent=0, notify15_sent=0, notify10_sent=0, notify2_sent=0 WHERE locker_number=?");
         $stmt_update->bind_param("i",$locker_number);
         $stmt_update->execute();
 
@@ -617,7 +621,6 @@ if(isset($_GET['extend'])){
             ]);
         }
 
-        // Wallet debit (aggregates into single DEBIT row)
         $deb = wallet_debit($conn, $user_id, round($amount,2), $reference_no, "Extend locker #$locker ($requested)");
         if (!$deb['ok']) {
             $conn->rollback();
@@ -635,7 +638,7 @@ if(isset($_GET['extend'])){
         $newExpiresTs = $currentExpiresTs + (int)round($duration_minutes * 60);
         $expires_at   = date('Y-m-d H:i:s', $newExpiresTs);
 
-        $stmt_upd = $conn->prepare("UPDATE locker_qr SET expires_at=?, duration_minutes=duration_minutes+?, notify30_sent=0, notify15_sent=0, notify10_sent=0 WHERE locker_number=?");
+        $stmt_upd = $conn->prepare("UPDATE locker_qr SET expires_at=?, duration_minutes=duration_minutes+?, notify30_sent=0, notify15_sent=0, notify10_sent=0, notify2_sent=0 WHERE locker_number=?");
         $stmt_upd->bind_param("sii", $expires_at, $duration_minutes, $locker);
         $stmt_upd->execute();
 
@@ -703,15 +706,13 @@ if (isset($_GET['terminate'])) {
             $user_email    = $u['email'];
         }
 
-        // History (correct types)
         insert_history($conn, $locker_number, $code, $user_fullname, $user_email, $expires_at, (int)$duration_minutes);
 
         if ($item === 1) {
-            // CHANGED: keep user_id on HOLD
             $stmt_upd = $conn->prepare("
                 UPDATE locker_qr
                 SET code=NULL, status='hold', expires_at=NULL, duration_minutes=NULL,
-                    notify30_sent=0, notify15_sent=0, notify10_sent=0
+                    notify30_sent=0, notify15_sent=0, notify10_sent=0, notify2_sent=0
                 WHERE locker_number=?
             ");
             $next_status = 'hold';
@@ -719,7 +720,7 @@ if (isset($_GET['terminate'])) {
             $stmt_upd = $conn->prepare("
                 UPDATE locker_qr
                 SET code=NULL, user_id=NULL, status='available', expires_at=NULL, duration_minutes=NULL,
-                    notify30_sent=0, notify15_sent=0, notify10_sent=0
+                    notify30_sent=0, notify15_sent=0, notify10_sent=0, notify2_sent=0
                 WHERE locker_number=?
             ");
             $next_status = 'available';
@@ -746,7 +747,7 @@ if (isset($_GET['terminate'])) {
 }
 
 /* ------------------- GENERATE QR (reserve using WALLET) ------------------- */
-/*  >>> ONLY THIS ENDPOINT CHANGED: lock first + retry ESP32 so different-locker simultaneous requests both succeed <<<  */
+/*  >>> FIXED: serialize ESP32 calls + idempotency, correct HTTP code constant <<<  */
 if(isset($_GET['generate'])){
     $user_id = require_login();
 
@@ -762,7 +763,7 @@ if(isset($_GET['generate'])){
         jexit(['error'=>'under_maintenance','message'=>'This locker is temporarily unavailable due to maintenance.'], 409);
     }
 
-    // Prevent multiple active lockers for same user (CHANGED: include HOLD)
+    // Prevent multiple active lockers for same user (include HOLD)
     $stmt = $conn->prepare("SELECT locker_number, code, status FROM locker_qr WHERE user_id=? AND status IN ('occupied','hold') LIMIT 1");
     $stmt->bind_param("i",$user_id);
     $stmt->execute();
@@ -785,7 +786,7 @@ if(isset($_GET['generate'])){
         ],400);
     }
 
-    // Get requested duration + price from server map
+    // Duration + price
     $requested = $_GET['duration'] ?? '1hour';
     $duration_minutes = safe_duration_minutes($requested);
     $amount = safe_price($requested);
@@ -796,42 +797,74 @@ if(isset($_GET['generate'])){
     $reserve_time = date('h:i A');
     $expires_at_formatted = date('F j, Y h:i A', strtotime($expires_at));
 
-    // Helper: call ESP32 with retries so parallel calls to DIFFERENT lockers both succeed
+    // Idempotency for generate via reference_no (if client supplies it)
+    $reference_no = $_GET['ref'] ?? uniqid('WAL'); // stable when provided by client
+    // If same ref exists, return current state
+    $stmt_ref = $conn->prepare("SELECT locker_number FROM payments WHERE user_id=? AND locker_number=? AND reference_no=? LIMIT 1");
+    $stmt_ref->bind_param("iis", $user_id, $locker, $reference_no);
+    $stmt_ref->execute();
+    $dup = $stmt_ref->get_result()->fetch_assoc();
+    if ($dup) {
+        // Find the current QR/code for that locker (if any)
+        $stmt_cur = $conn->prepare("SELECT code, expires_at FROM locker_qr WHERE locker_number=? LIMIT 1");
+        $stmt_cur->bind_param("i", $locker);
+        $stmt_cur->execute();
+        $cur = $stmt_cur->get_result()->fetch_assoc();
+        if ($cur && $cur['code']) {
+            $qr_url = '/kandado/qr_image/qr_'.$cur['code'].'.png';
+            jexit([
+                'success'=>true,
+                'code'=>$cur['code'],
+                'qr_url'=>$qr_url,
+                'expires_at'=>$cur['expires_at'],
+                'duration_minutes'=>0,
+                'idempotent'=>true
+            ]);
+        }
+        // If no code found, fall-through to regenerate
+    }
+
+    // Helper: call ESP32 with retries (correct HTTP code constant)
     $callEsp32Generate = function(int $lockerIndex) {
-        $attempts = 5;              // total tries
-        $timeout  = 2;              // seconds per try
-        $backoffMs= 180;            // base backoff between tries
+        $attempts = 5;
+        $timeout  = 2;
+        $backoffMs= 180;
 
         for ($i=1; $i<=$attempts; $i++) {
             $url = "http://{$GLOBALS['esp32_host']}/generate?locker=".$lockerIndex;
             $ch = curl_init($url);
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
             curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, ['Accept: application/json']);
             $response = curl_exec($ch);
             $curl_err = curl_error($ch);
-            $http_code = curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+            $http_code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
             curl_close($ch);
 
-            // If device says this specific locker already has a QR
             if ($http_code === 403) {
                 return ['ok'=>false, 'type'=>'locker_unavailable', 'http'=>$http_code, 'raw'=>$response, 'err'=>$curl_err];
             }
 
-            $data = json_decode($response, true);
-            if ($http_code === 200 && is_array($data) && isset($data['code'])) {
+            $data = is_string($response) ? json_decode($response, true) : null;
+            if ($http_code === 200 && is_array($data) && isset($data['code']) && is_string($data['code']) && $data['code'] !== '') {
                 return ['ok'=>true, 'data'=>$data];
             }
 
-            // transient: retry (e.g., overlapping request to device)
             usleep(($backoffMs + rand(0,120)) * 1000);
         }
-
-        // After retries, still failed
         return ['ok'=>false, 'type'=>'esp32_unreachable', 'http'=>$http_code ?? 0, 'raw'=>$response ?? null, 'err'=>$curl_err ?? null];
     };
 
-    // NEW ORDER: lock row first (FCFS), then call ESP32 with retries, then debit & update
+    $globalLock = 'esp32_generate';   // serialize device access
+    $gotGlobal = false;
+
     try {
+        // Acquire global device mutex before touching DB row to avoid long row locks
+        $gotGlobal = acquire_lock($conn, $globalLock, 8);
+        if (!$gotGlobal) {
+            jexit(['error'=>'device_busy','message'=>'Device is handling another request. Please try again.'], 423);
+        }
+
         $conn->begin_transaction();
 
         // Hard lock the locker row so only the first requester for THIS locker proceeds
@@ -848,9 +881,8 @@ if(isset($_GET['generate'])){
             jexit(['error'=>'locker_unavailable','message'=>'This locker was just occupied by another user.'],409);
         }
 
-        // With the lock held, call ESP32 (with retry) to generate a code
+        // With the lock held and global device mutex, ask ESP32 for a code
         $gen = $callEsp32Generate($locker-1);
-
         if (!$gen['ok']) {
             $conn->rollback();
             if ($gen['type'] === 'locker_unavailable') {
@@ -866,25 +898,21 @@ if(isset($_GET['generate'])){
 
         $data = $gen['data'];
         $code = $data['code'];
-        $reference_no = $_GET['ref'] ?? uniqid('WAL'); // stable idempotency key
 
         // Wallet debit (aggregates into single DEBIT row)
         $deb = wallet_debit($conn, $user_id, round($amount,2), $reference_no, "Reserve locker #$locker ($requested)");
         if (!$deb['ok']) {
             $conn->rollback();
-            if ($deb['error'] === 'insufficient_funds') {
-                jexit([
-                    'error'=>'insufficient_balance',
-                    'message'=>'Your wallet balance is not enough to avail.',
-                    'balance'=>$deb['balance'],
-                    'needed'=>$amount
-                ], 402);
-            }
-            jexit(['error'=>'wallet_debit_failed','message'=>$deb['message'] ?? null],500);
+            jexit(
+                $deb['error'] === 'insufficient_funds'
+                ? ['error'=>'insufficient_balance','message'=>'Your wallet balance is not enough to avail.','balance'=>$deb['balance'],'needed'=>$amount]
+                : ['error'=>'wallet_debit_failed','message'=>$deb['message'] ?? null],
+                $deb['error'] === 'insufficient_funds' ? 402 : 500
+            );
         }
 
         // Update locker + reset reminder flags
-        $stmt = $conn->prepare("UPDATE locker_qr SET code=?, user_id=?, status='occupied', expires_at=?, duration_minutes=?, notify30_sent=0, notify15_sent=0, notify10_sent=0 WHERE locker_number=?");
+        $stmt = $conn->prepare("UPDATE locker_qr SET code=?, user_id=?, status='occupied', expires_at=?, duration_minutes=?, notify30_sent=0, notify15_sent=0, notify10_sent=0, notify2_sent=0 WHERE locker_number=?");
         $stmt->bind_param("sisii",$code,$user_id,$expires_at,$duration_minutes,$locker);
         $stmt->execute();
 
@@ -901,9 +929,11 @@ if(isset($_GET['generate'])){
     } catch (mysqli_sql_exception $e) {
         $conn->rollback();
         jexit(['error'=>'reserve_failed','message'=>$e->getMessage()],500);
+    } finally {
+        if ($gotGlobal) release_lock($conn, $globalLock);
     }
 
-    // Save QR image + email (unchanged)
+    // Save QR image + email
     $qr_filename=$qr_folder.'qr_'.$code.'.png';
     QRcode::png($code,$qr_filename,QR_ECLEVEL_L,6);
     $qr_url='/kandado/qr_image/qr_'.$code.'.png';
@@ -929,28 +959,21 @@ if (isset($_GET['tamper'])) {
     $secret = $_GET['secret'] ?? '';
     if ($secret !== $esp32_secret) jexit(['error' => 'unauthorized'], 401);
 
-    // ★ Make this API's MySQL session UTC so TIMESTAMPs are consistent
     $conn->query("SET time_zone = '+00:00'");
 
-    // Normalize cause → limit to known values
     $cause = strtolower(trim($_GET['cause'] ?? 'other'));
     $allowed = ['theft','door_slam','bump','tilt_only','other'];
     if (!in_array($cause, $allowed, true)) $cause = 'other';
 
-    // Locker number: 0 = cabinet/global; 1..$TOTAL_LOCKERS for specific
     $locker_number = isset($_GET['locker']) ? (int)$_GET['locker'] : 0;
     if ($locker_number < 0 || $locker_number > $TOTAL_LOCKERS) $locker_number = 0;
 
-    // Optional details text (limit length defensively)
     $details = $_GET['details'] ?? null;
     if ($details !== null) $details = mb_substr($details, 0, 255, 'UTF-8');
 
-    // Optional device-sent UTC epoch (recommended to omit; server time is fine)
     $ts = isset($_GET['ts']) ? (int)$_GET['ts'] : 0;
-    // sanity window: 2000-01-01 .. 2100-01-01
     $hasTs = ($ts >= 946684800 && $ts <= 4102444800);
 
-    // Meta for forensics
     $meta = [
         'ip' => $_SERVER['REMOTE_ADDR'] ?? null,
         'ua' => $_SERVER['HTTP_USER_AGENT'] ?? null,
@@ -959,14 +982,12 @@ if (isset($_GET['tamper'])) {
 
     try {
         if ($hasTs) {
-            // Use device UTC epoch for created_at (still stored/returned as UTC by MySQL session)
             $stmt = $conn->prepare("
                 INSERT INTO security_alerts (locker_number, cause, details, meta, created_at)
                 VALUES (?, ?, ?, ?, FROM_UNIXTIME(?))
             ");
             $stmt->bind_param("isssi", $locker_number, $cause, $details, $metaJson, $ts);
         } else {
-            // Let MySQL set created_at = CURRENT_TIMESTAMP (in UTC because of SET time_zone)
             $stmt = $conn->prepare("
                 INSERT INTO security_alerts (locker_number, cause, details, meta)
                 VALUES (?, ?, ?, ?)

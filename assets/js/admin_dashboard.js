@@ -240,7 +240,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Duration options
   // ============================
   const durationOptions = [
-    { value: '30s',     text: '30 Seconds (Test)' },
+    { value: '5min',     text: '5 Minutes (Testing Time)' },
     { value: '20min',   text: '20 Minutes' },
     { value: '30min',   text: '30 Minutes' },
     { value: '1hour',   text: '1 Hour' },

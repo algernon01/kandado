@@ -23,7 +23,7 @@
 
   /* ===== DURATIONS (keep in sync with backend) ===== */
   const durationOptions = [
-    { value: '30s',     text: '30 Seconds (Test)' },
+    { value: '5min',     text: '5 Minutes (Test)' },
     { value: '20min',   text: '20 Minutes' },
     { value: '30min',   text: '30 Minutes' },
     { value: '1hour',   text: '1 Hour' },
@@ -36,7 +36,7 @@
     { value: '7days',   text: '7 Days' }
   ];
   let prices = {
-    '30s': 0.5,
+    '5min': 0.5,
     '20min': 2,
     '30min': 3,
     '1hour': 5,

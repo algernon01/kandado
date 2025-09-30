@@ -685,3 +685,79 @@ a.btn{ text-decoration:none; }
 
 
 
+
+
+
+
+
+function checkAndSendReminders($conn){
+    date_default_timezone_set('Asia/Manila');
+    $now = time();
+
+    $sql = "
+    SELECT l.locker_number, l.code, l.user_id, l.expires_at, l.duration_minutes,
+            l.notify30_sent, l.notify15_sent, l.notify10_sent, l.notify2_sent,
+            u.first_name, u.last_name, u.email
+    FROM locker_qr l
+    LEFT JOIN users u ON u.id = l.user_id
+    WHERE l.status='occupied' AND l.expires_at IS NOT NULL AND l.expires_at > NOW()
+    ";  
+    $res = $conn->query($sql);
+    while($row = $res->fetch_assoc()){
+        $locker        = (int)$row['locker_number'];
+        $expires_ts    = strtotime($row['expires_at']);
+        if ($expires_ts === false) continue;
+
+        $remaining_sec = $expires_ts - $now;
+        if ($remaining_sec <= 0) continue;
+
+        $remaining_min = floor($remaining_sec / 60);
+        $total_min     = (int)$row['duration_minutes'];
+        $sent30 = (int)$row['notify30_sent'];
+        $sent15 = (int)$row['notify15_sent'];
+        $sent10 = (int)$row['notify10_sent'];
+        $sent2  = (int)$row['notify2_sent']; 
+        $name          = trim(($row['first_name'] ?? '').' '.($row['last_name'] ?? ''));
+        $email         = $row['email'] ?? '';
+        $expires_fmt   = date('F j, Y h:i A', $expires_ts);
+
+        $didUpdate = false;
+
+        if ($total_min >= 60) {
+            if ($remaining_min <= 30 && $remaining_min > 15 && !$sent30) {
+                email_time_left($email, $name, $locker, 30, $expires_fmt);
+                $sent30 = 1; $didUpdate = true;
+            }
+            if ($remaining_min <= 15 && $remaining_min > 0 && !$sent15) {
+                if (!$sent30) { email_time_left($email, $name, $locker, 30, $expires_fmt); $sent30 = 1; }
+                email_time_left($email, $name, $locker, 15, $expires_fmt);
+                $sent15 = 1; $didUpdate = true;
+            }
+        } elseif ($total_min >= 30) {
+            if ($remaining_min <= 15 && $remaining_min > 0 && !$sent15) {
+                email_time_left($email, $name, $locker, 15, $expires_fmt);
+                $sent15 = 1; $didUpdate = true;
+            }
+        } elseif ($total_min >= 20) {
+            if ($remaining_min <= 10 && $remaining_min > 0 && !$sent10) {
+                email_time_left($email, $name, $locker, 10, $expires_fmt);
+                $sent10 = 1; $didUpdate = true;
+            }
+        } elseif ($total_min >= 5) {
+            if ($remaining_min <= 2 && $remaining_min > 0 && !$sent2) {
+                email_time_left($email, $name, $locker, 2, $expires_fmt);
+                $sent2 = 1; $didUpdate = true;
+            }
+        }
+
+       if ($didUpdate) {
+            $stmt = $conn->prepare("
+                UPDATE locker_qr
+                SET notify30_sent=?, notify15_sent=?, notify10_sent=?, notify2_sent=?
+                WHERE locker_number=?
+            ");
+            $stmt->bind_param("iiiii", $sent30, $sent15, $sent10, $sent2, $locker);
+            $stmt->execute();
+        }
+    }
+}
