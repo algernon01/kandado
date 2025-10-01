@@ -185,7 +185,7 @@ $allowedCauses = ['all','theft','door_slam','bump','tilt_only','other'];
 $cause = strtolower($_GET['cause'] ?? 'all'); if (!in_array($cause, $allowedCauses, true)) $cause = 'all';
 $onlyUnread   = isset($_GET['only_unread']) && $_GET['only_unread'] == '1' ? 1 : 0;
 $autoRefresh  = isset($_GET['autorefresh']) && $_GET['autorefresh'] == '1' ? 1 : 0;
-$page    = max(1, (int)($_GET['page'] ?? 1));
+$page    = max(1, (int)$_GET['page'] ?? 1);
 $perPage = 20; $offset  = ($page - 1) * $perPage;
 
 // 7-day boundary in STORAGE TZ for SQL
@@ -237,6 +237,8 @@ select, .checkbox{ height:42px; border:1px solid #e6e9f4; border-radius:12px; ba
 a.btn{ text-decoration:none; }
 .btn.apply{ background:#3056ff; color:#fff; }
 .btn.reset{ background:#eef2ff; color:#2a3db6; }
+/* NEW: Stop alerting button */
+.btn.stop{ background:#ffe1e1; color:#b02a2a; }
 .pill{ --h:42px; height:var(--h); display:inline-flex; align-items:center; gap:10px; padding:0 16px; border-radius:999px; font-weight:var(--w-medium); font-size:14px; border:1px solid transparent; text-decoration:none; }
 .pill svg{ width:18px; height:18px; }
 .pill.blue{ color:#1e40af; background:#eaf1ff; border-color:#d9e6ff; }
@@ -304,6 +306,9 @@ a.btn{ text-decoration:none; }
           </button>
 
           <a class="btn reset" href="security_alerts.php">Reset</a>
+
+          <!-- NEW: Stop alerting button (right of Reset) -->
+          <button class="btn stop" type="button" id="btnStopAlerting" title="Silence active alarms">Stop alerting</button>
 
           <div class="top-right" style="margin-left:auto">
             <label style="display:flex; align-items:center; gap:10px; font-weight:var(--w-medium);">
@@ -503,12 +508,39 @@ a.btn{ text-decoration:none; }
 
   const urlParams=new URLSearchParams(location.search);
   if (urlParams.get('autorefresh')==='1') setInterval(()=>location.reload(), 30000);
+
+  // NEW: Stop alerting handler
+  const btnStop = $('#btnStopAlerting');
+  if (btnStop) {
+    btnStop.addEventListener('click', ()=>{
+      Swal.fire({
+        icon:'warning',
+        title:'Stop alerting now?',
+        text:'This will attempt to silence active alarms.',
+        showCancelButton:true,
+        confirmButtonText:'Stop',
+        cancelButtonText:'Cancel'
+      }).then(r=>{
+        if(!r.isConfirmed) return;
+        fetch('/kandado/api/locker_api.php?stop_alert=1&secret=MYSECRET123', { method:'GET' })
+          .then(res=>{
+            if(res.ok){
+              Swal.fire({toast:true, position:'top-end', icon:'success', title:'Alerts stopped', showConfirmButton:false, timer:1600});
+            } else {
+              Swal.fire({icon:'error', title:'Failed to stop alerts', text:'Server returned '+res.status});
+            }
+          })
+          .catch(()=>{
+            Swal.fire({icon:'error', title:'Network error', text:'Please try again.'});
+          });
+      });
+    });
+  }
 })();
 </script>
 
 <?php if ($flash): ?>
 <script>
-
   Swal.fire({
     toast:true, position:'top-end',
     icon:'<?= $flashType === 'ok' ? 'success' : 'error' ?>',

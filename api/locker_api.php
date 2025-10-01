@@ -1060,6 +1060,52 @@ if (isset($_GET['esp32']) && ($_GET['secret'] ?? '') === $esp32_secret) {
     }
 }
 
+/* ---- STOP ALERTING bridge (add at TOP of /kandado/api/locker_api.php) ---- */
+if (isset($_GET['stop_alert'])) {
+  header('Content-Type: application/json; charset=utf-8');
+
+  // Simple shared secret check (matches your front-end call)
+  $SECRET = 'MYSECRET123';
+  if (!isset($_GET['secret']) || $_GET['secret'] !== $SECRET) {
+    http_response_code(403);
+    echo json_encode(['error' => 'forbidden']); exit;
+  }
+
+  // Targets to try: mDNS host then a plain hostname.
+  // If your server can’t resolve .local, replace with your ESP32’s IP (e.g. http://192.168.1.50/stop_alert)
+  $targets = [
+    'http://locker-esp32.local/stop_alert',
+    'http://locker-esp32/stop_alert',
+  ];
+
+  $ok = false; $lastUrl = null; $http = null; $err = null;
+
+  foreach ($targets as $url) {
+    $lastUrl = $url;
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+      CURLOPT_RETURNTRANSFER => true,
+      CURLOPT_CONNECTTIMEOUT => 2,
+      CURLOPT_TIMEOUT => 3,
+    ]);
+    $resp = curl_exec($ch);
+    if ($resp !== false) {
+      $http = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+      if ($http >= 200 && $http < 300) { $ok = true; curl_close($ch); break; }
+    } else {
+      $err = curl_error($ch);
+    }
+    curl_close($ch);
+  }
+
+  echo json_encode([
+    'success' => $ok,
+    'forwarded_to' => $lastUrl,
+    'http' => $http,
+    'error' => $ok ? null : ($err ?: 'no response')
+  ]);
+  exit;
+}
 /* ------------------- UPDATE ITEM (Slave 2) ------------------- */
 if(isset($_GET['update_item'])){
     $locker_number=(int)$_GET['update_item'];

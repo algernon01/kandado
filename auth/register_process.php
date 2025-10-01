@@ -13,7 +13,7 @@ $errors = [];
 // === Config ===
 const VERIFICATION_TTL_ISO8601 = 'PT1H'; // <-- change this to adjust the window (e.g., PT30M, PT24H)
 const NGROK_BASE = 'https://longhorn-settling-precisely.ngrok-free.app';
-const LAN_BASE   = 'http://192.168.207.238'; // switch to https:// if you have a valid cert
+const LAN_BASE   = 'http://192.168.1.104'; // switch to https:// if you have a valid cert
 
 /**
  * Determine if an IP is private (RFC1918, loopback, link-local).
