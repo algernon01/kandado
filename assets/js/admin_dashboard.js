@@ -228,7 +228,7 @@ document.addEventListener('DOMContentLoaded', () => {
         labels:['Occupied','Available','Hold','Maintenance'],
         datasets:[{
           data:[+st.occupied||0, +st.available||0, +st.hold||0, +st.maintenance||0],
-          backgroundColor:['#ef4444','#10b981','#f59e0b','#4f46e5'],
+          backgroundColor:['#ef4444','#10b981','#2c5cff','#8b5cf6'],
           hoverOffset:10
         }]
       },

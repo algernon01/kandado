@@ -72,6 +72,33 @@ function getOccColor(pct){
   return cssVar('--occ-red') || '#dc2626';
 }
 
+/* ------------------ [SYNC FIX] Server-time alignment + robust time parse ------------------ */
+let kdTimeOffset = 0; // serverNow(ms) - clientNow(ms)
+const alignedNow = () => Date.now() + kdTimeOffset;
+
+// If backend ever sends 'YYYY-MM-DD HH:mm:ss' without offset, assume Asia/Manila (+08:00).
+const SERVER_TZ = '+08:00';
+function parseServerTimeToMs(input){
+  if (input == null) return null;
+  if (typeof input === 'number') return input;                 // epoch ms
+  const str = String(input).trim();
+
+  // epoch seconds / ms
+  if (/^\d{10}$/.test(str)) return Number(str) * 1000;
+  if (/^\d{13}$/.test(str)) return Number(str);
+
+  // Already ISO with Z or offset
+  if (/[zZ]|[+\-]\d{2}:\d{2}$/.test(str)) {
+    const t = Date.parse(str);
+    return Number.isNaN(t) ? null : t;
+  }
+
+  // Fallback: normalize and append explicit offset (prevents mobile TZ quirks)
+  const iso = str.replace(' ', 'T') + SERVER_TZ;
+  const t = Date.parse(iso);
+  return Number.isNaN(t) ? null : t;
+}
+
 /* ------------------ Filters & Search ------------------ */
 let currentStatusFilter = localStorage.getItem('kd_status_filter') || 'all';
 let currentSearch = '';
@@ -220,11 +247,12 @@ let countdownTicker = null;
 function ensureCountdownTicker(){
   if (countdownTicker) return;
   countdownTicker = setInterval(()=>{
-    const now = Date.now();
-    for (const [i, expiresAt] of countdownMap.entries()){
+    // [SYNC FIX] use server-aligned now
+    const now = alignedNow();
+    for (const [i, expiresAtMs] of countdownMap.entries()){
       const el = document.getElementById(`time${i}`);
       if (!el) continue;
-      const diff = expiresAt - now;
+      const diff = expiresAtMs - now;
       el.textContent = formatDuration(diff);
       el.classList.toggle('danger', diff <= 0);
     }
@@ -277,6 +305,14 @@ async function fetchActiveLockers(showToast = false) {
       headers: { 'Accept': 'application/json' },
       cache: 'no-store'
     });
+
+    // [SYNC FIX] align to server clock using Date header
+    const dateHeader = res.headers.get('date');
+    if (dateHeader) {
+      const serverNow = Date.parse(dateHeader);
+      if (!Number.isNaN(serverNow)) kdTimeOffset = serverNow - Date.now();
+    }
+
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const active = await res.json();
 
@@ -294,14 +330,21 @@ async function fetchActiveLockers(showToast = false) {
 
       const textEl = statusDiv.querySelector('.status-text');
       let status = 'available';
-      let expiresAt = null;
+
+      // [SYNC FIX] compute expiresAt as epoch ms (prefer numeric fields)
+      let expiresAtMs = null;
+      if (lockerData) {
+        if (typeof lockerData.expires_at_ms === 'number') {
+          expiresAtMs = lockerData.expires_at_ms;
+        } else if (typeof lockerData.expires_at_epoch === 'number') {
+          expiresAtMs = lockerData.expires_at_epoch * 1000;
+        } else if (lockerData.expires_at) {
+          expiresAtMs = parseServerTimeToMs(lockerData.expires_at);
+        }
+      }
 
       if (lockerData && typeof lockerData.status === 'string') {
         status = lockerData.status;
-        if (lockerData.expires_at) {
-          const t = new Date(lockerData.expires_at);
-          if (!isNaN(t.valueOf())) expiresAt = t;
-        }
       }
 
       const isMaintenance = Number(lockerData?.maintenance) === 1;
@@ -355,8 +398,9 @@ async function fetchActiveLockers(showToast = false) {
 
       card.dataset.status = (status === 'occupied' || status === 'hold' || status === 'available') ? status : 'available';
 
-      if ((status === 'occupied' || status === 'hold') && expiresAt) {
-        countdownMap.set(i, expiresAt.getTime());
+      // [SYNC FIX] countdown uses ms + server-aligned now()
+      if ((status === 'occupied' || status === 'hold') && expiresAtMs) {
+        countdownMap.set(i, expiresAtMs);
         ensureCountdownTicker();
       } else {
         clearCountdown(i);
@@ -541,6 +585,7 @@ async function startCheckout(locker) {
 
     if (data?.hasLocker || data?.error === 'already_has_locker') {
       if (window.Swal) {
+        // [NOTE] expires_at here is string; shown only, so leave as-is
         Swal.fire({
           icon: 'warning',
           title: 'You already have a locker',
@@ -618,7 +663,11 @@ async function reserveWithWallet(locker, duration) {
       return;
     }
 
-    const exp = new Date(data.expires_at);
+    const exp = new Date(
+      typeof data.expires_at_ms === 'number'
+        ? data.expires_at_ms
+        : parseServerTimeToMs(data.expires_at)
+    );
     const expStr = exp.toLocaleString('en-US', {year:'numeric', month:'long', day:'numeric', hour:'numeric', minute:'numeric', hour12:true});
 
     if (window.Swal) {

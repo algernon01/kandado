@@ -7,7 +7,14 @@
   const serverNowMs  = Number(BOOT.serverNowMs) || Date.now();
   const lockerNumber = lockerObj.number ?? BOOT.lockerNumber;
   const lockerCode   = lockerObj.code;
-  let   expiresAtMs  = Number(lockerObj.expiresAtMs) || (Date.now() - 1);
+
+  // [SYNC FIX] prefer robust detection of expires time (support multiple shapes)
+  // Will fallback below if still null.
+  let   expiresAtMs  =
+    (typeof lockerObj.expiresAtMs === 'number' && lockerObj.expiresAtMs) ||
+    (typeof lockerObj.expires_at_ms === 'number' && lockerObj.expires_at_ms) ||
+    null;
+
   const DEFAULT_DURATION = BOOT.defaultDuration || '30min';
 
   if (!lockerCode) return; 
@@ -64,6 +71,23 @@
     } finally { if (timer) clearTimeout(timer); }
   }
 
+  // [SYNC FIX] robust parser for 'YYYY-MM-DD HH:mm:ss' (no offset) and ISO
+  const SERVER_TZ = '+08:00';
+  function parseServerTimeToMs(input){
+    if (input == null) return null;
+    if (typeof input === 'number') return input; // epoch ms
+    const str = String(input).trim();
+    if (/^\d{10}$/.test(str)) return Number(str) * 1000; // epoch s
+    if (/^\d{13}$/.test(str)) return Number(str);        // epoch ms
+    if (/[zZ]|[+\-]\d{2}:\d{2}$/.test(str)) {
+      const t = Date.parse(str);
+      return Number.isNaN(t) ? null : t;
+    }
+    const iso = str.replace(' ', 'T') + SERVER_TZ;
+    const t = Date.parse(iso);
+    return Number.isNaN(t) ? null : t;
+  }
+
   /* ===== TIME SYNC / PROGRESS ===== */
   const lockerCard      = el('lockerCard');
   const statusPill      = el('statusPill');
@@ -76,7 +100,14 @@
   let timeOffset = (Number(serverNowMs) || Date.now()) - Date.now();
   const nowAligned = () => Date.now() + timeOffset;
 
-  
+  // [SYNC FIX] if expiresAtMs was not provided, try to derive from BOOT strings
+  if (expiresAtMs == null) {
+    const candidate =
+      lockerObj.expires_at || lockerObj.expiresAt || BOOT.expires_at || BOOT.expiresAt;
+    const parsed = candidate ? parseServerTimeToMs(candidate) : null;
+    expiresAtMs = parsed ?? (Date.now() - 1); // keep your original fallback
+  }
+
   const baselineKey = () => `lockerBaseline:${lockerCode}:${Math.floor(expiresAtMs)}`;
   function loadBaselineMs(){ try{ const v=parseInt(localStorage.getItem(baselineKey()),10); return Number.isFinite(v)&&v>0?v:null; }catch{ return null; } }
   function saveBaselineMs(ms){ try{ localStorage.setItem(baselineKey(), String(Math.max(1, Math.floor(ms)))); }catch{} }
@@ -165,6 +196,25 @@
         }
 
         const list = Object.values(data || {});
+
+        // [SYNC FIX] If API carries a fresher expires time and we didn't have one at load, adopt it once.
+        const mine = list.find(l => l?.code === lockerCode);
+        if (mine && (expiresAtMs == null || expiresAtMs <= nowAligned())) {
+          let newMs = null;
+          if (typeof mine.expires_at_ms === 'number') newMs = mine.expires_at_ms;
+          else if (typeof mine.expires_at_epoch === 'number') newMs = mine.expires_at_epoch * 1000;
+          else if (mine.expires_at) newMs = parseServerTimeToMs(mine.expires_at);
+          if (newMs && newMs > nowAligned()) {
+            expiresAtMs = newMs;
+            initialRemainingMs = Math.max(1, expiresAtMs - nowAligned());
+            saveBaselineMs(initialRemainingMs);
+            lockerExpired = false;
+            setStatus('Active', 'active');
+            lockerCard?.classList.remove('state-expired','state-used');
+            renderInitialBar();
+          }
+        }
+
         const still = list.some(l => l?.code === lockerCode && l?.status === 'occupied');
         if (!still){
           lockerExpired = true;
@@ -361,7 +411,7 @@
       if (typeof data?.expires_at_ms === 'number') newMs = data.expires_at_ms;
       else if (typeof data?.expires_at_epoch === 'number') newMs = data.expires_at_epoch * 1000;
       else if (typeof data?.expires_at === 'string'){
-        const p = Date.parse(data.expires_at.replace(' ','T') + '+08:00');
+        const p = parseServerTimeToMs(data.expires_at); // [SYNC FIX] reuse robust parser
         if (!Number.isNaN(p)) newMs = p;
       }
       if (newMs){

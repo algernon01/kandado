@@ -1,6 +1,4 @@
 <?php
-
-
 require_once $_SERVER['DOCUMENT_ROOT'] . '/kandado/vendor/autoload.php';
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;

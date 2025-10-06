@@ -98,8 +98,12 @@ main#content{
 .kpi--occupied .ico{ background:#fef2f2; color:var(--danger-600); }
 .kpi--available .ico{ background:#ecfdf5; color:#0f766e; }
 .kpi--users .ico{ background:#eef2ff; color:#4338ca; }
-.kpi--hold .ico{ background:#fffbeb; color:var(--warn-600); }
-.kpi--maint .ico{ background:#eef2ff; color:#4f46e5; }
+
+/* HOLD stays BLUE */
+.kpi--hold .ico{ background:var(--brand-50); color:var(--brand-600); }
+
+/* MAINTENANCE → VIOLET */
+.kpi--maint .ico{ background:#f5f3ff; color:#8b5cf6; }
 
 @media (max-width: 1200px){ .kpi{ grid-column: span 6; } }
 @media (max-width: 680px){ .kpi{ grid-column: span 12; } }
@@ -140,8 +144,7 @@ main#content{
 .filter-chip{
   display:inline-flex; align-items:center; gap:8px;
   padding:8px 12px; border-radius:999px; border:1px solid #dbe3f3; background:#fff;
-  font-weight:800; font-size:13px; cursor:pointer; white-space:nowrap;
-  transition: all .2s ease;
+  font-weight:800; font-size:13px; cursor:pointer; white-space:nowrap; transition: all .2s ease;
 }
 .filter-chip[aria-pressed="true"]{
   background:var(--brand-600); color:#fff; border-color:var(--brand-600);
@@ -182,8 +185,12 @@ main#content{
 }
 .status-badge.available{ background: linear-gradient(135deg, #16a34a, #2be670); }
 .status-badge.occupied{ background: linear-gradient(135deg, #ef4444, #f97316); }
-.status-badge.hold{ background: linear-gradient(135deg, #f59e0b, #fde047); color:#1f2937; }
-.status-badge.maintenance{ background: linear-gradient(135deg, #4f46e5, #818cf8); }
+
+/* HOLD → BLUE */
+.status-badge.hold{ background: linear-gradient(135deg, var(--brand-600), var(--brand-400)); color:#fff; }
+
+/* MAINTENANCE → VIOLET */
+.status-badge.maintenance{ background: linear-gradient(135deg, #8b5cf6, #865bec); }
 
 
 .locker-top{ display:flex; align-items:center; gap:10px; margin-bottom:12px; }
@@ -214,7 +221,9 @@ main#content{
 .btn-reset:hover{ transform:translateY(-1px); box-shadow:var(--shadow-2); }
 .btn-release{ background: linear-gradient(135deg, #fb923c, #f59e0b); color:#fff; }
 .btn-release:hover{ transform:translateY(-1px); box-shadow:var(--shadow-2); }
-.btn-maintenance{ background: linear-gradient(135deg, #6366f1, #8b5cf6); color:#fff; }
+
+/* MAINTENANCE BUTTON → VIOLET */
+.btn-maintenance{ background: linear-gradient(135deg, #7c3aed, #8b5cf6); color:#fff; }
 .btn-maintenance.is-on{ background: linear-gradient(135deg, #334155, #64748b); }
 
 
