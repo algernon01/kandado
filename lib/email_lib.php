@@ -7,7 +7,7 @@ use PHPMailer\PHPMailer\Exception;
 const KANDADO_LOGIN_URL = 'http://longhorn-settling-precisely.ngrok-free.app/kandado/public/login.php';
 
 
-const KANDADO_LOGIN_URL_LOCAL = 'http://192.168.207.238/kandado/public/login.php';
+const KANDADO_LOGIN_URL_LOCAL = 'http://192.168.14.238/kandado/public/login.php';
 
 
 const KANDADO_BRAND_COLOR = '#3353bb';
