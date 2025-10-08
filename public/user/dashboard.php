@@ -1,14 +1,14 @@
-<?php 
+<?php
 session_start();
 if (!isset($_SESSION['user_id'])) {
     header("Location: ../login.php");
     exit();
 }
+date_default_timezone_set('Asia/Manila');
 
-
+/* ====================== Helpers (network gating like your original) ====================== */
 function effective_client_ip(): string {
     $remote = $_SERVER['REMOTE_ADDR'] ?? '';
-
     if ($remote === '127.0.0.1' || $remote === '::1') {
         if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
             $xff = explode(',', $_SERVER['HTTP_X_FORWARDED_FOR'])[0];
@@ -18,37 +18,32 @@ function effective_client_ip(): string {
             return trim($_SERVER['HTTP_X_REAL_IP']);
         }
     }
-
     if (!empty($_SERVER['HTTP_CF_CONNECTING_IP'])) {
         return trim($_SERVER['HTTP_CF_CONNECTING_IP']);
     }
     return $remote ?: '';
 }
-
 function is_lan_ip(string $ip): bool {
     if ($ip === '') return false;
-    if (stripos($ip, '::ffff:') === 0) $ip = substr($ip, 7); 
+    if (stripos($ip, '::ffff:') === 0) $ip = substr($ip, 7);
 
-   
     if (preg_match('/^\d+\.\d+\.\d+\.\d+$/', $ip)) {
         if (strpos($ip, '10.') === 0) return true;
         if (strpos($ip, '192.168.') === 0) return true;
         if (strpos($ip, '172.') === 0) {
             $second = (int) explode('.', $ip)[1];
-            if ($second >= 16 && $second <= 31) return true; 
+            if ($second >= 16 && $second <= 31) return true;
         }
-        if ($ip === '127.0.0.1') return true; 
+        if ($ip === '127.0.0.1') return true;
         return false;
     }
 
-
     $low = strtolower($ip);
     if ($low === '::1') return true;
-    if (strpos($low, 'fc') === 0 || strpos($low, 'fd') === 0) return true; 
-    if (strpos($low, 'fe80:') === 0) return true; 
+    if (strpos($low, 'fc') === 0 || strpos($low, 'fd') === 0) return true;
+    if (strpos($low, 'fe80:') === 0) return true;
     return false;
 }
-
 function is_mutating_request(): bool {
     $method = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
     if ($method === 'POST') {
@@ -61,46 +56,73 @@ function is_mutating_request(): bool {
     return !in_array($method, ['GET','HEAD','OPTIONS'], true);
 }
 
+/* ====================== Network read-only gate (same behavior as before) ====================== */
 $clientIp    = effective_client_ip();
 $host        = strtolower($_SERVER['HTTP_HOST'] ?? '');
 $isLan       = is_lan_ip($clientIp);
-$isNgrokHost = (strpos($host, 'ngrok') !== false); 
-
-
+$isNgrokHost = (strpos($host, 'ngrok') !== false);
 $READ_ONLY_BY_NETWORK = $isNgrokHost || !$isLan;
 
+/* If someone tries to POST from outside LAN, block it right here */
 if ($READ_ONLY_BY_NETWORK && is_mutating_request()) {
     http_response_code(403);
     header('Content-Type: text/plain; charset=utf-8');
     exit("Writes are disabled when not on the LAN. Connect to the local network to reserve.");
 }
 
-
+/* ====================== BAN lookup (DB) ====================== */
 $TOTAL_LOCKERS = 4;
 
-$IS_ON_HOLD = null;
-if (isset($_SESSION['on_hold'])) {
-  $IS_ON_HOLD = (bool)$_SESSION['on_hold'];
-} else {
-  $hostDb = 'localhost'; $dbname = 'kandado'; $user = 'root'; $pass = '';
-  $IS_ON_HOLD = false;
-  try {
+$hostDb = 'localhost'; $dbname = 'kandado'; $user = 'root'; $pass = '';
+$BAN = ['active'=>false,'until'=>null,'permanent'=>false,'offenses'=>0,'reason'=>null];
+
+try {
     $conn = new mysqli($hostDb, $user, $pass, $dbname);
-    if (!$conn->connect_error) {
-      $conn->set_charset('utf8mb4');
-      $stmt = $conn->prepare("SELECT archived FROM users WHERE id = ? LIMIT 1");
-      $stmt->bind_param('i', $_SESSION['user_id']);
-      $stmt->execute();
-      $res = $stmt->get_result()->fetch_assoc();
-      $IS_ON_HOLD = isset($res['archived']) && (int)$res['archived'] === 1;
-      $_SESSION['on_hold'] = $IS_ON_HOLD;
-      $stmt->close(); $conn->close();
+    if ($conn->connect_errno) throw new Exception($conn->connect_error);
+    $conn->set_charset('utf8mb4');
+
+    // fetch user_bans
+    $stmt = $conn->prepare("SELECT offense_count, banned_until, is_permanent FROM user_bans WHERE user_id=? LIMIT 1");
+    $stmt->bind_param('i', $_SESSION['user_id']);
+    $stmt->execute();
+    $row = $stmt->get_result()->fetch_assoc();
+
+    if ($row) {
+        $isActive = ((int)$row['is_permanent'] === 1) ||
+                    (!empty($row['banned_until']) && strtotime($row['banned_until']) > time());
+
+        $BAN['active']    = $isActive;
+        $BAN['until']     = $row['banned_until'];
+        $BAN['permanent'] = ((int)$row['is_permanent'] === 1);
+        $BAN['offenses']  = (int)$row['offense_count'];
+
+        if ($isActive) {
+            $stmt2 = $conn->prepare("
+                SELECT details
+                FROM violation_events
+                WHERE user_id=? AND event IN ('ban_1d','ban_3d','ban_perm')
+                ORDER BY id DESC LIMIT 1
+            ");
+            $stmt2->bind_param('i', $_SESSION['user_id']);
+            $stmt2->execute();
+            $ev = $stmt2->get_result()->fetch_assoc();
+            $BAN['reason'] = $ev['details'] ?? 'Repeated locker holds.';
+        }
     }
-  } catch (\Throwable $e) { $IS_ON_HOLD = false; }
+    $conn->close();
+} catch (\Throwable $e) {
+    // if DB fails, leave BAN inactive (better to allow UI but API will still guard generate/extend)
 }
 
+$IS_BANNED = $BAN['active'];
+$BAN_UNTIL_MS = 0;
+if (!empty($BAN['until'])) {
+  $dt = new DateTime($BAN['until'], new DateTimeZone('Asia/Manila'));
+  $BAN_UNTIL_MS = $dt->getTimestamp() * 1000; // epoch in ms
+}
 
-$IS_READ_ONLY = $IS_ON_HOLD || $READ_ONLY_BY_NETWORK;
+/* Final UI lock flag: banned OR network read-only */
+$IS_READ_ONLY = $IS_BANNED || $READ_ONLY_BY_NETWORK;
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -115,84 +137,66 @@ $IS_READ_ONLY = $IS_ON_HOLD || $READ_ONLY_BY_NETWORK;
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/kandado/assets/css/users_dashboard.css">
-  <link rel="icon" href="../../assets/icon/icon_tab.png" sizes="any">
+  <link rel="icon" href="/kandado/assets/icon/icon_tab.png" sizes="any">
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
-
-  <style>
-    .hold-banner{
-      margin:12px auto; max-width:1100px; padding:12px 14px;
-      border-radius:12px; border:1px solid #fed7aa; background:#fff7ed; color:#b45309;
-      font:600 14px/1.4 'Inter',system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
-      display:flex; align-items:flex-start; gap:10px;
-    }
-    .hold-banner .icon{
-      display:inline-flex; align-items:center; justify-content:center;
-      width:28px; height:28px; border-radius:50%; background:#fde7cc; border:1px solid #fed7aa; flex-shrink:0;
-    }
-    .hold-chip{
-      display:inline-flex; align-items:center; gap:.35rem; padding:.25rem .55rem; border-radius:999px;
-      background:#fff7ed; border:1px solid #fed7aa; color:#b45309; font:800 12px/1 'Inter',system-ui;
-    }
-    .disabled-link{ opacity:.55; pointer-events:none; }
-
-
-    .is-locked [data-lockable]:not(.page-header){
-      opacity:.55; filter:saturate(.7);
-    }
-
-
-    .lock-inline-row{
-      margin:-6px auto 10px;
-      max-width:1100px;
-      display:flex;
-      justify-content:center;
-      pointer-events:none;
-    }
-    .lock-inline-row .badge{
-      pointer-events:auto;
-      background:#fff7ed; border:1px solid #fed7aa; color:#b45309;
-      border-radius:999px; padding:.45rem .8rem; font:800 13px/1 'Inter',system-ui;
-      box-shadow:0 8px 24px rgba(180,83,9,.12);
-    }
-
-    @media (max-width:768px){
-      .hold-chip{ display:none; }
-      .lock-inline-row{ margin:-4px auto 8px; }
-    }
-  </style>
 </head>
-<body>
+<body
+  class="<?= $IS_BANNED ? 'banned' : '' ?>"
+  data-dashboard="1"
+  data-total-lockers="<?= (int)$TOTAL_LOCKERS ?>"
+  data-on-hold="<?= $IS_READ_ONLY ? 'true' : 'false' ?>"
+  data-ban-active="<?= $IS_BANNED ? 'true' : 'false' ?>"
+  data-ban-permanent="<?= $BAN['permanent'] ? 'true' : 'false' ?>"
+  data-ban-until-ms="<?= (int)$BAN_UNTIL_MS ?>"
+  data-ban-reason="<?= htmlspecialchars($BAN['reason'] ?? 'Repeated locker holds.', ENT_QUOTES, 'UTF-8') ?>"
+>
   <?php include $_SERVER['DOCUMENT_ROOT'] . '/kandado/includes/user_header.php'; ?>
 
   <main class="container <?= $IS_READ_ONLY ? 'is-locked' : '' ?>" role="main">
-    <?php if ($IS_READ_ONLY): ?>
-
+    <?php if ($IS_BANNED): ?>
+      <!-- BAN banner -->
       <div class="hold-banner" role="alert" aria-live="assertive">
-        <span class="icon" aria-hidden="true">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 11V6a2 2 0 1 1 4 0v4h1V4a2 2 0 1 1 4 0v7h1V7a2 2 0 1 1 4 0v9a6 6 0 0 1-6 6h-2a7 7 0 0 1-7-7v-4h1z"/></svg>
-        </span>
+        <span class="icon" aria-hidden="true">🚫</span>
         <div>
-          <div><strong><?= $IS_ON_HOLD ? 'Your account is on hold.' : 'Read-only mode.' ?></strong> Actions are disabled<?= $IS_ON_HOLD ? '' : ' when not on the LAN' ?>.</div>
-          <?php if ($IS_ON_HOLD): ?>
-            <div style="opacity:.8; font-weight:600; margin-top:2px;">Please contact support if you believe this is a mistake.</div>
-          <?php else: ?>
-            <div style="opacity:.8; font-weight:600; margin-top:2px;">Connect to the local network to avail.</div>
-          <?php endif; ?>
+          <div><strong>Your account is banned.</strong></div>
+          <div style="opacity:.85; font-weight:600; margin-top:2px;">
+            Reason: <?= htmlspecialchars($BAN['reason'] ?? 'Repeated locker holds.', ENT_QUOTES, 'UTF-8') ?><br/>
+            <?php if ($BAN['permanent']): ?>
+              Status: <b>Permanent</b>
+            <?php else: ?>
+              Ends: <b><?= htmlspecialchars(date('F j, Y h:i A', strtotime($BAN['until']))) ?></b>
+              <span id="banCountdown" style="margin-left:6px;"></span>
+            <?php endif; ?>
+          </div>
+          <div style="opacity:.8; margin-top:6px;">
+            Please wait until the ban expires, or contact an admin for review.
+          </div>
         </div>
       </div>
-
       <div class="lock-inline-row" aria-hidden="true">
-        <div class="badge"><?= $IS_ON_HOLD ? 'On-hold mode: read-only' : 'Public access: read-only' ?></div>
+        <div class="badge">Banned: actions disabled</div>
+      </div>
+    <?php elseif ($READ_ONLY_BY_NETWORK): ?>
+      <!-- Read-only (public/not on LAN) banner -->
+      <div class="hold-banner" role="alert" aria-live="assertive">
+        <span class="icon" aria-hidden="true">ℹ️</span>
+        <div>
+          <div><strong>Read-only mode.</strong> Connect to the local network to avail.</div>
+          <div style="opacity:.8; font-weight:600; margin-top:2px;">Actions are disabled while accessing remotely.</div>
+        </div>
+      </div>
+      <div class="lock-inline-row" aria-hidden="true">
+        <div class="badge">Public access: read-only</div>
       </div>
     <?php endif; ?>
 
-  
+    <!-- Header / KPIs / Wallet -->
     <header class="page-header" role="region" aria-label="Locker dashboard controls" data-lockable>
       <div class="title-wrap">
         <h2>
           Locker Dashboard
-          <?php if ($IS_READ_ONLY): ?><span class="hold-chip"><?= $IS_ON_HOLD ? 'On&nbsp;Hold' : 'Read-only' ?></span><?php endif; ?>
+          <?php if ($IS_READ_ONLY): ?><span class="hold-chip"><?= $IS_BANNED ? 'Banned' : 'Read-only' ?></span><?php endif; ?>
         </h2>
         <div class="legend" aria-hidden="true">
           <span class="pill available"><span class="dot"></span>Available</span>
@@ -202,7 +206,6 @@ $IS_READ_ONLY = $IS_ON_HOLD || $READ_ONLY_BY_NETWORK;
         </div>
       </div>
 
-      <!-- RIGHT COLUMN: Refresh + Wallet -->
       <div class="toolbar">
         <div class="toolbar-row">
           <button id="refreshBtn" class="btn" type="button" title="Refresh now" aria-controls="lockerGrid">
@@ -301,91 +304,6 @@ $IS_READ_ONLY = $IS_ON_HOLD || $READ_ONLY_BY_NETWORK;
       <div class="empty-sub">Try changing the status or clearing the search.</div>
     </div>
   </main>
-
-  <script>
-    window.DASHBOARD = {
-      totalLockers: <?= (int)$TOTAL_LOCKERS ?>,
-      onHold: <?= $IS_READ_ONLY ? 'true' : 'false' ?>
-    };
-
-    (function lockDownIfOnHold(){
-      if (!window.DASHBOARD.onHold) return;
-
-      const isTopUp = (el) => !!(el && (el.classList?.contains('wallet-topup-btn') || el.closest?.('#walletWidget')));
-
-
-      const disableEl = (el) => {
-        if (!el || isTopUp(el)) return;
-        const tag = el.tagName;
-        if (['BUTTON','INPUT','SELECT','TEXTAREA'].includes(tag)) {
-          el.disabled = true;
-          el.setAttribute('aria-disabled','true');
-        } else if (tag === 'A') {
-          if (el.hasAttribute('href')) { el.dataset.href = el.getAttribute('href'); el.removeAttribute('href'); }
-          el.classList.add('disabled-link');
-          el.setAttribute('aria-disabled','true');
-          el.tabIndex = -1;
-        }
-      };
-
-      const root = document.querySelector('main.container');
-      const interactiveSelectors = [
-        'button', 'a.btn', 
-        '.segmented .seg',
-        '#searchInput', '#clearSearch', '#lockerGrid button', '#lockerGrid a',
-        'input', 'select', 'textarea', '[role="tab"]', '[type="submit"]'
-      ];
-      interactiveSelectors.forEach(sel => root.querySelectorAll(sel).forEach(disableEl));
-
-
-      document.addEventListener('submit', function(e){
-        if (!window.DASHBOARD.onHold) return;
-        e.preventDefault(); e.stopImmediatePropagation();
-        Swal.fire({ icon:'info', title:'Read-only mode', text:'Actions are disabled right now.', confirmButtonColor:'#0d5ef4' });
-      }, true);
-
- 
-      document.addEventListener('click', function(e){
-        if (!window.DASHBOARD.onHold) return;
-        const t = e.target.closest('button, a, [role="button"], [role="tab"]');
-        if (!t) return;
-        if (t.closest('header') && !t.closest('.page-header')) return; 
-        if (isTopUp(t)) return; 
-        e.preventDefault(); e.stopImmediatePropagation();
-        Swal.fire({ icon:'info', title:'Read-only mode', text:'Actions are disabled right now.', confirmButtonColor:'#0d5ef4' });
-      }, true);
-
-   
-      const origFetch = window.fetch.bind(window);
-      window.fetch = function(resource, init){
-        try {
-          const method = (init && (init.method || (init.headers && init.headers['X-HTTP-Method-Override']))) || 'GET';
-          if (String(method).toUpperCase() !== 'GET') {
-            return Promise.reject(new Error('Read-only — write operations blocked'));
-          }
-        } catch(_){}
-        return origFetch(resource, init);
-      };
-
-
-      const origOpen = XMLHttpRequest.prototype.open;
-      XMLHttpRequest.prototype.open = function(method, url){
-        this.__method = method;
-        return origOpen.apply(this, arguments);
-      };
-      const origSend = XMLHttpRequest.prototype.send;
-      XMLHttpRequest.prototype.send = function(body){
-        if ((this.__method||'GET').toUpperCase() !== 'GET') {
-          this.abort();
-          Swal.fire({icon:'info', title:'Read-only mode', text:'Actions are disabled right now.', confirmButtonColor:'#0d5ef4'});
-          return;
-        }
-        return origSend.apply(this, arguments);
-      };
-
-      document.querySelectorAll('[data-lockable]:not(.page-header)').forEach(el => el.setAttribute('inert',''));
-    })();
-  </script>
 
   <script src="/kandado/assets/js/user_dashboard.js?v=1"></script>
 </body>

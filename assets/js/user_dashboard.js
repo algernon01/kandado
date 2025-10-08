@@ -34,6 +34,181 @@ const durationOptions = [
   { value: '7days',   text: '7 Days' }
 ];
 
+/* ------------------ Dashboard bootstrap ------------------ */
+const DASHBOARD_DEFAULT = {
+  totalLockers: 0,
+  onHold: false,
+  ban: {
+    active: false,
+    permanent: false,
+    untilMs: 0,
+    reason: 'Repeated locker holds.'
+  }
+};
+
+const toBool = (value) => String(value ?? '').toLowerCase() === 'true';
+
+function loadDashboardConfig(){
+  const el = document.querySelector('body[data-dashboard]');
+  if (!el) return { ...DASHBOARD_DEFAULT };
+  return {
+    totalLockers: Number(el.dataset.totalLockers || 0),
+    onHold: toBool(el.dataset.onHold),
+    ban: {
+      active: toBool(el.dataset.banActive),
+      permanent: toBool(el.dataset.banPermanent),
+      untilMs: Number(el.dataset.banUntilMs || 0),
+      reason: el.dataset.banReason || DASHBOARD_DEFAULT.ban.reason
+    }
+  };
+}
+
+(function bootstrapDashboard(){
+  const cfg = loadDashboardConfig();
+  window.DASHBOARD = {
+    totalLockers: Number.isFinite(cfg.totalLockers) ? cfg.totalLockers : DASHBOARD_DEFAULT.totalLockers,
+    onHold: !!cfg.onHold,
+    ban: Object.assign({}, DASHBOARD_DEFAULT.ban, cfg.ban || {})
+  };
+})();
+
+function initBanCountdown(){
+  const cfg = window.DASHBOARD;
+  if (!cfg?.ban?.active || cfg.ban.permanent || !cfg.ban.untilMs) return;
+  const el = document.getElementById('banCountdown');
+  if (!el) return;
+
+  const tick = () => {
+    const ms = cfg.ban.untilMs - Date.now();
+    if (ms <= 0) {
+      el.textContent = '(expires soon)';
+      return;
+    }
+    const s = Math.floor(ms / 1000);
+    const d = Math.floor(s / 86400);
+    const h = Math.floor((s % 86400) / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    el.textContent = `Time left: ${d}d ${h}h ${m}m`;
+    requestAnimationFrame(tick);
+  };
+  tick();
+}
+
+function initLockDown(){
+  const cfg = window.DASHBOARD;
+  if (!cfg?.onHold) return;
+
+  const isTopUp = (el) => !!(el && (el.classList?.contains('wallet-topup-btn') || el.closest?.('#walletWidget')));
+  const message = cfg.ban?.active
+    ? ('You are banned'
+        + (cfg.ban.permanent ? ' permanently.' : (' until ' + new Date(cfg.ban.untilMs).toLocaleString()))
+        + ' Reason: ' + (cfg.ban.reason || DASHBOARD_DEFAULT.ban.reason))
+    : 'Actions are disabled while accessing remotely.';
+
+  const disableEl = (el) => {
+    if (!el || isTopUp(el)) return;
+    const tag = el.tagName;
+    if (['BUTTON','INPUT','SELECT','TEXTAREA'].includes(tag)) {
+      el.disabled = true;
+      el.setAttribute('aria-disabled','true');
+    } else if (tag === 'A') {
+      if (el.hasAttribute('href')) {
+        el.dataset.href = el.getAttribute('href');
+        el.removeAttribute('href');
+      }
+      el.classList.add('disabled-link');
+      el.setAttribute('aria-disabled','true');
+      el.tabIndex = -1;
+    }
+  };
+
+  const root = document.querySelector('main.container');
+  if (root) {
+    [
+      'button', 'a.btn',
+      '.segmented .seg',
+      '#searchInput', '#clearSearch', '#lockerGrid button', '#lockerGrid a',
+      'input', 'select', 'textarea', '[role="tab"]', '[type="submit"]'
+    ].forEach(sel => root.querySelectorAll(sel).forEach(disableEl));
+  }
+
+  document.addEventListener('submit', (e) => {
+    if (!window.DASHBOARD.onHold) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    if (window.Swal) Swal.fire({ icon:'error', title:'Unavailable', text: message, confirmButtonColor:'#0d5ef4' });
+  }, true);
+
+  document.addEventListener('click', (e) => {
+    if (!window.DASHBOARD.onHold) return;
+    const t = e.target.closest('button, a, [role="button"], [role="tab"]');
+    if (!t || isTopUp(t)) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    if (window.Swal) Swal.fire({ icon:'error', title:'Unavailable', text: message, confirmButtonColor:'#0d5ef4' });
+  }, true);
+
+  if (window.fetch) {
+    const origFetch = window.fetch.bind(window);
+    window.fetch = function(resource, init){
+      try {
+        const method = (init && (init.method || (init.headers && init.headers['X-HTTP-Method-Override']))) || 'GET';
+        if (String(method).toUpperCase() !== 'GET') {
+          return Promise.reject(new Error('Locked - write operations blocked'));
+        }
+      } catch(_){}
+      return origFetch(resource, init);
+    };
+  }
+
+  if (typeof XMLHttpRequest !== 'undefined') {
+    const origOpen = XMLHttpRequest.prototype.open;
+    XMLHttpRequest.prototype.open = function(method, url){
+      this.__method = method;
+      return origOpen.apply(this, arguments);
+    };
+    const origSend = XMLHttpRequest.prototype.send;
+    XMLHttpRequest.prototype.send = function(body){
+      if ((this.__method||'GET').toUpperCase() !== 'GET') {
+        this.abort();
+        if (window.Swal) Swal.fire({ icon:'error', title:'Unavailable', text: message, confirmButtonColor:'#0d5ef4' });
+        return;
+      }
+      return origSend.apply(this, arguments);
+    };
+  }
+
+  document.querySelectorAll('[data-lockable]:not(.page-header)').forEach(el => el.setAttribute('inert',''));
+}
+
+initBanCountdown();
+initLockDown();
+
+async function callApi(url, init = {}) {
+  const res = await fetch(url, Object.assign({ headers: { 'Accept': 'application/json' } }, init));
+  let data = {};
+  try { data = await res.json(); } catch(_){}
+  if (!res.ok) {
+    if (res.status === 423 && data && data.error === 'account_banned') {
+      const when = (data.is_permanent ? 'permanently' : ('until ' + new Date(data.banned_until).toLocaleString()));
+      if (window.Swal) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Banned',
+          text: (data.message || 'Your account is banned.') + ' You are banned ' + when + '.',
+          confirmButtonColor: '#0d5ef4'
+        });
+      }
+    } else if (window.Swal) {
+      Swal.fire({ icon:'error', title:'Error', text: (data.message || 'Request failed.'), confirmButtonColor:'#0d5ef4' });
+    }
+    throw new Error(data.message || 'Request failed');
+  }
+  return data;
+}
+
+window.callApi = callApi;
+
 /* ------------------ Utilities ------------------ */
 const $  = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => Array.from(ctx.querySelectorAll(sel));

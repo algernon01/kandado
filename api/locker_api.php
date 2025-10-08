@@ -2,6 +2,7 @@
 header('Content-Type: application/json; charset=utf-8');
 session_start();
 
+
 require '../vendor/autoload.php';
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
@@ -16,10 +17,8 @@ $esp32_host = 'locker-esp32.local';
 $TOTAL_LOCKERS = 4;
 $esp32_secret = 'MYSECRET123';
 
-// Include shared email helpers (centralized mail)
-require_once $_SERVER['DOCUMENT_ROOT'] . '/kandado/lib/email_lib.php';
 
-// Include phpqrcode
+require_once $_SERVER['DOCUMENT_ROOT'] . '/kandado/lib/email_lib.php';
 include_once $_SERVER['DOCUMENT_ROOT'] . '/kandado/phpqrcode/qrlib.php';
 $qr_folder = $_SERVER['DOCUMENT_ROOT'] . '/kandado/qr_image/';
 if (!file_exists($qr_folder)) mkdir($qr_folder, 0777, true);
@@ -105,6 +104,44 @@ function release_lock(mysqli $conn, string $name): void {
         $stmt->execute();
     } catch (\Throwable $e) {
         // ignore
+    }
+}
+
+/* ===== BAN GUARD (inline; no extra includes) ===== */
+function _ban_get_row(mysqli $conn, int $uid): array {
+    $stmt = $conn->prepare("SELECT offense_count, holds_since_last_offense, banned_until, is_permanent FROM user_bans WHERE user_id=? LIMIT 1");
+    $stmt->bind_param("i", $uid);
+    $stmt->execute();
+    $row = $stmt->get_result()->fetch_assoc();
+    return $row ?: ['offense_count'=>0,'holds_since_last_offense'=>0,'banned_until'=>null,'is_permanent'=>0];
+}
+function _ban_is_active(array $ban): bool {
+    if ((int)$ban['is_permanent'] === 1) return true;
+    if (!empty($ban['banned_until'])) return (strtotime($ban['banned_until']) > time());
+    return false;
+}
+function require_not_banned_inline(mysqli $conn, int $uid) {
+    $ban = _ban_get_row($conn, $uid);
+    if (_ban_is_active($ban)) {
+        // Pull latest ban event for a human-readable reason
+        $stmt = $conn->prepare("
+            SELECT event, details, created_at
+            FROM violation_events
+            WHERE user_id=? AND event IN ('ban_1d','ban_3d','ban_perm')
+            ORDER BY id DESC LIMIT 1
+        ");
+        $stmt->bind_param("i", $uid);
+        $stmt->execute();
+        $ev = $stmt->get_result()->fetch_assoc();
+        $reason = $ev['details'] ?? 'Repeated locker holds.';
+
+        jexit([
+            'error'         => 'account_banned',
+            'message'       => "You have been banned: {$reason}",
+            'banned_until'  => $ban['banned_until'],
+            'is_permanent'  => (int)$ban['is_permanent'],
+            'offense_count' => (int)$ban['offense_count']
+        ], 423); // 423 Locked
     }
 }
 
@@ -572,6 +609,7 @@ if(isset($_GET['used'])){
 /* ------------------- EXTEND LOCKER TIME (IDEMPOTENT, WALLET) ------------------- */
 if(isset($_GET['extend'])){
     $user_id = require_login();
+    require_not_banned_inline($conn, $user_id); 
     $locker  = (int)$_GET['extend'];
 
     $requested = $_GET['duration'] ?? '1hour';
@@ -750,7 +788,7 @@ if (isset($_GET['terminate'])) {
 /*  >>> FIXED: serialize ESP32 calls + idempotency, correct HTTP code constant <<<  */
 if(isset($_GET['generate'])){
     $user_id = require_login();
-
+    require_not_banned_inline($conn, $user_id); 
     $locker = (int)$_GET['generate'];
     if($locker<1||$locker>$TOTAL_LOCKERS) jexit(['error'=>'invalid_locker'],400);
 

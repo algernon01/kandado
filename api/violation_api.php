@@ -1,242 +1,242 @@
 <?php
+/**
+ * /kandado/api/violation_api.php
+ * Standalone JSON API for violation counts and bans.
+ *
+ * Routes:
+ *   ?status                 -> current user's ban+counts
+ *   ?events                 -> last 50 events of current user
+ *   ?admin_status&user_id=U -> same, but for any user (admin only)
+ *   ?admin_events&user_id=U -> last 100 events for a user (admin only)
+ *   ?admin_unban&user_id=U[&reset=1] -> lift ban (and optionally reset offenses) (admin only)
+ *
+ * Requires tables: violation_events, user_bans (from the SQL I provided).
+ */
+
 header('Content-Type: application/json; charset=utf-8');
 session_start();
 
-date_default_timezone_set('Asia/Manila');
 mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
 
-// --- DB CONFIG ---
-$host = 'localhost';
+/* ---------- CONFIG: match locker_api.php ---------- */
+$host   = 'localhost';
 $dbname = 'kandado';
-$user = 'root';
-$pass = '';
+$user   = 'root';
+$pass   = '';
 
-// --- SECRETS ---
-$SERVICE_SECRET = 'CHANGE_ME_SERVICE_123'; // used by your app when reporting a hold
-$ADMIN_SECRET   = 'CHANGE_ME_ADMIN_456';   // used by admin tools / internal status checks
-
-function jexit($payload, int $code = 200) {
-  http_response_code($code);
-  echo json_encode($payload);
-  exit;
+/* Optional: Composer (safe if missing) */
+$composerAutoload = $_SERVER['DOCUMENT_ROOT'] . '/kandado/vendor/autoload.php';
+if (is_file($composerAutoload)) {
+    require_once $composerAutoload;
 }
 
-try {
-  $conn = new mysqli($host, $user, $pass, $dbname);
-  $conn->set_charset('utf8mb4');
-  // Force PH timezone at SQL layer too:
-  $conn->query("SET SESSION time_zone = '+08:00'");
-  $conn->query("SET SESSION sql_mode = 'STRICT_TRANS_TABLES,NO_ZERO_DATE,NO_ZERO_IN_DATE,ERROR_FOR_DIVISION_BY_ZERO,ONLY_FULL_GROUP_BY'");
-} catch (mysqli_sql_exception $e) {
-  jexit(['error'=>'db_connect','message'=>$e->getMessage()], 500);
-}
-
-function require_login_user_id(): int {
-  if (!isset($_SESSION['user_id'])) jexit(['error'=>'not_logged_in'], 401);
-  return (int)$_SESSION['user_id'];
-}
-
-function get_violation_row(mysqli $conn, int $user_id, bool $forUpdate = false): array {
-  $sql = "SELECT user_id, holds_in_cycle, offense_no, banned_until, is_blocked, total_holds
-          FROM user_violations WHERE user_id=? " . ($forUpdate ? "FOR UPDATE" : "");
-  $stmt = $conn->prepare($sql);
-  $stmt->bind_param("i", $user_id);
-  $stmt->execute();
-  $row = $stmt->get_result()->fetch_assoc();
-
-  if (!$row) {
-    $stmtIns = $conn->prepare("INSERT INTO user_violations (user_id) VALUES (?)");
-    $stmtIns->bind_param("i", $user_id);
-    $stmtIns->execute();
-    return [
-      'user_id'        => $user_id,
-      'holds_in_cycle' => 0,
-      'offense_no'     => 0,
-      'banned_until'   => null,
-      'is_blocked'     => 0,
-      'total_holds'    => 0,
-    ];
-  }
-  return $row;
-}
-
-function log_event(mysqli $conn, int $user_id, string $event, ?string $details = null, ?int $locker = null): void {
-  $stmt = $conn->prepare("INSERT INTO violation_events (user_id, locker_number, event, details) VALUES (?,?,?,?)");
-  $stmt->bind_param("iiss", $user_id, $locker, $event, $details);
-  $stmt->execute();
-}
-
-function lift_if_expired(mysqli $conn, array $row): array {
-  if (!empty($row['banned_until'])) {
-    $now = time();
-    $banTs = strtotime($row['banned_until']); // PH time
-    if ($banTs !== false && $banTs <= $now) {
-      $stmt = $conn->prepare("UPDATE user_violations SET banned_until=NULL WHERE user_id=?");
-      $stmt->bind_param("i", $row['user_id']);
-      $stmt->execute();
-      log_event($conn, (int)$row['user_id'], 'ban_lifted', 'Ban period elapsed');
-      $row['banned_until'] = null;
+/* ---------- Small helpers ---------- */
+if (!function_exists('jexit')) {
+    function jexit($payload, int $code = 200) {
+        http_response_code($code);
+        echo json_encode($payload);
+        exit;
     }
-  }
-  return $row;
+}
+if (!function_exists('db')) {
+    function db(): mysqli {
+        global $host, $user, $pass, $dbname;
+        $conn = new mysqli($host, $user, $pass, $dbname);
+        $conn->set_charset('utf8mb4');
+        // Match your sql_mode & timezone usage
+        $conn->query("SET SESSION sql_mode = 'STRICT_TRANS_TABLES,NO_ZERO_DATE,NO_ZERO_IN_DATE,ERROR_FOR_DIVISION_BY_ZERO,ONLY_FULL_GROUP_BY'");
+        $conn->query("SET time_zone = '+08:00'"); // Asia/Manila
+        return $conn;
+    }
+}
+if (!function_exists('require_login')) {
+    function require_login(): int {
+        if (!isset($_SESSION['user_id'])) {
+            jexit(['error'=>'not_logged_in'], 401);
+        }
+        return (int)$_SESSION['user_id'];
+    }
+}
+if (!function_exists('get_role')) {
+    function get_role(mysqli $conn, int $uid): string {
+        $stmt = $conn->prepare("SELECT role FROM users WHERE id=? LIMIT 1");
+        $stmt->bind_param("i", $uid);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        return $row ? $row['role'] : 'user';
+    }
+}
+if (!function_exists('require_admin')) {
+    function require_admin(mysqli $conn, int $uid): void {
+        if (get_role($conn, $uid) !== 'admin') {
+            jexit(['error'=>'forbidden'], 403);
+        }
+    }
 }
 
-function apply_offense(mysqli $conn, array $row): array {
-  $user_id = (int)$row['user_id'];
-  $offense = (int)$row['offense_no'] + 1;
-
-  if ($offense >= 3) {
+/* ---------- Ban helpers (local) ---------- */
+function ban_get_row(mysqli $conn, int $uid): array {
     $stmt = $conn->prepare("
-      UPDATE user_violations
-         SET offense_no=?, holds_in_cycle=0, banned_until=NULL, is_blocked=1
-       WHERE user_id=?");
-    $stmt->bind_param("ii", $offense, $user_id);
+        SELECT offense_count, holds_since_last_offense, banned_until, is_permanent
+        FROM user_bans WHERE user_id=? LIMIT 1
+    ");
+    $stmt->bind_param("i", $uid);
     $stmt->execute();
-    log_event($conn, $user_id, 'ban_applied', 'Offense 3: permanently blocked');
-    $row['offense_no'] = 3;
-    $row['holds_in_cycle'] = 0;
-    $row['banned_until'] = null;
-    $row['is_blocked'] = 1;
+    $row = $stmt->get_result()->fetch_assoc();
+    if (!$row) {
+        return [
+            'offense_count' => 0,
+            'holds_since_last_offense' => 0,
+            'banned_until' => null,
+            'is_permanent' => 0
+        ];
+    }
     return $row;
-  }
-
-  $days = ($offense === 1) ? 1 : 3;
-  $ban_until = date('Y-m-d H:i:s', time() + $days * 86400);
-
-  $stmt = $conn->prepare("
-    UPDATE user_violations
-       SET offense_no=?, holds_in_cycle=0, banned_until=?, is_blocked=0
-     WHERE user_id=?");
-  $stmt->bind_param("isi", $offense, $ban_until, $user_id);
-  $stmt->execute();
-
-  log_event($conn, $user_id, 'ban_applied', "Offense {$offense}: banned until {$ban_until}");
-  $row['offense_no']     = $offense;
-  $row['holds_in_cycle'] = 0;
-  $row['banned_until']   = $ban_until;
-  $row['is_blocked']     = 0;
-  return $row;
 }
-
-function decorate_status(array $row): array {
-  $now = time();
-  $banned_until_ts = $row['banned_until'] ? strtotime($row['banned_until']) : null;
-  $is_time_banned = $banned_until_ts ? ($banned_until_ts > $now) : false;
-  $remaining_sec = $is_time_banned ? max(0, $banned_until_ts - $now) : 0;
-
-  return array_merge($row, [
-    'is_banned' => ((int)$row['is_blocked'] === 1) || $is_time_banned,
-    'banned_until_ts' => $banned_until_ts,
-    'banned_seconds_remaining' => $remaining_sec,
-    'now_ph' => date('Y-m-d H:i:s', $now),
-  ]);
-}
-
-/* --------------------- ROUTES --------------------- */
-
-if (isset($_GET['status'])) {
-  $user_id = null;
-
-  // Preferred: admin/service check of arbitrary user
-  if (isset($_GET['user_id']) && isset($_GET['secret']) && $_GET['secret'] === $ADMIN_SECRET) {
-    $user_id = (int)$_GET['user_id'];
-  } else {
-    // Fallback: session-bound query
-    $user_id = require_login_user_id();
-  }
-
-  try {
-    $conn->begin_transaction();
-    $row = get_violation_row($conn, $user_id, true);
-    $row = lift_if_expired($conn, $row);
-    $conn->commit();
-
-    jexit(['success'=>true, 'status'=>decorate_status($row)]);
-  } catch (mysqli_sql_exception $e) {
-    $conn->rollback();
-    jexit(['error'=>'status_failed','message'=>$e->getMessage()], 500);
-  }
-}
-
-if (isset($_GET['record_hold'])) {
-  if (!isset($_GET['secret']) || $_GET['secret'] !== $SERVICE_SECRET) {
-    jexit(['error'=>'forbidden'], 403);
-  }
-  $user_id = isset($_GET['user_id']) ? (int)$_GET['user_id'] : 0;
-  if ($user_id <= 0) jexit(['error'=>'missing_user_id'], 400);
-  $locker  = isset($_GET['locker']) ? (int)$_GET['locker'] : null;
-
-  try {
-    $conn->begin_transaction();
-
-    $row = get_violation_row($conn, $user_id, true);
-    $row = lift_if_expired($conn, $row);
-
-    $row['holds_in_cycle'] = (int)$row['holds_in_cycle'] + 1;
-    $row['total_holds']    = (int)$row['total_holds'] + 1;
-
-    $stmtUp = $conn->prepare("
-      UPDATE user_violations
-         SET holds_in_cycle=?, total_holds=?
-       WHERE user_id=?");
-    $stmtUp->bind_param("iii", $row['holds_in_cycle'], $row['total_holds'], $user_id);
-    $stmtUp->execute();
-
-    log_event($conn, $user_id, 'hold_detected', 'Hold recorded', $locker);
-
-    if ($row['holds_in_cycle'] >= 3) {
-      $row = apply_offense($conn, $row);
+function ban_is_active(array $ban): bool {
+    if ((int)$ban['is_permanent'] === 1) return true;
+    if (!empty($ban['banned_until'])) {
+        return (strtotime($ban['banned_until']) > time());
     }
-
-    $conn->commit();
-    jexit(['success'=>true, 'status'=>decorate_status($row)]);
-  } catch (mysqli_sql_exception $e) {
-    $conn->rollback();
-    jexit(['error'=>'record_hold_failed','message'=>$e->getMessage()], 500);
-  }
+    return false;
+}
+function seconds_left(?string $until): ?int {
+    if (empty($until)) return null;
+    $delta = strtotime($until) - time();
+    return $delta > 0 ? $delta : 0;
 }
 
-if (isset($_GET['admin_unblock'])) {
-  if (!isset($_GET['secret']) || $_GET['secret'] !== $ADMIN_SECRET) jexit(['error'=>'forbidden'], 403);
-  $user_id = (int)$_GET['admin_unblock'];
-  if ($user_id <= 0) jexit(['error'=>'missing_user_id'], 400);
+/* ---------- DB ---------- */
+$conn = db();
 
-  try {
-    $conn->begin_transaction();
-    $stmt = $conn->prepare("UPDATE user_violations SET is_blocked=0, banned_until=NULL WHERE user_id=?");
-    $stmt->bind_param("i", $user_id);
+/* ---------- ROUTES ---------- */
+
+/* Self status */
+if (isset($_GET['status'])) {
+    $uid = require_login();
+
+    $ban = ban_get_row($conn, $uid);
+
+    $stmt = $conn->prepare("SELECT COUNT(*) AS c FROM violation_events WHERE user_id=? AND event='hold'");
+    $stmt->bind_param("i", $uid);
     $stmt->execute();
-    log_event($conn, $user_id, 'unblocked', 'Admin unblocked user');
-    $row = get_violation_row($conn, $user_id, true);
-    $conn->commit();
-    jexit(['success'=>true, 'status'=>decorate_status($row)]);
-  } catch (mysqli_sql_exception $e) {
-    $conn->rollback();
-    jexit(['error'=>'admin_unblock_failed','message'=>$e->getMessage()], 500);
-  }
+    $tot = (int)$stmt->get_result()->fetch_assoc()['c'];
+
+    $active = ban_is_active($ban);
+
+    jexit([
+        'success' => true,
+        'user_id' => $uid,
+        'total_hold_violations'    => $tot,
+        'holds_since_last_offense' => (int)$ban['holds_since_last_offense'],
+        'offense_count'            => (int)$ban['offense_count'],
+        'is_currently_banned'      => $active,
+        'banned_until'             => $ban['banned_until'],
+        'is_permanent'             => (int)$ban['is_permanent'],
+        'active_ban_seconds_left'  => $active && !$ban['is_permanent'] ? seconds_left($ban['banned_until']) : null
+    ]);
 }
 
-if (isset($_GET['admin_reset'])) {
-  if (!isset($_GET['secret']) || $_GET['secret'] !== $ADMIN_SECRET) jexit(['error'=>'forbidden'], 403);
-  $user_id = (int)$_GET['admin_reset'];
-  if ($user_id <= 0) jexit(['error'=>'missing_user_id'], 400);
+/* Self events (recent) */
+if (isset($_GET['events'])) {
+    $uid = require_login();
 
-  try {
-    $conn->begin_transaction();
     $stmt = $conn->prepare("
-      UPDATE user_violations
-         SET holds_in_cycle=0, offense_no=0, banned_until=NULL, is_blocked=0
-       WHERE user_id=?");
-    $stmt->bind_param("i", $user_id);
+        SELECT id, locker_number, event, details, created_at
+        FROM violation_events
+        WHERE user_id=?
+        ORDER BY id DESC
+        LIMIT 50
+    ");
+    $stmt->bind_param("i", $uid);
     $stmt->execute();
-    log_event($conn, $user_id, 'reset', 'Admin reset violations');
-    $row = get_violation_row($conn, $user_id, true);
-    $conn->commit();
-    jexit(['success'=>true, 'status'=>decorate_status($row)]);
-  } catch (mysqli_sql_exception $e) {
-    $conn->rollback();
-    jexit(['error'=>'admin_reset_failed','message'=>$e->getMessage()], 500);
-  }
+    $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+
+    jexit(['success'=>true, 'events'=>$rows]);
 }
 
+/* Admin: status for any user */
+if (isset($_GET['admin_status'])) {
+    $admin = require_login(); require_admin($conn, $admin);
+
+    $user_id = (int)($_GET['user_id'] ?? 0);
+    if ($user_id <= 0) jexit(['error'=>'bad_user'], 400);
+
+    $ban = ban_get_row($conn, $user_id);
+
+    $stmt = $conn->prepare("SELECT COUNT(*) AS c FROM violation_events WHERE user_id=? AND event='hold'");
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+    $tot = (int)$stmt->get_result()->fetch_assoc()['c'];
+
+    $active = ban_is_active($ban);
+
+    jexit([
+        'success' => true,
+        'user_id' => $user_id,
+        'total_hold_violations'    => $tot,
+        'holds_since_last_offense' => (int)$ban['holds_since_last_offense'],
+        'offense_count'            => (int)$ban['offense_count'],
+        'is_currently_banned'      => $active,
+        'banned_until'             => $ban['banned_until'],
+        'is_permanent'             => (int)$ban['is_permanent'],
+        'active_ban_seconds_left'  => $active && !$ban['is_permanent'] ? seconds_left($ban['banned_until']) : null
+    ]);
+}
+
+/* Admin: events list */
+if (isset($_GET['admin_events'])) {
+    $admin = require_login(); require_admin($conn, $admin);
+
+    $user_id = (int)($_GET['user_id'] ?? 0);
+    if ($user_id <= 0) jexit(['error'=>'bad_user'], 400);
+
+    $stmt = $conn->prepare("
+        SELECT id, locker_number, event, details, created_at
+        FROM violation_events
+        WHERE user_id=?
+        ORDER BY id DESC
+        LIMIT 100
+    ");
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+    $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+
+    jexit(['success'=>true, 'events'=>$rows]);
+}
+
+/* Admin: unban (optionally reset offenses) */
+if (isset($_GET['admin_unban'])) {
+    $admin = require_login(); require_admin($conn, $admin);
+
+    $user_id = (int)($_GET['user_id'] ?? 0);
+    $reset   = (int)($_GET['reset'] ?? 0); // 1 => also reset offense count & strike bucket
+
+    if ($user_id <= 0) jexit(['error'=>'bad_user'], 400);
+
+    if ($reset === 1) {
+        $stmt = $conn->prepare("
+            INSERT INTO user_bans (user_id, offense_count, holds_since_last_offense, banned_until, is_permanent)
+            VALUES (?, 0, 0, NULL, 0)
+            ON DUPLICATE KEY UPDATE offense_count=0, holds_since_last_offense=0, banned_until=NULL, is_permanent=0
+        ");
+    } else {
+        $stmt = $conn->prepare("
+            INSERT INTO user_bans (user_id, banned_until, is_permanent)
+            VALUES (?, NULL, 0)
+            ON DUPLICATE KEY UPDATE banned_until=NULL, is_permanent=0
+        ");
+    }
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+
+    $msg = $reset ? 'Admin unban + reset offenses' : 'Admin unban';
+    $stmt2 = $conn->prepare("INSERT INTO violation_events (user_id, locker_number, event, details) VALUES (?, 0, 'unban', ?)");
+    $stmt2->bind_param("is", $user_id, $msg);
+    $stmt2->execute();
+
+    jexit(['success'=>true]);
+}
+
+/* Fallback */
 jexit(['error'=>'no_route'], 404);
