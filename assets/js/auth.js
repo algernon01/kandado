@@ -2,8 +2,7 @@
 (function () {
   const byId = (id) => document.getElementById(id);
 
-  /* ===== Show/Hide password (works on Login & Register) =====
-  */
+  /* ===== Show/Hide password (works on Login & Register) ===== */
   document.addEventListener('click', (e) => {
     const btn = e.target.closest('.js-toggle-password');
     if (!btn) return;
@@ -59,9 +58,9 @@
         e.preventDefault();
         Swal.fire({
           icon: 'error',
-          title: 'Passwords don’t match',
+          title: "Passwords don't match",
           text: 'Please re-enter the same password.',
-          confirmButtonColor: '#0F2E4F'
+          confirmButtonColor: '#2563eb'
         });
         return;
       }
@@ -72,7 +71,7 @@
           icon: 'error',
           title: 'Weak password',
           text: 'Please use at least 8 characters with uppercase, number and symbol.',
-          confirmButtonColor: '#0F2E4F'
+          confirmButtonColor: '#2563eb'
         });
       } else if (s.score === 2) {
         e.preventDefault();
@@ -83,7 +82,7 @@
           showCancelButton: true,
           confirmButtonText: 'Proceed',
           cancelButtonText: 'Improve',
-          confirmButtonColor: '#0F2E4F',
+          confirmButtonColor: '#2563eb',
           cancelButtonColor: '#ef4444'
         }).then((res) => { if (res.isConfirmed) regForm.submit(); });
       }

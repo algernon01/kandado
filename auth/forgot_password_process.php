@@ -76,7 +76,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         // === Dynamic link selection ===
-        $NGROK_BASE = 'https://longhorn-settling-precisely.ngrok-free.app';
+        $NGROK_BASE = '``https://longhorn-settling-precisely.ngrok-free.app``';
         $LAN_BASE   = 'http://192.168.14.238'; // switch to https:// if you have a valid cert
 
         $useLan     = request_is_lan();
