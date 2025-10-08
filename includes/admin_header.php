@@ -183,12 +183,25 @@ function isActive($file) {
       </a>
     </li>
 
+       <li>
+  <a href="violations.php"
+     class="<?= isActive('violations.php') ?>"
+      aria-current="<?= $currentPage === 'violations.php' ? 'page' : 'false' ?>">
+      <i class="fas fa-triangle-exclamation"></i> <span>Violations</span>
+    </a>
+  </li>
+
+
     <!-- Security Alerts (no number shown in sidebar; icon is white via CSS) -->
     <li>
       <a href="security_alerts.php" class="<?= isActive('security_alerts.php') ?>" aria-current="<?= $currentPage === 'security_alerts.php' ? 'page' : 'false' ?>">
         <i class="fas fa-shield-halved"></i> <span>Security Alerts</span>
       </a>
     </li>
+
+ 
+
+
   </ul>
 
   <div class="sidebar-section-label">Account</div>
