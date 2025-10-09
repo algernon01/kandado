@@ -171,7 +171,7 @@
   initUserPicker('#c_combo', '#c_user_input', '#c_user_list', '#c_user_id');
   initUserPicker('#e_combo', '#e_user_input', '#e_user_list', '#e_user_id');
 
-l
+
   function findUserLabel(id) {
     id = parseInt(id,10);
     const u = USERS.find(u => u.id===id);

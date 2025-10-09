@@ -630,7 +630,7 @@ window.APP = {
                     <i class="fa-regular fa-eye"></i><span class="label">View</span>
                   </button>
 
-                  <button class="icon-btn with-text edit btn-edit"
+                  <button type="button" class="icon-btn with-text edit btn-edit"
                           data-id="<?= (int)$r['id'] ?>"
                           data-user_id="<?= (int)$r['user_id'] ?>"
                           data-locker="<?= (int)$r['locker_number'] ?>"
