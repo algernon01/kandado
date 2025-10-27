@@ -35,6 +35,98 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  const lockerDoors = Array.from(document.querySelectorAll('.locker-door'));
+  const lockerInfoCard = document.querySelector('.locker-info-card');
+  const lockerActiveId = document.querySelector('[data-locker-active-id]');
+  const lockerActiveLabel = document.querySelector('[data-locker-active-label]');
+  const lockerActiveNote = document.querySelector('[data-locker-active-note]');
+  const indicatorSequence = ['green', 'red', 'blue', 'violet'];
+  const indicatorMeta = {
+    green: { badge: 'Available', label: 'Available', note: 'Ready for next unlock' },
+    red: { badge: 'Occupied', label: 'Occupied', note: 'Session in progress' },
+    blue: { badge: 'Hold', label: 'Hold', note: 'Awaiting manual release' },
+    violet: { badge: 'Maintenance', label: 'Maintenance', note: 'Service check underway' }
+  };
+  const colorState = new WeakMap();
+
+  lockerDoors.forEach(door => {
+    const initialIndex = Math.max(0, indicatorSequence.indexOf(door.dataset.light || ''));
+    applyDoorColor(door, initialIndex);
+    door.setAttribute('aria-pressed', 'false');
+
+    door.addEventListener('click', () => {
+      handleDoorActivation(door);
+    });
+
+    door.addEventListener('keydown', event => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        handleDoorActivation(door);
+      }
+    });
+
+    door.addEventListener('mouseenter', () => updateInfoPanel(door));
+    door.addEventListener('focus', () => updateInfoPanel(door));
+  });
+
+  if (lockerDoors.length) {
+    updateInfoPanel(lockerDoors[0]);
+  }
+
+  function applyDoorColor(door, index) {
+    if (!door) return indicatorSequence[0];
+    const boundedIndex = ((index % indicatorSequence.length) + indicatorSequence.length) % indicatorSequence.length;
+    colorState.set(door, boundedIndex);
+    const color = indicatorSequence[boundedIndex];
+    const meta = indicatorMeta[color];
+    door.dataset.light = color;
+    if (meta) {
+      door.dataset.label = meta.label;
+      door.dataset.note = meta.note;
+      const labelEl = door.querySelector('.locker-door__label small');
+      if (labelEl) {
+        labelEl.textContent = meta.badge;
+      }
+    }
+    return color;
+  }
+
+  function updateInfoPanel(door) {
+    if (!door) return;
+    const color = door.dataset.light || indicatorSequence[0];
+    if (lockerActiveId) lockerActiveId.textContent = door.dataset.lockerId || '';
+    if (lockerActiveLabel) lockerActiveLabel.textContent = door.dataset.label || '';
+    if (lockerActiveNote) lockerActiveNote.textContent = door.dataset.note || '';
+    if (lockerInfoCard) lockerInfoCard.dataset.light = color;
+  }
+
+  function handleDoorActivation(door) {
+    if (!door) return;
+    const isOpen = door.classList.contains('is-open');
+
+    lockerDoors.forEach(other => {
+      if (other === door) return;
+      other.classList.remove('is-open', 'is-activating');
+      other.setAttribute('aria-pressed', 'false');
+    });
+
+    if (isOpen) {
+      door.classList.remove('is-open');
+      door.setAttribute('aria-pressed', 'false');
+      updateInfoPanel(door);
+      return;
+    }
+
+    const currentIndex = colorState.get(door);
+    const baseIndex = typeof currentIndex === 'number' ? currentIndex : indicatorSequence.indexOf(door.dataset.light || '');
+    const nextIndex = ((baseIndex >= 0 ? baseIndex : 0) + 1) % indicatorSequence.length;
+    applyDoorColor(door, nextIndex);
+    door.classList.add('is-open', 'is-activating');
+    door.setAttribute('aria-pressed', 'true');
+    updateInfoPanel(door);
+    window.setTimeout(() => door.classList.remove('is-activating'), 900);
+  }
+
   if (prefersReducedMotion) {
     animateTargets.forEach(el => el.classList.add('is-visible'));
     return;

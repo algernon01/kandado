@@ -93,54 +93,103 @@ $secondaryCtaLabel = $role ? 'Explore Modules' : 'Sign in';
         </div>
 
         <div class="hero-visual" aria-hidden="true" data-animate data-delay="140">
-          <div class="mockup-card" data-parallax-depth="28" data-animate data-delay="200">
-            <header>
-              <span class="status-pill">Today</span>
-              <span class="status-value">32 scheduled unlocks</span>
-            </header>
+          <div class="locker-showcase" data-parallax-depth="28">
+            <div class="locker-ambient" aria-hidden="true"></div>
+            <div class="locker-grid" role="presentation">
+              <button type="button" class="locker-door" data-locker-id="A1" data-light="green" data-label="Available" data-note="Ready for next unlock" aria-pressed="false">
+                <span class="locker-door__casing" aria-hidden="true"></span>
+                <span class="locker-door__panel">
+                  <span class="locker-door__indicator" aria-hidden="true">
+                    <span class="locker-door__indicator-glow"></span>
+                  </span>
+                  <span class="locker-door__label">
+                    <strong>A1</strong>
+                    <small>Available</small>
+                  </span>
+                  <span class="locker-door__handle" aria-hidden="true"></span>
+                </span>
+                <span class="locker-door__lightbar" aria-hidden="true"></span>
+              </button>
+              <button type="button" class="locker-door" data-locker-id="A2" data-light="red" data-label="Occupied" data-note="Session in progress" aria-pressed="false">
+                <span class="locker-door__casing" aria-hidden="true"></span>
+                <span class="locker-door__panel">
+                  <span class="locker-door__indicator" aria-hidden="true">
+                    <span class="locker-door__indicator-glow"></span>
+                  </span>
+                  <span class="locker-door__label">
+                    <strong>A2</strong>
+                    <small>Occupied</small>
+                  </span>
+                  <span class="locker-door__handle" aria-hidden="true"></span>
+                </span>
+                <span class="locker-door__lightbar" aria-hidden="true"></span>
+              </button>
+              <button type="button" class="locker-door" data-locker-id="B1" data-light="violet" data-label="Maintenance" data-note="Service check underway" aria-pressed="false">
+                <span class="locker-door__casing" aria-hidden="true"></span>
+                <span class="locker-door__panel">
+                  <span class="locker-door__indicator" aria-hidden="true">
+                    <span class="locker-door__indicator-glow"></span>
+                  </span>
+                  <span class="locker-door__label">
+                    <strong>B1</strong>
+                    <small>Maintenance</small>
+                  </span>
+                  <span class="locker-door__handle" aria-hidden="true"></span>
+                </span>
+                <span class="locker-door__lightbar" aria-hidden="true"></span>
+              </button>
+              <button type="button" class="locker-door" data-locker-id="B2" data-light="blue" data-label="Hold" data-note="Awaiting manual release" aria-pressed="false">
+                <span class="locker-door__casing" aria-hidden="true"></span>
+                <span class="locker-door__panel">
+                  <span class="locker-door__indicator" aria-hidden="true">
+                    <span class="locker-door__indicator-glow"></span>
+                  </span>
+                  <span class="locker-door__label">
+                    <strong>B2</strong>
+                    <small>Hold</small>
+                  </span>
+                  <span class="locker-door__handle" aria-hidden="true"></span>
+                </span>
+                <span class="locker-door__lightbar" aria-hidden="true"></span>
+              </button>
+            </div>
+          </div>
+          <div class="locker-info-card hero-float" data-animate data-delay="220" data-parallax-depth="40" data-light="green">
+            <span class="locker-info-card__label">Live Locker Feed</span>
+            <div class="locker-info-card__active">
+              <span class="locker-info-card__tag" data-locker-active-id>A1</span>
+              <div>
+                <strong data-locker-active-label>Available</strong>
+                <small data-locker-active-note>Ready for next unlock</small>
+              </div>
+            </div>
             <ul>
               <li>
-                <span class="avatar soft-blue">EV</span>
-                <span class="meta">
-                  <strong>Elena Vargas</strong>
-                  <small>Locker B12 - Verified</small>
-                </span>
-                <span class="tag success">In</span>
+                <span>Unlock accuracy</span>
+                <span>99.2%</span>
               </li>
               <li>
-                <span class="avatar soft-cyan">MK</span>
-                <span class="meta">
-                  <strong>Mark Kato</strong>
-                  <small>Locker C07 - Pending ID</small>
-                </span>
-                <span class="tag warning">Action</span>
-              </li>
-              <li>
-                <span class="avatar soft-slate">SP</span>
-                <span class="meta">
-                  <strong>Security Patrol</strong>
-                  <small>Alert review 14:30</small>
-                </span>
-                <span class="tag neutral">Audit</span>
+                <span>Queue time</span>
+                <span>1m 42s</span>
               </li>
             </ul>
           </div>
-          <div class="floating-card access hero-float" data-animate data-delay="220" data-parallax-depth="36">
-            <span class="icon">
-              <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 4a9 9 0 0 0-9 9v5.35A4.65 4.65 0 0 0 11.65 23h.72a2.63 2.63 0 0 0 5.26 0h1.62A4.75 4.75 0 0 0 24 18.25V13a8 8 0 0 0-8-9Zm2.73 19h-5.46a2.73 2.73 0 0 1-2.72-2.73V13a6.73 6.73 0 0 1 13.46 0v7.27A2.73 2.73 0 0 1 18.73 23Z" fill="currentColor"/></svg>
-            </span>
-            <div>
-              <strong>Adaptive Access</strong>
-              <p>Context-aware validation secures every unlock.</p>
-            </div>
-          </div>
-          <div class="floating-card analytics hero-float" data-animate data-delay="260" data-parallax-depth="42">
-            <span class="icon">
-              <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M6 6v20h20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/><path d="M10 19l4-5 4 3 5-9" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            </span>
-            <div>
-              <strong>Predictive insights</strong>
-              <p>Spot anomalies before they impact your floor.</p>
+          <div class="locker-metrics-card hero-float" data-animate data-delay="260" data-parallax-depth="46">
+            <strong>Ambient Controls</strong>
+            <p>Tap a locker to open the bay and cycle its indicator channel.</p>
+            <div class="locker-metrics-card__grid">
+              <div>
+                <span class="label">Active bays</span>
+                <span class="value">4</span>
+              </div>
+              <div>
+                <span class="label">Alerts</span>
+                <span class="value badge">0</span>
+              </div>
+              <div>
+                <span class="label">Light channels</span>
+                <span class="value">RGBV</span>
+              </div>
             </div>
           </div>
         </div>
