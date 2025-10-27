@@ -494,18 +494,22 @@ a {
 
 .locker-info-card,
 .locker-metrics-card {
+  --float-translate-y: 0px;
+  --float-scale: 1;
   position: absolute;
   display: grid;
   gap: 14px;
   padding: 18px 20px;
   border-radius: 24px;
-  background: rgba(255, 255, 255, .9);
-  border: 1px solid rgba(148, 163, 184, .22);
-  box-shadow: 0 28px 56px rgba(15, 23, 42, .18);
+  background: rgba(255, 255, 255, .66);
+  border: 1px solid rgba(148, 163, 184, .14);
+  box-shadow: 0 28px 56px rgba(15, 23, 42, .12);
   color: var(--ink-strong);
   backdrop-filter: blur(20px);
-  translate: var(--parallax-x, 0px) var(--parallax-y, 0px);
-  transition: transform .6s var(--ease-out), box-shadow .6s var(--ease-out);
+  opacity: 1;
+  transform: translate3d(var(--parallax-x, 0px), var(--parallax-y, 0px), 0) translateY(var(--float-translate-y)) scale(var(--float-scale));
+  transition: opacity .26s var(--ease-out), transform .34s var(--ease-out), box-shadow .32s var(--ease-out), visibility 0s linear;
+  will-change: opacity, transform;
 }
 .locker-info-card {
   top: 8%;
@@ -517,6 +521,16 @@ a {
   bottom: -10%;
   left: -12%;
   width: clamp(230px, 30vw, 260px);
+}
+
+@media (min-width: 1024px) {
+  .locker-info-card,
+  .locker-metrics-card {
+    background: rgba(255, 255, 255, .24);
+    border-color: rgba(148, 163, 184, .1);
+    box-shadow: 0 34px 72px rgba(15, 23, 42, .12);
+    backdrop-filter: blur(8px);
+  }
 }
 .locker-info-card__label {
   font-size: 12px;
@@ -590,11 +604,24 @@ a {
   font-size: 16px;
   font-weight: 700;
 }
-.hero-visual:hover .locker-showcase,
-.hero-visual:hover .locker-info-card,
-.hero-visual:hover .locker-metrics-card {
+.hero-visual:hover .locker-showcase {
   transform: translateY(-8px);
   box-shadow: 0 40px 84px rgba(37, 99, 235, .24);
+}
+
+.hero-visual:hover .hero-float {
+  --float-translate-y: -8px;
+  box-shadow: 0 40px 84px rgba(37, 99, 235, .24);
+}
+
+.hero-float.is-hidden {
+  opacity: 0;
+  --float-translate-y: 16px;
+  --float-scale: .97;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, .12);
+  pointer-events: none;
+  visibility: hidden;
+  transition: opacity .26s var(--ease-out), transform .34s var(--ease-out), box-shadow .32s var(--ease-out), visibility 0s linear .26s;
 }
 
 .locker-door.is-activating .locker-door__indicator {

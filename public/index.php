@@ -96,56 +96,56 @@ $secondaryCtaLabel = $role ? 'Explore Modules' : 'Sign in';
           <div class="locker-showcase" data-parallax-depth="28">
             <div class="locker-ambient" aria-hidden="true"></div>
             <div class="locker-grid" role="presentation">
-              <button type="button" class="locker-door" data-locker-id="A1" data-light="green" data-label="Available" data-note="Ready for next unlock" aria-pressed="false">
+              <button type="button" class="locker-door" data-locker-id="L1" data-light="green" data-label="Available" data-note="Ready for next unlock" aria-pressed="false">
                 <span class="locker-door__casing" aria-hidden="true"></span>
                 <span class="locker-door__panel">
                   <span class="locker-door__indicator" aria-hidden="true">
                     <span class="locker-door__indicator-glow"></span>
                   </span>
                   <span class="locker-door__label">
-                    <strong>A1</strong>
+                    <strong>L1</strong>
                     <small>Available</small>
                   </span>
                   <span class="locker-door__handle" aria-hidden="true"></span>
                 </span>
                 <span class="locker-door__lightbar" aria-hidden="true"></span>
               </button>
-              <button type="button" class="locker-door" data-locker-id="A2" data-light="red" data-label="Occupied" data-note="Session in progress" aria-pressed="false">
+              <button type="button" class="locker-door" data-locker-id="L2" data-light="red" data-label="Occupied" data-note="Session in progress" aria-pressed="false">
                 <span class="locker-door__casing" aria-hidden="true"></span>
                 <span class="locker-door__panel">
                   <span class="locker-door__indicator" aria-hidden="true">
                     <span class="locker-door__indicator-glow"></span>
                   </span>
                   <span class="locker-door__label">
-                    <strong>A2</strong>
+                    <strong>L2</strong>
                     <small>Occupied</small>
                   </span>
                   <span class="locker-door__handle" aria-hidden="true"></span>
                 </span>
                 <span class="locker-door__lightbar" aria-hidden="true"></span>
               </button>
-              <button type="button" class="locker-door" data-locker-id="B1" data-light="violet" data-label="Maintenance" data-note="Service check underway" aria-pressed="false">
+              <button type="button" class="locker-door" data-locker-id="L3" data-light="violet" data-label="Maintenance" data-note="Service check underway" aria-pressed="false">
                 <span class="locker-door__casing" aria-hidden="true"></span>
                 <span class="locker-door__panel">
                   <span class="locker-door__indicator" aria-hidden="true">
                     <span class="locker-door__indicator-glow"></span>
                   </span>
                   <span class="locker-door__label">
-                    <strong>B1</strong>
+                    <strong>L3</strong>
                     <small>Maintenance</small>
                   </span>
                   <span class="locker-door__handle" aria-hidden="true"></span>
                 </span>
                 <span class="locker-door__lightbar" aria-hidden="true"></span>
               </button>
-              <button type="button" class="locker-door" data-locker-id="B2" data-light="blue" data-label="Hold" data-note="Awaiting manual release" aria-pressed="false">
+              <button type="button" class="locker-door" data-locker-id="L4" data-light="blue" data-label="Hold" data-note="Awaiting manual release" aria-pressed="false">
                 <span class="locker-door__casing" aria-hidden="true"></span>
                 <span class="locker-door__panel">
                   <span class="locker-door__indicator" aria-hidden="true">
                     <span class="locker-door__indicator-glow"></span>
                   </span>
                   <span class="locker-door__label">
-                    <strong>B2</strong>
+                    <strong>L4</strong>
                     <small>Hold</small>
                   </span>
                   <span class="locker-door__handle" aria-hidden="true"></span>
@@ -157,7 +157,7 @@ $secondaryCtaLabel = $role ? 'Explore Modules' : 'Sign in';
           <div class="locker-info-card hero-float" data-animate data-delay="220" data-parallax-depth="40" data-light="green">
             <span class="locker-info-card__label">Live Locker Feed</span>
             <div class="locker-info-card__active">
-              <span class="locker-info-card__tag" data-locker-active-id>A1</span>
+              <span class="locker-info-card__tag" data-locker-active-id>L1</span>
               <div>
                 <strong data-locker-active-label>Available</strong>
                 <small data-locker-active-note>Ready for next unlock</small>

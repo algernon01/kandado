@@ -37,6 +37,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const lockerDoors = Array.from(document.querySelectorAll('.locker-door'));
   const lockerInfoCard = document.querySelector('.locker-info-card');
+  const lockerMetricsCard = document.querySelector('.locker-metrics-card');
   const lockerActiveId = document.querySelector('[data-locker-active-id]');
   const lockerActiveLabel = document.querySelector('[data-locker-active-label]');
   const lockerActiveNote = document.querySelector('[data-locker-active-note]');
@@ -47,7 +48,18 @@ document.addEventListener('DOMContentLoaded', () => {
     blue: { badge: 'Hold', label: 'Hold', note: 'Awaiting manual release' },
     violet: { badge: 'Maintenance', label: 'Maintenance', note: 'Service check underway' }
   };
+  const desktopMedia = typeof window.matchMedia === 'function' ? window.matchMedia('(min-width: 1024px)') : null;
   const colorState = new WeakMap();
+
+  const isDesktopView = () => {
+    if (desktopMedia) return desktopMedia.matches;
+    return window.innerWidth >= 1024;
+  };
+
+  const hiddenInfoLocker = 'L2';
+  const hiddenMetricsLocker = 'L3';
+  const hiddenInfoLockerId = hiddenInfoLocker.toUpperCase();
+  const hiddenMetricsLockerId = hiddenMetricsLocker.toUpperCase();
 
   lockerDoors.forEach(door => {
     const initialIndex = Math.max(0, indicatorSequence.indexOf(door.dataset.light || ''));
@@ -71,6 +83,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (lockerDoors.length) {
     updateInfoPanel(lockerDoors[0]);
+    refreshOverlayVisibility();
   }
 
   function applyDoorColor(door, index) {
@@ -100,6 +113,39 @@ document.addEventListener('DOMContentLoaded', () => {
     if (lockerInfoCard) lockerInfoCard.dataset.light = color;
   }
 
+  function refreshOverlayVisibility(activeLockerId) {
+    if (!lockerInfoCard && !lockerMetricsCard) return;
+    const isDesktop = isDesktopView();
+    const resolvedId = typeof activeLockerId === 'string'
+      ? activeLockerId.toUpperCase()
+      : (
+        isDesktop
+          ? ((lockerDoors.find(currentDoor => currentDoor.classList.contains('is-open'))?.dataset.lockerId) || '').toUpperCase()
+          : ''
+        );
+
+    const shouldHideInfo = Boolean(isDesktop && resolvedId === hiddenInfoLockerId);
+    const shouldHideMetrics = Boolean(isDesktop && resolvedId === hiddenMetricsLockerId);
+
+    toggleHeroFloatVisibility(lockerInfoCard, shouldHideInfo);
+    toggleHeroFloatVisibility(lockerMetricsCard, shouldHideMetrics);
+  }
+
+  function toggleHeroFloatVisibility(element, shouldHide) {
+    if (!element) return;
+    const isCurrentlyHidden = element.classList.contains('is-hidden');
+    if (shouldHide === isCurrentlyHidden) return;
+
+    element.getBoundingClientRect();
+    element.classList.toggle('is-hidden', shouldHide);
+
+    if (shouldHide) {
+      element.setAttribute('aria-hidden', 'true');
+      return;
+    }
+    element.removeAttribute('aria-hidden');
+  }
+
   function handleDoorActivation(door) {
     if (!door) return;
     const isOpen = door.classList.contains('is-open');
@@ -114,6 +160,7 @@ document.addEventListener('DOMContentLoaded', () => {
       door.classList.remove('is-open');
       door.setAttribute('aria-pressed', 'false');
       updateInfoPanel(door);
+      refreshOverlayVisibility(null);
       return;
     }
 
@@ -124,7 +171,26 @@ document.addEventListener('DOMContentLoaded', () => {
     door.classList.add('is-open', 'is-activating');
     door.setAttribute('aria-pressed', 'true');
     updateInfoPanel(door);
+    refreshOverlayVisibility((door.dataset.lockerId || '').toUpperCase());
     window.setTimeout(() => door.classList.remove('is-activating'), 900);
+  }
+
+  function handleDesktopChange(event) {
+    if (!event) return;
+    if (event.matches) {
+      refreshOverlayVisibility();
+      return;
+    }
+    if (lockerInfoCard) lockerInfoCard.classList.remove('is-hidden');
+    if (lockerMetricsCard) lockerMetricsCard.classList.remove('is-hidden');
+  }
+
+  if (desktopMedia) {
+    if (typeof desktopMedia.addEventListener === 'function') {
+      desktopMedia.addEventListener('change', handleDesktopChange);
+    } else if (typeof desktopMedia.addListener === 'function') {
+      desktopMedia.addListener(handleDesktopChange);
+    }
   }
 
   if (prefersReducedMotion) {
