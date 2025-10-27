@@ -24,12 +24,6 @@ $secondaryCtaLabel = $role ? 'Explore Modules' : 'Sign in';
   <link rel="stylesheet" href="../assets/css/home.css">
 </head>
 <body class="home-body">
-  <div class="home-layers" aria-hidden="true">
-    <span class="home-layers__orb home-layers__orb--one"></span>
-    <span class="home-layers__orb home-layers__orb--two"></span>
-    <span class="home-layers__grid"></span>
-  </div>
-
   <header class="site-header" data-animate>
     <div class="header-inner container">
       <a class="brand" href="index.php">
@@ -69,12 +63,7 @@ $secondaryCtaLabel = $role ? 'Explore Modules' : 'Sign in';
   </header>
 
   <main>
-    <section class="hero" id="hero">
-      <div class="hero-backdrop" aria-hidden="true">
-        <span class="hero-backdrop__glow hero-backdrop__glow--one"></span>
-        <span class="hero-backdrop__glow hero-backdrop__glow--two"></span>
-        <span class="hero-backdrop__ring"></span>
-      </div>
+    <section class="hero section-surface" id="hero">
       <div class="hero-inner container">
         <div class="hero-copy" data-animate data-delay="60">
           <div class="eyebrow">Modern Locker Access</div>
@@ -157,24 +146,10 @@ $secondaryCtaLabel = $role ? 'Explore Modules' : 'Sign in';
         </div>
       </div>
 
-      <a href="#platform" class="hero-scroll" data-animate data-delay="320" aria-label="Scroll to platform overview">
-        <span class="hero-scroll__dot"></span>
-        <span class="hero-scroll__label">Discover Kandado</span>
-      </a>
+
     </section>
 
-    <section class="logos" aria-label="Trusted by teams" data-animate>
-      <p>Trusted by operations, IT, and security teams to orchestrate high-volume locker ecosystems.</p>
-      <div class="logo-row">
-        <span class="logo-pill">Campus Ops</span>
-        <span class="logo-pill">Workplace HQ</span>
-        <span class="logo-pill">ParcelFlow</span>
-        <span class="logo-pill">Metro Storage</span>
-        <span class="logo-pill">SecureSpace</span>
-      </div>
-    </section>
-
-    <section class="platform" id="platform" data-animate>
+    <section class="platform section-surface" id="platform" data-animate>
       <div class="section-heading">
         <h2>One platform built for the entire locker lifecycle.</h2>
         <p>From provisioning to real-time incident response, Kandado brings every workflow into one intuitive surface so your team can move faster with confidence.</p>
@@ -211,7 +186,7 @@ $secondaryCtaLabel = $role ? 'Explore Modules' : 'Sign in';
       </div>
     </section>
 
-    <section class="features" id="features">
+    <section class="features section-surface" id="features">
       <div class="section-heading" data-animate>
         <h2>Capabilities that meet the moment.</h2>
         <p>Kandado synthesizes real-time data, automated policies, and meaningful insights so you can scale securely.</p>
@@ -248,7 +223,7 @@ $secondaryCtaLabel = $role ? 'Explore Modules' : 'Sign in';
       </div>
     </section>
 
-    <section class="insights" id="insights" data-animate>
+    <section class="insights section-surface" id="insights" data-animate>
       <div class="section-heading">
         <h2>See what matters in seconds.</h2>
         <p>Spot surges, predict demand, and showcase the value of your locker network with reports that are presentation-ready.</p>
@@ -306,7 +281,7 @@ $secondaryCtaLabel = $role ? 'Explore Modules' : 'Sign in';
       </div>
     </section>
 
-    <section class="security" id="security">
+    <section class="security section-surface" id="security">
       <div class="section-heading" data-animate>
         <h2>Security woven into every layer.</h2>
         <p>More than encryption&mdash;Kandado optimizes for prevention, detection, and response so you can prove compliance and protect your community.</p>
@@ -328,19 +303,8 @@ $secondaryCtaLabel = $role ? 'Explore Modules' : 'Sign in';
       </div>
     </section>
 
-    <section class="testimonial" data-animate>
-      <figure>
-        <blockquote>
-          "Kandado reduced our access exceptions by 76% in the first month while giving our team a dashboard that feels effortless to live in every day."
-        </blockquote>
-        <figcaption>
-          <strong>Mae Alvarez</strong>
-          <span>Head of Campus Operations, Metro University</span>
-        </figcaption>
-      </figure>
-    </section>
 
-    <section class="cta" id="cta" data-animate>
+    <section class="cta section-surface" id="cta" data-animate>
       <div class="cta-card">
         <div>
           <h2>Bring clarity to your locker network.</h2>

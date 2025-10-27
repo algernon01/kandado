@@ -49,8 +49,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       });
     }, {
-      threshold: 0.18,
-      rootMargin: '0px 0px -6% 0px'
+      threshold: 0.16,
+      rootMargin: '-8% 0px -8% 0px'
     });
     animateTargets.forEach(el => observer.observe(el));
   } else {
@@ -72,13 +72,14 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    parallaxState.currentX += (parallaxState.targetX - parallaxState.currentX) * 0.08;
-    parallaxState.currentY += (parallaxState.targetY - parallaxState.currentY) * 0.08;
+    parallaxState.currentX += (parallaxState.targetX - parallaxState.currentX) * 0.06;
+    parallaxState.currentY += (parallaxState.targetY - parallaxState.currentY) * 0.06;
 
     parallaxItems.forEach(el => {
       const depth = parseFloat(el.dataset.parallaxDepth || '16');
-      const x = parallaxState.currentX * depth;
-      const y = parallaxState.currentY * depth;
+      const intensity = 0.6;
+      const x = parallaxState.currentX * depth * intensity;
+      const y = parallaxState.currentY * depth * intensity;
       el.style.setProperty('--parallax-x', `${x}px`);
       el.style.setProperty('--parallax-y', `${y}px`);
     });
@@ -105,8 +106,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const relativeX = (pointer.clientX - originX) / width;
     const relativeY = (pointer.clientY - originY) / height;
 
-    parallaxState.targetX = Math.max(-0.75, Math.min(0.75, relativeX));
-    parallaxState.targetY = Math.max(-0.75, Math.min(0.75, relativeY));
+    parallaxState.targetX = Math.max(-0.6, Math.min(0.6, relativeX));
+    parallaxState.targetY = Math.max(-0.6, Math.min(0.6, relativeY));
   };
 
   const cleanupParallax = () => {
