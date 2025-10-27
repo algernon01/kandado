@@ -116,7 +116,7 @@ $logoPng = '../../assets/img/logo-temp.png';
       </div>
 
       <div class="drawer-spacer"></div>
-      <div class="drawer-footer">© <?= date('Y') ?> Your Company</div>
+      <div class="drawer-footer">© <?= date('Y') ?> Locker Kandado</div>
     </div>
   </aside>
 </header>

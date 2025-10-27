@@ -85,7 +85,7 @@ $SERVER_NOW_MS = (int) round(microtime(true) * 1000);
 <main class="page">
   <section class="container">
     <header class="page-head">
-      <h1>🔑 My Locker</h1>
+      <h1>My Locker QR</h1>
       <div class="badges">
         <?php if ($hasLocker): ?>
           <span class="status-badge" id="statusPill" aria-live="polite">Active</span>

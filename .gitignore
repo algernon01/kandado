@@ -1,8 +1,18 @@
-/vendor/
-/node_modules/
-.env
-.env.*
-.ftp-deploy-sync-state.json
-.DS_Store
-.git/
-.github/
+<a class="nav-item<?php echo activeClass('dashboard.php'); ?>"
+       href="<?php echo htmlspecialchars($asset('super_admin/dashboard.php'), ENT_QUOTES); ?>"
+       <?php echo $active==='dashboard.php'?'aria-current="page"':''; ?>>
+      <span class="nav-ico" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
+      </span>
+      <span class="nav-label">Dashboard</span>
+
+    </a>
+
+    <a class="nav-item<?php echo activeClass('summary_report.php'); ?>"
+       href="<?php echo htmlspecialchars($asset('admin/summary_report.php'), ENT_QUOTES); ?>"
+       <?php echo $active==='summary_report.php'?'aria-current="page"':''; ?>>
+      <span class="nav-ico" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M3 5v14h18V5H3zm4 12H5v-2h2v2zm0-4H5v-2h2v2zm0-4H5V7h2v2zm12 8H9v-2h10v2zm0-4H9v-2h10v2zm0-4H9V7h10v2z"/></svg>
+      </span>
+      <span class="nav-label">Summary Report</span>
+    </a>
