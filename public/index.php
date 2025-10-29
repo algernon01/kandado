@@ -35,9 +35,9 @@ $secondaryCtaLabel = $role ? 'Explore Modules' : 'Sign in';
 
       <nav class="site-nav" aria-label="Primary">
         <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="primary-navigation">
-          <span class="nav-toggle-bar"></span>
-          <span class="nav-toggle-bar"></span>
-          <span class="nav-toggle-bar"></span>
+          <svg class="nav-toggle-icon" viewBox="0 0 24 16" aria-hidden="true" focusable="false">
+            <path d="M2 2h20M2 8h20M2 14h20"></path>
+          </svg>
           <span class="sr-only">Toggle navigation</span>
         </button>
 
@@ -406,4 +406,3 @@ $secondaryCtaLabel = $role ? 'Explore Modules' : 'Sign in';
   <script src="../assets/js/home.js" defer></script>
 </body>
 </html>
-
