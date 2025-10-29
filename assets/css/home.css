@@ -15,7 +15,14 @@
   --ease-out: cubic-bezier(.16, 1, .3, 1);
 }
 
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
 body.home-body {
+  margin: 0;
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, Ubuntu, sans-serif;
   color: var(--ink-strong);
   background: linear-gradient(180deg, var(--surface-50) 0%, var(--surface-200) 52%, var(--surface-300) 100%);
@@ -69,6 +76,13 @@ a {
 .container {
   width: min(1160px, 100% - clamp(36px, 8vw, 140px));
   margin-inline: auto;
+}
+
+@media (max-width: 720px) {
+  .container {
+    width: 100%;
+    margin-inline: 0;
+  }
 }
 
 .sr-only {
@@ -318,6 +332,10 @@ a {
   display: grid;
   place-items: center;
   filter: drop-shadow(0 40px 80px rgba(15, 23, 42, .14));
+  max-width: 100%;
+}
+.hero-visual > * {
+  max-width: 100%;
 }
 
 .locker-showcase {
@@ -709,21 +727,96 @@ a {
 }
 
 @media (max-width: 640px) {
+  .hero {
+    padding: clamp(62px, 20vw, 96px) clamp(16px, 6vw, 28px) clamp(58px, 20vw, 92px);
+  }
+  .hero-inner {
+    gap: clamp(28px, 10vw, 44px);
+  }
+  .hero-copy p {
+    font-size: 15px;
+  }
+  .hero-visual {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: clamp(16px, 5vw, 22px);
+    width: min(100%, 360px);
+    margin-inline: auto;
+    filter: drop-shadow(0 32px 60px rgba(15, 23, 42, .18));
+  }
+  .hero-visual > * {
+    width: 100%;
+  }
   .locker-grid {
     gap: 16px;
   }
   .locker-showcase {
-    padding: clamp(22px, 6vw, 28px);
+    padding: clamp(20px, 6vw, 28px);
+    border-radius: 28px;
   }
   .locker-door__label small {
     font-size: 12px;
   }
   .locker-info-card,
   .locker-metrics-card {
+    position: relative;
+    inset: auto;
+    margin: 0;
     padding: 16px 18px;
+    gap: 12px;
+    width: 100%;
+    box-shadow: 0 20px 40px rgba(15, 23, 42, .14);
   }
   .locker-metrics-card__grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+  .hero-actions {
+    gap: 12px;
+  }
+  .logos {
+    padding: 48px clamp(16px, 6vw, 28px) 64px;
+    gap: 24px;
+  }
+  .logo-row {
+    gap: 12px;
+  }
+  .section-heading {
+    padding-inline: clamp(12px, 6vw, 28px);
+    gap: 12px;
+  }
+  .section-heading h2 {
+    font-size: clamp(26px, 7vw, 34px);
+  }
+  .section-heading p {
+    font-size: 15px;
+  }
+  .platform,
+  .features,
+  .insights,
+  .security {
+    padding: 48px clamp(14px, 5vw, 24px);
+  }
+  .cta {
+    padding: 56px clamp(14px, 5vw, 24px) 68px;
+  }
+  .platform-grid,
+  .feature-grid,
+  .insight-panels,
+  .security-grid {
+    gap: 20px;
+  }
+  .platform-card,
+  .feature-card,
+  .insight-card,
+  .security-card {
+    padding: 20px;
+  }
+  .cta-card {
+    padding: 24px;
+    gap: 18px;
+    width: 100%;
   }
 }
 
@@ -1152,26 +1245,42 @@ a {
 }
 
 [data-animate] {
+  --animate-translate-x: 0;
+  --animate-translate-y: 32px;
+  --animate-duration: 1s;
   opacity: 0;
-  transform: translateY(32px) scale(.98);
-  transition: opacity .7s var(--ease-out), transform .7s var(--ease-out);
+  transform: translate3d(var(--animate-translate-x), var(--animate-translate-y), 0) scale(.98);
+  transition: opacity var(--animate-duration) var(--ease-out), transform var(--animate-duration) var(--ease-out);
   transition-delay: var(--stagger-delay, 0ms);
   will-change: opacity, transform;
 }
 [data-animate].is-visible {
   opacity: 1;
-  transform: translateY(0) scale(1);
+  transform: translate3d(0, 0, 0) scale(1);
+}
+[data-animate].slide-from-left {
+  --animate-translate-x: -72px;
+  --animate-translate-y: 0;
+}
+[data-animate].slide-from-right {
+  --animate-translate-x: 72px;
+  --animate-translate-y: 0;
+}
+[data-animate].slide-from-bottom {
+  --animate-translate-x: 0;
+  --animate-translate-y: 80px;
 }
 
 @media (max-width: 1080px) {
   .hero-inner {
     grid-template-columns: 1fr;
+    gap: clamp(32px, 8vw, 56px);
   }
   .hero-visual {
     order: -1;
   }
   .hero {
-    padding-top: clamp(90px, 12vw, 120px);
+    padding: clamp(84px, 14vw, 120px) clamp(20px, 6vw, 64px) clamp(72px, 16vw, 120px);
   }
   .hero-stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1215,6 +1324,8 @@ a {
     flex-direction: column;
     gap: 12px;
     min-width: 220px;
+    width: min(320px, calc(100vw - 32px), calc(100% - 16px));
+    max-width: calc(100% - 16px);
     box-shadow: 0 28px 44px rgba(15, 23, 42, .12);
     opacity: 0;
     pointer-events: none;
@@ -1227,6 +1338,18 @@ a {
   }
   .header-cta {
     display: none;
+  }
+  .hero {
+    padding: clamp(68px, 18vw, 108px) clamp(18px, 6vw, 32px) clamp(64px, 18vw, 104px);
+  }
+  .hero-inner {
+    gap: clamp(28px, 9vw, 44px);
+  }
+  .hero-copy p {
+    max-width: 100%;
+  }
+  .hero-visual {
+    margin: clamp(24px, 6vw, 32px) auto 0;
   }
   .hero-stats {
     grid-template-columns: 1fr;
@@ -1261,6 +1384,32 @@ a {
   }
   .hero {
     padding-inline: clamp(16px, 5vw, 28px);
+    padding-block: clamp(46px, 22vw, 68px) clamp(48px, 24vw, 72px);
+  }
+  .locker-grid {
+    width: min(280px, 100%);
+    gap: 10px;
+  }
+  .locker-door {
+    aspect-ratio: 4 / 5;
+  }
+  .locker-door__panel {
+    padding: clamp(12px, 4vw, 18px);
+  }
+  .locker-door__indicator {
+    top: clamp(6px, 1.8vw, 12px);
+    right: clamp(8px, 2vw, 14px);
+    width: 14px;
+    height: 14px;
+  }
+  .locker-door__label strong {
+    font-size: clamp(16px, 6vw, 18px);
+  }
+  .locker-door__label small {
+    font-size: 11px;
+  }
+  .locker-door__handle {
+    width: clamp(22px, 16vw, 30px);
   }
   .hero-copy h1 {
     font-size: clamp(32px, 8vw, 40px);
@@ -1281,6 +1430,50 @@ a {
     padding-inline: clamp(12px, 5vw, 24px);
   }
   .footer-links {
+    grid-template-columns: 1fr;
+  }
+  .site-footer {
+    padding-inline: clamp(14px, 5vw, 24px);
+  }
+  .footer-inner {
+    margin: 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .nav-links {
+    width: calc(100vw - 28px);
+    min-width: 0;
+  }
+  .hero-inner {
+    gap: clamp(24px, 12vw, 38px);
+  }
+  .hero-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .hero-actions .btn {
+    width: 100%;
+  }
+  .platform-card,
+  .feature-card,
+  .insight-card,
+  .security-card {
+    padding: 18px;
+  }
+  .cta-card {
+    padding: 22px;
+  }
+  .cta-actions .btn {
+    width: 100%;
+  }
+}
+
+@media (max-width: 340px) {
+  .locker-grid {
+    grid-template-columns: 1fr;
+  }
+  .locker-metrics-card__grid {
     grid-template-columns: 1fr;
   }
 }

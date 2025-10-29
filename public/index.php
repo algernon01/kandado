@@ -205,7 +205,7 @@ $secondaryCtaLabel = $role ? 'Explore Modules' : 'Sign in';
       </div>
 
       <div class="platform-grid">
-        <article class="platform-card focus" data-animate>
+        <article class="platform-card focus slide-from-left" data-animate>
           <h3>Unified Command Center</h3>
           <p>Monitor locker performance, reservations, maintenance tickets, and alerts across every location with a crystal-clear dashboard.</p>
           <ul>
@@ -214,7 +214,7 @@ $secondaryCtaLabel = $role ? 'Explore Modules' : 'Sign in';
             <li>Live notifications to keep your team aligned.</li>
           </ul>
         </article>
-        <article class="platform-card" data-animate>
+        <article class="platform-card slide-from-bottom" data-animate data-delay="140">
           <h3>End-to-end User Journeys</h3>
           <p>Deliver smooth digital experiences with email verification, secure top-ups, and responsive support channels out of the box.</p>
           <ul>
@@ -223,7 +223,7 @@ $secondaryCtaLabel = $role ? 'Explore Modules' : 'Sign in';
             <li>Integrated payments and wallet controls.</li>
           </ul>
         </article>
-        <article class="platform-card" data-animate>
+        <article class="platform-card slide-from-right" data-animate data-delay="240">
           <h3>Operations Automation</h3>
           <p>Automate repetitive workflows and enforce policy with intelligent triggers that keep your locker network compliant 24/7.</p>
           <ul>
