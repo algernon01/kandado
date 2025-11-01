@@ -123,6 +123,14 @@ function initLockDown(){
   };
 
   const root = document.querySelector('main.container');
+  const isInLockedArea = (node) => {
+    if (!root || !node) return false;
+    try {
+      return root.contains(node);
+    } catch (_) {
+      return false;
+    }
+  };
   if (root) {
     [
       'button', 'a.btn',
@@ -134,6 +142,8 @@ function initLockDown(){
 
   document.addEventListener('submit', (e) => {
     if (!window.DASHBOARD.onHold) return;
+    const form = e.target.closest('form');
+    if (!isInLockedArea(form)) return;
     e.preventDefault();
     e.stopImmediatePropagation();
     if (window.Swal) Swal.fire({ icon:'error', title:'Unavailable', text: message, confirmButtonColor:'#0d5ef4' });
@@ -142,7 +152,7 @@ function initLockDown(){
   document.addEventListener('click', (e) => {
     if (!window.DASHBOARD.onHold) return;
     const t = e.target.closest('button, a, [role="button"], [role="tab"]');
-    if (!t || isTopUp(t)) return;
+    if (!t || isTopUp(t) || !isInLockedArea(t)) return;
     e.preventDefault();
     e.stopImmediatePropagation();
     if (window.Swal) Swal.fire({ icon:'error', title:'Unavailable', text: message, confirmButtonColor:'#0d5ef4' });

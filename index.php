@@ -6,11 +6,11 @@ $isAdmin = $role === 'admin';
 $isUser = $role === 'user';
 
 $primaryCtaHref = $role
-  ? ($isAdmin ? 'admin/dashboard.php' : 'user/dashboard.php')
-  : 'register.php';
+  ? ($isAdmin ? 'public/admin/dashboard.php' : 'public/user/dashboard.php')
+  : 'public/register.php';
 $primaryCtaLabel = $role ? 'Go to Dashboard' : 'Create an Account';
 
-$secondaryCtaHref = $role ? ($isAdmin ? 'admin/dashboard.php#modules' : 'user/dashboard.php#modules') : 'login.php';
+$secondaryCtaHref = $role ? ($isAdmin ? 'public/admin/dashboard.php#modules' : 'public/user/dashboard.php#modules') : 'public/login.php';
 $secondaryCtaLabel = $role ? 'Explore Modules' : 'Sign in';
 ?>
 <!DOCTYPE html>
@@ -19,16 +19,16 @@ $secondaryCtaLabel = $role ? 'Explore Modules' : 'Sign in';
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Kandado | Secure Locker Management Platform</title>
-  <link rel="icon" href="../assets/icon/icon_tab.png" sizes="any">
-  <link rel="stylesheet" href="../assets/css/style.css">
-  <link rel="stylesheet" href="../assets/css/home.css">
+  <link rel="icon" href="assets/icon/icon_tab.png" sizes="any">
+  <link rel="stylesheet" href="assets/css/style.css">
+  <link rel="stylesheet" href="assets/css/home.css">
 </head>
 <body class="home-body">
   <header class="site-header" data-animate>
     <div class="header-inner container">
       <a class="brand" href="index.php">
         <span class="brand-icon">
-          <img src="../assets/icon/kandado2.png" alt="Kandado logo" loading="lazy">
+          <img src="assets/icon/kandado2.png" alt="Kandado logo" loading="lazy">
         </span>
         <span class="brand-text">Kandado</span>
       </a>
@@ -52,8 +52,8 @@ $secondaryCtaLabel = $role ? 'Explore Modules' : 'Sign in';
 
       <div class="header-cta">
         <?php if (!$role): ?>
-          <a class="btn ghost" href="login.php">Login</a>
-          <a class="btn primary" href="register.php">Register</a>
+          <a class="btn ghost" href="public/login.php">Login</a>
+          <a class="btn primary" href="public/register.php">Register</a>
         <?php else: ?>
           <a class="btn ghost" href="<?= htmlspecialchars($secondaryCtaHref) ?>">Modules</a>
           <a class="btn primary" href="<?= htmlspecialchars($primaryCtaHref) ?>">Dashboard</a>
@@ -200,37 +200,56 @@ $secondaryCtaLabel = $role ? 'Explore Modules' : 'Sign in';
 
     <section class="platform section-surface" id="platform" data-animate>
       <div class="section-heading">
-        <h2>One platform built for the entire locker lifecycle.</h2>
-        <p>From provisioning to real-time incident response, Kandado brings every workflow into one intuitive surface so your team can move faster with confidence.</p>
+        <h2>How to Use the System</h2>
+        <p>Run these end-to-end scenarios to confirm onsite access, fail-safes, and administrative controls work as designed.</p>
       </div>
 
       <div class="platform-grid">
         <article class="platform-card focus slide-from-left" data-animate>
-          <h3>Unified Command Center</h3>
-          <p>Monitor locker performance, reservations, maintenance tickets, and alerts across every location with a crystal-clear dashboard.</p>
-          <ul>
-            <li>Instant visibility into occupancy and usage spikes.</li>
-            <li>Smart segments for VIP, recurring, or flagged users.</li>
-            <li>Live notifications to keep your team aligned.</li>
-          </ul>
+          <h3>Steps 1-9 &middot; Onboarding and Access</h3>
+          <p>Connect locally, register, and verify that standard reservation and unlock flows complete without issues.</p>
+          <ol class="platform-steps">
+            <li>Connect to the MCC LAN.</li>
+            <li>Scan the QR on the locker to open the website.</li>
+            <li>Sign up as a new user and verify your account.</li>
+            <li>Reserve a locker and get your QR code and PIN (website or email).</li>
+            <li>Unlock with QR using the shared scanner.</li>
+            <li>Unlock with PIN on the keypad (fallback).</li>
+            <li>Store an item, close the door, and check the status light and dashboard state.</li>
+            <li>Leave the door open; confirm the buzzer warns you to close it.</li>
+            <li>Extend your active session (on LAN) and confirm the new end time.</li>
+          </ol>
         </article>
         <article class="platform-card slide-from-bottom" data-animate data-delay="140">
-          <h3>End-to-end User Journeys</h3>
-          <p>Deliver smooth digital experiences with email verification, secure top-ups, and responsive support channels out of the box.</p>
-          <ul>
-            <li>Personalized self-service dashboards.</li>
-            <li>Automated receipts, reminders, and nudges.</li>
-            <li>Integrated payments and wallet controls.</li>
-          </ul>
+          <h3>Steps 10-18 &middot; Session Integrity</h3>
+          <p>Exercise session lifecycle, off-campus behaviors, and hold scenarios to ensure accurate enforcement and notifications.</p>
+          <ol class="platform-steps" start="10">
+            <li>Terminate the locker session.</li>
+            <li>Try to reuse an old QR/PIN &rarr; it must fail and be logged.</li>
+            <li>Switch to off-campus internet (mobile data). Try to reserve &rarr; should be blocked.</li>
+            <li>Still off-campus, try to extend an existing session &rarr; should be allowed and logged.</li>
+            <li>Start a session &ge; 1 hour; confirm emails at 30 min and 15 min before expiry, at expiry, then 15 and 30 min after.</li>
+            <li>Start a 30-minute session; confirm email at 15 min left (and at expiry/after, if set).</li>
+            <li>Start a 20-minute session; confirm email at 10 min left (and at expiry/after, if set).</li>
+            <li>Put an item inside and let the session expire &rarr; the system should auto-hold the locker and notify admin.</li>
+            <li>While on hold, the user cannot reserve another locker.</li>
+          </ol>
         </article>
         <article class="platform-card slide-from-right" data-animate data-delay="240">
-          <h3>Operations Automation</h3>
-          <p>Automate repetitive workflows and enforce policy with intelligent triggers that keep your locker network compliant 24/7.</p>
-          <ul>
-            <li>Configurable escalation paths for violations.</li>
-            <li>Audit-ready trails for every action.</li>
-            <li>Scheduled maintenance and smart assignments.</li>
-          </ul>
+          <h3>Steps 19-20 &middot; Maintenance and Signals</h3>
+          <p>Confirm dashboard controls and physical indicators align with maintenance policies.</p>
+          <ol class="platform-steps" start="19">
+            <li>Mark a locker Maintenance in the dashboard &rarr; users cannot open it.</li>
+            <li>Review status lights (for your checks):
+              <div class="status-lines">
+                <span>Green = available</span>
+                <span>Red = occupied (with items)</span>
+                <span>Orange/Yellow = locked but empty</span>
+                <span>Blue = on hold</span>
+                <span>No light = maintenance / offline</span>
+              </div>
+            </li>
+          </ol>
         </article>
       </div>
     </section>
@@ -353,29 +372,13 @@ $secondaryCtaLabel = $role ? 'Explore Modules' : 'Sign in';
     </section>
 
 
-    <section class="cta section-surface" id="cta" data-animate>
-      <div class="cta-card">
-        <div>
-          <h2>Bring clarity to your locker network.</h2>
-          <p>Launch Kandado in days, not months. Configure policies, onboard teams, and automate safeguards with support from our specialists.</p>
-        </div>
-        <div class="cta-actions">
-          <a class="btn primary" href="<?= htmlspecialchars($primaryCtaHref) ?>"><?= htmlspecialchars($primaryCtaLabel) ?></a>
-          <?php if (!$role): ?>
-            <a class="btn ghost" href="login.php">Talk to support</a>
-          <?php else: ?>
-            <a class="btn ghost" href="../auth/logout.php">Log out</a>
-          <?php endif; ?>
-        </div>
-      </div>
-    </section>
   </main>
 
   <footer class="site-footer">
     <div class="footer-inner">
       <a class="brand" href="index.php">
         <span class="brand-icon">
-          <img src="../assets/icon/kandado2.png" alt="" aria-hidden="true" loading="lazy">
+          <img src="assets/icon/kandado2.png" alt="" aria-hidden="true" loading="lazy">
         </span>
         <span class="brand-text">Kandado</span>
       </a>
@@ -388,9 +391,9 @@ $secondaryCtaLabel = $role ? 'Explore Modules' : 'Sign in';
         </div>
         <div>
           <span class="footer-label">Company</span>
-          <a href="../public/login.php">Login</a>
-          <a href="../public/register.php">Register</a>
-          <a href="../public/forgot_password.php">Reset password</a>
+          <a href="public/login.php">Login</a>
+          <a href="public/register.php">Register</a>
+          <a href="public/forgot_password.php">Reset password</a>
         </div>
         <div>
           <span class="footer-label">Support</span>
@@ -403,6 +406,6 @@ $secondaryCtaLabel = $role ? 'Explore Modules' : 'Sign in';
     <p class="footer-meta">&copy; <?= date('Y') ?> Kandado. Secure locker management for modern teams.</p>
   </footer>
 
-  <script src="../assets/js/home.js" defer></script>
+  <script src="assets/js/home.js" defer></script>
 </body>
 </html>
