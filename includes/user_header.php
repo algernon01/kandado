@@ -30,7 +30,7 @@ $logoPng = '../../assets/img/logo-temp.png';
   <a class="sr-only" href="#main">Skip to content</a>
   <div class="container">
     <nav class="pro-nav" aria-label="Main">   
-      <a class="brand" href="dashboard.php" title="Go to dashboard">
+      <a class="brand" href="../../index.php" title="Go to dashboard">
         <img src="../../assets/icon/kandado.png " alt="Company logo (PNG)">
       </a>
 

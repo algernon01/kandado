@@ -21,9 +21,11 @@ unset($_SESSION['login_error']);
   <div class="auth-shell">
     <section class="auth-preview" aria-hidden="true">
       <div class="preview-content">
+        <a href="../index.php" class="brand-logo">
         <span class="brand-mark" aria-hidden="true">
           <img src="../assets/icon/kandado2.png" alt="" loading="lazy">
         </span>
+        </a>
         <h2 class="preview-title">Welcome to Kandado</h2>
         <p class="preview-text">Securely manage your account with a calm, focused experience built for productivity.</p>
       </div>

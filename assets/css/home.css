@@ -958,15 +958,53 @@ a {
   border-color: rgba(37, 99, 235, .24);
 }
 .platform-card .platform-steps {
-  padding-left: 0;
   margin: 0;
+  padding: 0;
   display: grid;
-  gap: 4px;
-  list-style: decimal inside;
+  gap: 12px;
+  list-style: none;
+  counter-reset: platform-step 0;
   color: var(--ink-soft);
+}
+.platform-card .platform-steps[start="10"] {
+  counter-reset: platform-step 9;
+}
+.platform-card .platform-steps[start="19"] {
+  counter-reset: platform-step 18;
 }
 .platform-card .platform-steps li {
   margin: 0;
+  counter-increment: platform-step;
+  position: relative;
+  padding: 14px 18px 14px 62px;
+  background: rgba(255, 255, 255, .82);
+  border: 1px solid rgba(148, 163, 184, .26);
+  border-radius: 18px;
+  box-shadow: 0 16px 36px rgba(15, 23, 42, .08);
+  line-height: 1.45;
+  transition: transform .25s var(--ease-smooth), box-shadow .25s var(--ease-smooth), background .25s var(--ease-smooth);
+  font-variant-numeric: tabular-nums;
+}
+.platform-card .platform-steps li::before {
+  content: counter(platform-step);
+  position: absolute;
+  top: 15px;
+  left: 20px;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: linear-gradient(150deg, rgba(59, 130, 246, .92), rgba(14, 116, 144, .88));
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.98rem;
+  box-shadow: 0 12px 24px rgba(37, 99, 235, .22);
+}
+.platform-card .platform-steps li:hover {
+  background: rgba(255, 255, 255, .94);
+  box-shadow: 0 18px 40px rgba(37, 99, 235, .18);
+  transform: translateY(-2px);
 }
 .platform-card .status-lines {
   display: grid;

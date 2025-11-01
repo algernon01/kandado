@@ -21,9 +21,11 @@ unset($_SESSION['register_errors'], $_SESSION['register_old']);
   <div class="auth-shell">
     <section class="auth-preview" aria-hidden="true">
       <div class="preview-content">
+        <a href="../index.php" class="brand-logo">
         <span class="brand-mark" aria-hidden="true">
           <img src="../assets/icon/kandado2.png" alt="" loading="lazy">
         </span>
+        </a>
         <h2 class="preview-title">Create your Kandado account</h2>
         <p class="preview-text">Join a modern access platform designed to stay out of your way and keep you secure.</p>
       </div>

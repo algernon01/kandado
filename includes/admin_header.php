@@ -120,7 +120,7 @@ function isActive($file) {
       <i class="fas fa-bars"></i>
     </button>
 
-    <a href="dashboard.php" class="logo" aria-label="Go to dashboard" style="background-color: white;">
+    <a href="../../index.php" class="logo" aria-label="Go to dashboard" style="background-color: white;">
       <img src="/kandado/assets/icon/kandado.png" alt="Kandado logo" width="36" height="36" decoding="async" loading="eager"/>
     </a>
   </div>
