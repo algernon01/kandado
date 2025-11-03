@@ -259,35 +259,85 @@ $secondaryCtaLabel = $role ? 'Explore Modules' : 'Sign in';
         <h2>Capabilities that meet the moment.</h2>
         <p>Kandado synthesizes real-time data, automated policies, and meaningful insights so you can scale securely.</p>
       </div>
-      <div class="feature-grid">
-        <article class="feature-card" data-animate>
-          <span class="feature-icon soft-blue">
-            <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 3 3 11.5v1.5l13 8 13-8v-1.5L16 3Zm0 4.43L23.55 11 16 15.57 8.45 11 16 7.43ZM7 14.43v6.94L16 27l9-5.63v-6.94l-9 5.63-9-5.63Z" fill="currentColor"/></svg>
-          </span>
-          <h3>Role-aware access policies</h3>
-          <p>Map users to lockers using rules that consider identity, schedule, and compliance requirements.</p>
-        </article>
-        <article class="feature-card" data-animate>
-          <span class="feature-icon soft-cyan">
-            <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M6 6h20v20H6z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M11 21h10M11 16h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="20" cy="16" r="2" fill="currentColor"/></svg>
-          </span>
-          <h3>Real-time auditing</h3>
-          <p>Every access, top-up, and violation is recorded with context so you can answer “who, what, when” instantly.</p>
-        </article>
-        <article class="feature-card" data-animate>
-          <span class="feature-icon soft-indigo">
-            <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M7 9h18M7 16h10M7 23h7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M21 23.5 26 19l-5-4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </span>
-          <h3>Guided workflows</h3>
-          <p>Built-in nudges help your team progress from detection to resolution without breaking focus.</p>
-        </article>
-        <article class="feature-card" data-animate>
-          <span class="feature-icon soft-green">
-            <svg viewBox="0 0 32 32" aria-hidden="true"><path d="m6 16 6 6 14-14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </span>
-          <h3>Intelligent automation</h3>
-          <p>Trigger escalations, notify stakeholders, and lock down assets automatically when patterns deviate.</p>
-        </article>
+
+      <div class="feature-carousel" data-carousel data-autoplay="true" data-interval="3000">
+        <div class="feature-carousel__viewport" data-carousel-viewport>
+          <div class="feature-carousel__track" data-carousel-track>
+            <article class="feature-slide is-active" id="feature-slide-1" data-carousel-slide data-animate>
+              <div class="feature-slide__media" style="--slide-image: url('/kandado/assets/uploads/644f5e1e569b7a9d3a3da8b8807f939c.jpg');" role="img" aria-label="Step 1 preview illustration"></div>
+              <div class="feature-slide__content">
+                <span class="feature-slide__eyebrow">Step 01</span>
+                <h3 class="feature-slide__title">Create your workspace</h3>
+                <p>Sign up in minutes, invite teammates, and configure secure locker policies that match your locations.</p>
+                <ul class="feature-slide__points">
+                  <li>Guided account onboarding</li>
+                  <li>Instant role-based access profiles</li>
+                </ul>
+              </div>
+            </article>
+
+            <article class="feature-slide" id="feature-slide-2" data-carousel-slide data-animate data-delay="80">
+              <div class="feature-slide__media" style="--slide-image: url('/kandado/assets/uploads/644f5e1e569b7a9d3a3da8b8807f939c.jpg');" role="img" aria-label="Step 2 preview illustration"></div>
+              <div class="feature-slide__content">
+                <span class="feature-slide__eyebrow">Step 02</span>
+                <h3 class="feature-slide__title">Connect your lockers</h3>
+                <p>Pair Kandado with your hardware using our plug-and-play bridge so every door is monitored in real time.</p>
+                <ul class="feature-slide__points">
+                  <li>Device health dashboards</li>
+                  <li>Automatic firmware updates</li>
+                </ul>
+              </div>
+            </article>
+
+            <article class="feature-slide" id="feature-slide-3" data-carousel-slide data-animate data-delay="140">
+              <div class="feature-slide__media" style="--slide-image: url('/kandado/assets/uploads/644f5e1e569b7a9d3a3da8b8807f939c.jpg');" role="img" aria-label="Step 3 preview illustration"></div>
+              <div class="feature-slide__content">
+                <span class="feature-slide__eyebrow">Step 03</span>
+                <h3 class="feature-slide__title">Guide your users</h3>
+                <p>Share intuitive user flows that help staff reserve, unlock, and return items without breaking stride.</p>
+                <ul class="feature-slide__points">
+                  <li>Self-service reservation portal</li>
+                  <li>Smart notifications and reminders</li>
+                </ul>
+              </div>
+            </article>
+
+            <article class="feature-slide" id="feature-slide-4" data-carousel-slide data-animate data-delay="200">
+              <div class="feature-slide__media" style="--slide-image: url('/kandado/assets/uploads/644f5e1e569b7a9d3a3da8b8807f939c.jpg');" role="img" aria-label="Step 4 preview illustration"></div>
+              <div class="feature-slide__content">
+                <span class="feature-slide__eyebrow">Step 04</span>
+                <h3 class="feature-slide__title">Track and optimize</h3>
+                <p>Watch live analytics, automate escalations, and surface the insights that keep your operation ready.</p>
+                <ul class="feature-slide__points">
+                  <li>Real-time auditing and alerts</li>
+                  <li>Usage analytics with exports</li>
+                </ul>
+              </div>
+            </article>
+          </div>
+        </div>
+
+        <button class="feature-carousel__nav feature-carousel__nav--prev" type="button" aria-label="Previous step" data-carousel-prev>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.5 5.5 9 12l6.5 6.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <button class="feature-carousel__nav feature-carousel__nav--next" type="button" aria-label="Next step" data-carousel-next>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.5 18.5 15 12 8.5 5.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+
+        <div class="feature-carousel__dots" role="tablist" aria-label="Locker platform how-to steps" data-carousel-dots>
+          <button class="feature-carousel__dot is-active" type="button" role="tab" aria-selected="true" aria-controls="feature-slide-1" data-carousel-dot="0">
+            <span class="sr-only">Step 01 — Create your workspace</span>
+          </button>
+          <button class="feature-carousel__dot" type="button" role="tab" aria-selected="false" aria-controls="feature-slide-2" data-carousel-dot="1">
+            <span class="sr-only">Step 02 — Connect your lockers</span>
+          </button>
+          <button class="feature-carousel__dot" type="button" role="tab" aria-selected="false" aria-controls="feature-slide-3" data-carousel-dot="2">
+            <span class="sr-only">Step 03 — Guide your users</span>
+          </button>
+          <button class="feature-carousel__dot" type="button" role="tab" aria-selected="false" aria-controls="feature-slide-4" data-carousel-dot="3">
+            <span class="sr-only">Step 04 — Track and optimize</span>
+          </button>
+        </div>
       </div>
     </section>
 
