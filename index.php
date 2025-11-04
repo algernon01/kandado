@@ -42,11 +42,11 @@ $secondaryCtaLabel = $role ? 'Explore Modules' : 'Sign in';
         </button>
 
         <div class="nav-links" id="primary-navigation">
-          <a href="#platform" class="nav-link">Platform</a>
-          <a href="#features" class="nav-link">Capabilities</a>
-          <a href="#security" class="nav-link">Security</a>
-          <a href="#insights" class="nav-link">Insights</a>
-          <a href="#cta" class="nav-link">Get Started</a>
+          <a href="#platform" class="nav-link">Validation Plan</a>
+          <a href="#features" class="nav-link">Step Guide</a>
+          <a href="#security" class="nav-link">Safeguards</a>
+          <a href="#insights" class="nav-link">Analytics</a>
+          <a href="#cta" class="nav-link">Join Kandado</a>
         </div>
       </nav>
 
@@ -67,9 +67,9 @@ $secondaryCtaLabel = $role ? 'Explore Modules' : 'Sign in';
       <div class="hero-inner container">
         <div class="hero-copy" data-animate data-delay="60">
           <div class="eyebrow">Modern Locker Access</div>
-          <h1>Give your users secure, effortless access with Kandado.</h1>
+          <h1>Guide every locker interaction with Kandado.</h1>
           <p>
-            Kandado unifies locker reservations, identity verification, payments, and security monitoring into one elegant platform&mdash;designed for teams who value clarity and control.
+            Monitor availability, approve reservations, and extend sessions in one secure workspace so every user journey stays effortless.
           </p>
           <div class="hero-actions">
             <a class="btn primary" href="<?= htmlspecialchars($primaryCtaHref) ?>"><?= htmlspecialchars($primaryCtaLabel) ?></a>
@@ -256,129 +256,129 @@ $secondaryCtaLabel = $role ? 'Explore Modules' : 'Sign in';
 
     <section class="features section-surface" id="features">
       <div class="section-heading" data-animate>
-        <h2>Capabilities that meet the moment.</h2>
-        <p>Kandado synthesizes real-time data, automated policies, and meaningful insights so you can scale securely.</p>
+        <h2>Walk through every locker action step-by-step.</h2>
+        <p>Follow the guided carousel to see how Kandado handles requests from monitoring to extensions in one smooth flow.</p>
       </div>
 
-      <div class="feature-carousel" data-carousel data-autoplay="true" data-interval="3000">
+      <div class="feature-carousel" data-carousel data-autoplay="true" data-interval="5000">
         <div class="feature-carousel__viewport" data-carousel-viewport>
           <div class="feature-carousel__track" data-carousel-track>
             <article class="feature-slide is-active" id="feature-slide-1" data-carousel-slide data-animate>
               <div class="feature-slide__media" role="button" tabindex="0" data-lightbox-trigger aria-label="View Step 01 illustration">
-                <img src="assets/image/step1.png" alt="Step 01 Connect to the MCC LAN illustration" data-lightbox-source>
+                <img src="assets/image/step1.png" alt="Step 01 Live locker status dashboard illustration" data-lightbox-source>
               </div>
               <div class="feature-slide__content">
                 <span class="feature-slide__eyebrow">Step 01</span>
-                <h3 class="feature-slide__title">Connect to the MCC LAN</h3>
-                <p>Join the local campus network before you start so the locker site authenticates instantly.</p>
+                <h3 class="feature-slide__title">Preview locker operations</h3>
+                <p>Scan the live dashboard to understand availability, alerts, and automation before you take action.</p>
                 <ul class="feature-slide__points">
-                  <li>Ensure your device is on the MCC LAN SSID.</li>
-                  <li>Verify you can reach internal services.</li>
+                  <li>Read the real-time status feed for each locker bay.</li>
+                  <li>Confirm lights, alerts, and controls respond instantly.</li>
                 </ul>
               </div>
             </article>
 
             <article class="feature-slide" id="feature-slide-2" data-carousel-slide data-animate data-delay="80">
               <div class="feature-slide__media" role="button" tabindex="0" data-lightbox-trigger aria-label="View Step 02 illustration">
-                <img src="assets/image/step2.png" alt="Step 02 Open the locker portal illustration" data-lightbox-source>
+                <img src="assets/image/step2.png" alt="Step 02 Kandado account creation form illustration" data-lightbox-source>
               </div>
               <div class="feature-slide__content">
                 <span class="feature-slide__eyebrow">Step 02</span>
-                <h3 class="feature-slide__title">Open the locker portal</h3>
-                <p>Scan the QR code on the locker door to launch Kandado with your device camera.</p>
+                <h3 class="feature-slide__title">Create your Kandado account</h3>
+                <p>Complete the registration form so we can securely link you to the locker network.</p>
                 <ul class="feature-slide__points">
-                  <li>Use the built-in scanner or camera app.</li>
-                  <li>Confirm the secure kandado.mcc URL loads.</li>
+                  <li>Enter your name, campus email, and a strong password.</li>
+                  <li>Review the terms then tap Create account to finish.</li>
                 </ul>
               </div>
             </article>
 
             <article class="feature-slide" id="feature-slide-3" data-carousel-slide data-animate data-delay="120">
               <div class="feature-slide__media" role="button" tabindex="0" data-lightbox-trigger aria-label="View Step 03 illustration">
-                <img src="assets/image/step3.png" alt="Step 03 Account registration illustration" data-lightbox-source>
+                <img src="assets/image/step3.png" alt="Step 03 Kandado sign-in screen illustration" data-lightbox-source>
               </div>
               <div class="feature-slide__content">
                 <span class="feature-slide__eyebrow">Step 03</span>
-                <h3 class="feature-slide__title">Create and verify your account</h3>
-                <p>Register as a new user and finalize verification so we can assign lockers to you.</p>
+                <h3 class="feature-slide__title">Sign in securely</h3>
+                <p>Return to the portal and access your locker tools with your verified credentials.</p>
                 <ul class="feature-slide__points">
-                  <li>Complete the sign-up form with campus email.</li>
-                  <li>Activate the account via the verification link.</li>
+                  <li>Use your registered email and password to log in.</li>
+                  <li>Reset your password anytime from the same screen.</li>
                 </ul>
               </div>
             </article>
 
             <article class="feature-slide" id="feature-slide-4" data-carousel-slide data-animate data-delay="160">
               <div class="feature-slide__media" role="button" tabindex="0" data-lightbox-trigger aria-label="View Step 04 illustration">
-                <img src="assets/image/step4.png" alt="Step 04 Reservation illustration" data-lightbox-source>
+                <img src="assets/image/step4.png" alt="Step 04 Locker dashboard availability illustration" data-lightbox-source>
               </div>
               <div class="feature-slide__content">
                 <span class="feature-slide__eyebrow">Step 04</span>
-                <h3 class="feature-slide__title">Reserve your locker</h3>
-                <p>Pick an available locker and generate the QR and PIN credentials for your session.</p>
+                <h3 class="feature-slide__title">Check locker availability</h3>
+                <p>Navigate the dashboard to see occupancy, wallet balance, and open lockers at a glance.</p>
                 <ul class="feature-slide__points">
-                  <li>Choose an open bay from the dashboard.</li>
-                  <li>Save the issued QR code and fallback PIN.</li>
+                  <li>Filter lockers by available, occupied, hold, or maintenance.</li>
+                  <li>Select an open tile to begin reserving that bay.</li>
                 </ul>
               </div>
             </article>
 
             <article class="feature-slide" id="feature-slide-5" data-carousel-slide data-animate data-delay="200">
               <div class="feature-slide__media" role="button" tabindex="0" data-lightbox-trigger aria-label="View Step 05 illustration">
-                <img src="assets/image/step5.png" alt="Step 05 QR unlock illustration" data-lightbox-source>
+                <img src="assets/image/step5.png" alt="Step 05 Wallet top up flow illustration" data-lightbox-source>
               </div>
               <div class="feature-slide__content">
                 <span class="feature-slide__eyebrow">Step 05</span>
-                <h3 class="feature-slide__title">Unlock with your QR</h3>
-                <p>Present the Kandado QR at the shared scanner to trigger an instant unlock.</p>
+                <h3 class="feature-slide__title">Top up your wallet</h3>
+                <p>Add funds so you can reserve lockers, extend time, and keep sessions active without interruption.</p>
                 <ul class="feature-slide__points">
-                  <li>Hold the code steady under the reader.</li>
-                  <li>Wait for the green status light before opening.</li>
+                  <li>Pick a preset amount or enter the exact pesos you need.</li>
+                  <li>Pay with GCash or Maya and watch the balance update instantly.</li>
                 </ul>
               </div>
             </article>
 
             <article class="feature-slide" id="feature-slide-6" data-carousel-slide data-animate data-delay="240">
               <div class="feature-slide__media" role="button" tabindex="0" data-lightbox-trigger aria-label="View Step 06 illustration">
-                <img src="assets/image/step6.png" alt="Step 06 PIN unlock illustration" data-lightbox-source>
+                <img src="assets/image/step6.png" alt="Step 06 Select locker duration modal illustration" data-lightbox-source>
               </div>
               <div class="feature-slide__content">
                 <span class="feature-slide__eyebrow">Step 06</span>
-                <h3 class="feature-slide__title">Use the PIN keypad fallback</h3>
-                <p>If the scanner is busy, enter the PIN on the keypad to release the door.</p>
+                <h3 class="feature-slide__title">Choose your session duration</h3>
+                <p>Decide how long you need the locker before you confirm, with pricing that scales by minutes or days.</p>
                 <ul class="feature-slide__points">
-                  <li>Enter the four-digit PIN from your reservation.</li>
-                  <li>The latch releases once the tone confirms.</li>
+                  <li>Compare quick sessions, hourly windows, and multi-day options.</li>
+                  <li>Review the total due, then confirm with Pay Now.</li>
                 </ul>
               </div>
             </article>
 
             <article class="feature-slide" id="feature-slide-7" data-carousel-slide data-animate data-delay="280">
               <div class="feature-slide__media" role="button" tabindex="0" data-lightbox-trigger aria-label="View Step 07 illustration">
-                <img src="assets/image/step7.png" alt="Step 07 Store items illustration" data-lightbox-source>
+                <img src="assets/image/step7.png" alt="Step 07 Locker QR pass interface illustration" data-lightbox-source>
               </div>
               <div class="feature-slide__content">
                 <span class="feature-slide__eyebrow">Step 07</span>
-                <h3 class="feature-slide__title">Store items and confirm status</h3>
-                <p>Place your belongings, close the door, and check the dashboard for an active session.</p>
+                <h3 class="feature-slide__title">Use your QR locker pass</h3>
+                <p>Access the My Locker view to unlock, extend, or terminate without ever touching the kiosk.</p>
                 <ul class="feature-slide__points">
-                  <li>Ensure the door seals and the light shows occupied.</li>
-                  <li>Refresh the app to verify the locker status.</li>
+                  <li>Present the QR code or copy the numeric code for PIN entry.</li>
+                  <li>Extend, save, or end the session directly from this screen.</li>
                 </ul>
               </div>
             </article>
 
             <article class="feature-slide" id="feature-slide-8" data-carousel-slide data-animate data-delay="320">
               <div class="feature-slide__media" role="button" tabindex="0" data-lightbox-trigger aria-label="View Step 08 illustration">
-                <img src="assets/image/step8.png" alt="Step 08 Door alert illustration" data-lightbox-source>
+                <img src="assets/image/step8.png" alt="Step 08 Extend locker session modal illustration" data-lightbox-source>
               </div>
               <div class="feature-slide__content">
                 <span class="feature-slide__eyebrow">Step 08</span>
-                <h3 class="feature-slide__title">Test the door alert</h3>
-                <p>Leave the door ajar briefly to confirm the buzzer prompts you to close it.</p>
+                <h3 class="feature-slide__title">Extend time in seconds</h3>
+                <p>When the timer runs low, add more minutes right away so your locker stays active.</p>
                 <ul class="feature-slide__points">
-                  <li>Listen for the alert within a few seconds.</li>
-                  <li>Close the door and confirm the status resets.</li>
+                  <li>Select the duration you need and review the updated total.</li>
+                  <li>Confirm payment, then return to the session countdown.</li>
                 </ul>
               </div>
             </article>
