@@ -264,53 +264,121 @@ $secondaryCtaLabel = $role ? 'Explore Modules' : 'Sign in';
         <div class="feature-carousel__viewport" data-carousel-viewport>
           <div class="feature-carousel__track" data-carousel-track>
             <article class="feature-slide is-active" id="feature-slide-1" data-carousel-slide data-animate>
-              <div class="feature-slide__media" style="--slide-image: url('/kandado/assets/uploads/644f5e1e569b7a9d3a3da8b8807f939c.jpg');" role="img" aria-label="Step 1 preview illustration"></div>
+              <div class="feature-slide__media" role="button" tabindex="0" data-lightbox-trigger aria-label="View Step 01 illustration">
+                <img src="assets/image/step1.png" alt="Step 01 Connect to the MCC LAN illustration" data-lightbox-source>
+              </div>
               <div class="feature-slide__content">
                 <span class="feature-slide__eyebrow">Step 01</span>
-                <h3 class="feature-slide__title">Create your workspace</h3>
-                <p>Sign up in minutes, invite teammates, and configure secure locker policies that match your locations.</p>
+                <h3 class="feature-slide__title">Connect to the MCC LAN</h3>
+                <p>Join the local campus network before you start so the locker site authenticates instantly.</p>
                 <ul class="feature-slide__points">
-                  <li>Guided account onboarding</li>
-                  <li>Instant role-based access profiles</li>
+                  <li>Ensure your device is on the MCC LAN SSID.</li>
+                  <li>Verify you can reach internal services.</li>
                 </ul>
               </div>
             </article>
 
             <article class="feature-slide" id="feature-slide-2" data-carousel-slide data-animate data-delay="80">
-              <div class="feature-slide__media" style="--slide-image: url('/kandado/assets/uploads/644f5e1e569b7a9d3a3da8b8807f939c.jpg');" role="img" aria-label="Step 2 preview illustration"></div>
+              <div class="feature-slide__media" role="button" tabindex="0" data-lightbox-trigger aria-label="View Step 02 illustration">
+                <img src="assets/image/step2.png" alt="Step 02 Open the locker portal illustration" data-lightbox-source>
+              </div>
               <div class="feature-slide__content">
                 <span class="feature-slide__eyebrow">Step 02</span>
-                <h3 class="feature-slide__title">Connect your lockers</h3>
-                <p>Pair Kandado with your hardware using our plug-and-play bridge so every door is monitored in real time.</p>
+                <h3 class="feature-slide__title">Open the locker portal</h3>
+                <p>Scan the QR code on the locker door to launch Kandado with your device camera.</p>
                 <ul class="feature-slide__points">
-                  <li>Device health dashboards</li>
-                  <li>Automatic firmware updates</li>
+                  <li>Use the built-in scanner or camera app.</li>
+                  <li>Confirm the secure kandado.mcc URL loads.</li>
                 </ul>
               </div>
             </article>
 
-            <article class="feature-slide" id="feature-slide-3" data-carousel-slide data-animate data-delay="140">
-              <div class="feature-slide__media" style="--slide-image: url('/kandado/assets/uploads/644f5e1e569b7a9d3a3da8b8807f939c.jpg');" role="img" aria-label="Step 3 preview illustration"></div>
+            <article class="feature-slide" id="feature-slide-3" data-carousel-slide data-animate data-delay="120">
+              <div class="feature-slide__media" role="button" tabindex="0" data-lightbox-trigger aria-label="View Step 03 illustration">
+                <img src="assets/image/step3.png" alt="Step 03 Account registration illustration" data-lightbox-source>
+              </div>
               <div class="feature-slide__content">
                 <span class="feature-slide__eyebrow">Step 03</span>
-                <h3 class="feature-slide__title">Guide your users</h3>
-                <p>Share intuitive user flows that help staff reserve, unlock, and return items without breaking stride.</p>
+                <h3 class="feature-slide__title">Create and verify your account</h3>
+                <p>Register as a new user and finalize verification so we can assign lockers to you.</p>
                 <ul class="feature-slide__points">
-                  <li>Self-service reservation portal</li>
-                  <li>Smart notifications and reminders</li>
+                  <li>Complete the sign-up form with campus email.</li>
+                  <li>Activate the account via the verification link.</li>
                 </ul>
               </div>
             </article>
 
-            <article class="feature-slide" id="feature-slide-4" data-carousel-slide data-animate data-delay="200">
-              <div class="feature-slide__media" style="--slide-image: url('/kandado/assets/uploads/644f5e1e569b7a9d3a3da8b8807f939c.jpg');" role="img" aria-label="Step 4 preview illustration"></div>
+            <article class="feature-slide" id="feature-slide-4" data-carousel-slide data-animate data-delay="160">
+              <div class="feature-slide__media" role="button" tabindex="0" data-lightbox-trigger aria-label="View Step 04 illustration">
+                <img src="assets/image/step4.png" alt="Step 04 Reservation illustration" data-lightbox-source>
+              </div>
               <div class="feature-slide__content">
                 <span class="feature-slide__eyebrow">Step 04</span>
-                <h3 class="feature-slide__title">Track and optimize</h3>
-                <p>Watch live analytics, automate escalations, and surface the insights that keep your operation ready.</p>
+                <h3 class="feature-slide__title">Reserve your locker</h3>
+                <p>Pick an available locker and generate the QR and PIN credentials for your session.</p>
                 <ul class="feature-slide__points">
-                  <li>Real-time auditing and alerts</li>
-                  <li>Usage analytics with exports</li>
+                  <li>Choose an open bay from the dashboard.</li>
+                  <li>Save the issued QR code and fallback PIN.</li>
+                </ul>
+              </div>
+            </article>
+
+            <article class="feature-slide" id="feature-slide-5" data-carousel-slide data-animate data-delay="200">
+              <div class="feature-slide__media" role="button" tabindex="0" data-lightbox-trigger aria-label="View Step 05 illustration">
+                <img src="assets/image/step5.png" alt="Step 05 QR unlock illustration" data-lightbox-source>
+              </div>
+              <div class="feature-slide__content">
+                <span class="feature-slide__eyebrow">Step 05</span>
+                <h3 class="feature-slide__title">Unlock with your QR</h3>
+                <p>Present the Kandado QR at the shared scanner to trigger an instant unlock.</p>
+                <ul class="feature-slide__points">
+                  <li>Hold the code steady under the reader.</li>
+                  <li>Wait for the green status light before opening.</li>
+                </ul>
+              </div>
+            </article>
+
+            <article class="feature-slide" id="feature-slide-6" data-carousel-slide data-animate data-delay="240">
+              <div class="feature-slide__media" role="button" tabindex="0" data-lightbox-trigger aria-label="View Step 06 illustration">
+                <img src="assets/image/step6.png" alt="Step 06 PIN unlock illustration" data-lightbox-source>
+              </div>
+              <div class="feature-slide__content">
+                <span class="feature-slide__eyebrow">Step 06</span>
+                <h3 class="feature-slide__title">Use the PIN keypad fallback</h3>
+                <p>If the scanner is busy, enter the PIN on the keypad to release the door.</p>
+                <ul class="feature-slide__points">
+                  <li>Enter the four-digit PIN from your reservation.</li>
+                  <li>The latch releases once the tone confirms.</li>
+                </ul>
+              </div>
+            </article>
+
+            <article class="feature-slide" id="feature-slide-7" data-carousel-slide data-animate data-delay="280">
+              <div class="feature-slide__media" role="button" tabindex="0" data-lightbox-trigger aria-label="View Step 07 illustration">
+                <img src="assets/image/step7.png" alt="Step 07 Store items illustration" data-lightbox-source>
+              </div>
+              <div class="feature-slide__content">
+                <span class="feature-slide__eyebrow">Step 07</span>
+                <h3 class="feature-slide__title">Store items and confirm status</h3>
+                <p>Place your belongings, close the door, and check the dashboard for an active session.</p>
+                <ul class="feature-slide__points">
+                  <li>Ensure the door seals and the light shows occupied.</li>
+                  <li>Refresh the app to verify the locker status.</li>
+                </ul>
+              </div>
+            </article>
+
+            <article class="feature-slide" id="feature-slide-8" data-carousel-slide data-animate data-delay="320">
+              <div class="feature-slide__media" role="button" tabindex="0" data-lightbox-trigger aria-label="View Step 08 illustration">
+                <img src="assets/image/step8.png" alt="Step 08 Door alert illustration" data-lightbox-source>
+              </div>
+              <div class="feature-slide__content">
+                <span class="feature-slide__eyebrow">Step 08</span>
+                <h3 class="feature-slide__title">Test the door alert</h3>
+                <p>Leave the door ajar briefly to confirm the buzzer prompts you to close it.</p>
+                <ul class="feature-slide__points">
+                  <li>Listen for the alert within a few seconds.</li>
+                  <li>Close the door and confirm the status resets.</li>
                 </ul>
               </div>
             </article>
@@ -326,20 +394,43 @@ $secondaryCtaLabel = $role ? 'Explore Modules' : 'Sign in';
 
         <div class="feature-carousel__dots" role="tablist" aria-label="Locker platform how-to steps" data-carousel-dots>
           <button class="feature-carousel__dot is-active" type="button" role="tab" aria-selected="true" aria-controls="feature-slide-1" data-carousel-dot="0">
-            <span class="sr-only">Step 01 — Create your workspace</span>
+            <span class="sr-only">Step 01 — Connect to the MCC LAN</span>
           </button>
           <button class="feature-carousel__dot" type="button" role="tab" aria-selected="false" aria-controls="feature-slide-2" data-carousel-dot="1">
-            <span class="sr-only">Step 02 — Connect your lockers</span>
+            <span class="sr-only">Step 02 — Open the locker portal</span>
           </button>
           <button class="feature-carousel__dot" type="button" role="tab" aria-selected="false" aria-controls="feature-slide-3" data-carousel-dot="2">
-            <span class="sr-only">Step 03 — Guide your users</span>
+            <span class="sr-only">Step 03 — Create and verify your account</span>
           </button>
           <button class="feature-carousel__dot" type="button" role="tab" aria-selected="false" aria-controls="feature-slide-4" data-carousel-dot="3">
-            <span class="sr-only">Step 04 — Track and optimize</span>
+            <span class="sr-only">Step 04 — Reserve your locker</span>
+          </button>
+          <button class="feature-carousel__dot" type="button" role="tab" aria-selected="false" aria-controls="feature-slide-5" data-carousel-dot="4">
+            <span class="sr-only">Step 05 — Unlock with your QR</span>
+          </button>
+          <button class="feature-carousel__dot" type="button" role="tab" aria-selected="false" aria-controls="feature-slide-6" data-carousel-dot="5">
+            <span class="sr-only">Step 06 — Use the PIN keypad fallback</span>
+          </button>
+          <button class="feature-carousel__dot" type="button" role="tab" aria-selected="false" aria-controls="feature-slide-7" data-carousel-dot="6">
+            <span class="sr-only">Step 07 — Store items and confirm status</span>
+          </button>
+          <button class="feature-carousel__dot" type="button" role="tab" aria-selected="false" aria-controls="feature-slide-8" data-carousel-dot="7">
+            <span class="sr-only">Step 08 — Test the door alert</span>
           </button>
         </div>
       </div>
     </section>
+
+    <div class="feature-lightbox" data-feature-lightbox aria-hidden="true" hidden>
+      <div class="feature-lightbox__backdrop" data-lightbox-close aria-hidden="true"></div>
+      <div class="feature-lightbox__dialog" role="dialog" aria-modal="true" aria-label="Feature slide image preview">
+        <button class="feature-lightbox__close" type="button" data-lightbox-close aria-label="Close image preview">
+          <span aria-hidden="true">&times;</span>
+        </button>
+        <img src="" alt="" data-lightbox-image>
+        <p class="feature-lightbox__caption" data-lightbox-caption hidden></p>
+      </div>
+    </div>
 
     <section class="insights section-surface" id="insights" data-animate>
       <div class="section-heading">

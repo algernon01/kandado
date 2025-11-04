@@ -38,6 +38,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const carousels = Array.from(document.querySelectorAll('[data-carousel]'));
 
   carousels.forEach(root => initFeatureCarousel(root));
+  initFeatureLightbox();
 
   function initFeatureCarousel(root) {
     const track = root.querySelector('[data-carousel-track]');
@@ -259,6 +260,138 @@ document.addEventListener('DOMContentLoaded', () => {
       stopAutoplay();
       startAutoplay();
     }
+  }
+
+  function initFeatureLightbox() {
+    const lightbox = document.querySelector('[data-feature-lightbox]');
+    if (!lightbox) return;
+    const imageTarget = lightbox.querySelector('[data-lightbox-image]');
+    const captionTarget = lightbox.querySelector('[data-lightbox-caption]');
+    const closeElements = Array.from(lightbox.querySelectorAll('[data-lightbox-close]'));
+    const triggers = Array.from(document.querySelectorAll('[data-lightbox-trigger]'));
+    if (!imageTarget || !triggers.length) return;
+
+    let lastActiveElement = null;
+    const focusableSelector = 'button:not([disabled]), [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
+    const getFocusableElements = () => Array.from(lightbox.querySelectorAll(focusableSelector))
+      .filter(el => !el.hasAttribute('disabled'));
+
+    const onTransitionEnd = event => {
+      if (event.target === lightbox && !lightbox.classList.contains('is-open')) {
+        lightbox.hidden = true;
+        lightbox.removeEventListener('transitionend', onTransitionEnd);
+      }
+    };
+
+    const setCaption = text => {
+      if (!captionTarget) return;
+      const trimmed = (text || '').trim();
+      captionTarget.textContent = trimmed;
+      captionTarget.hidden = trimmed.length === 0;
+    };
+
+    const openLightbox = trigger => {
+      const source = trigger.querySelector('[data-lightbox-source]') || trigger.querySelector('img');
+      if (!source) return;
+      lastActiveElement = trigger;
+      const src = source.getAttribute('src');
+      const alt = source.getAttribute('alt') || '';
+      imageTarget.src = src;
+      imageTarget.alt = alt;
+      setCaption(alt);
+
+      triggers.forEach(currentTrigger => currentTrigger.setAttribute('aria-expanded', currentTrigger === trigger ? 'true' : 'false'));
+
+      lightbox.hidden = false;
+      lightbox.removeEventListener('transitionend', onTransitionEnd);
+      requestAnimationFrame(() => {
+        lightbox.classList.add('is-open');
+      });
+      lightbox.setAttribute('aria-hidden', 'false');
+      document.body.classList.add('feature-lightbox-open');
+      const focusable = getFocusableElements();
+      if (focusable.length) {
+        focusable[0].focus({ preventScroll: true });
+      }
+      document.addEventListener('keydown', handleKeydown);
+    };
+
+    const closeLightbox = () => {
+      if (!lightbox.classList.contains('is-open')) return;
+      lightbox.classList.remove('is-open');
+      lightbox.setAttribute('aria-hidden', 'true');
+      document.body.classList.remove('feature-lightbox-open');
+      imageTarget.removeAttribute('src');
+      imageTarget.alt = '';
+      setCaption('');
+      lightbox.removeEventListener('transitionend', onTransitionEnd);
+      lightbox.addEventListener('transitionend', onTransitionEnd);
+      document.removeEventListener('keydown', handleKeydown);
+      if (lastActiveElement) {
+        lastActiveElement.setAttribute('aria-expanded', 'false');
+        lastActiveElement.focus({ preventScroll: true });
+        lastActiveElement = null;
+      }
+    };
+
+    const handleKeydown = event => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeLightbox();
+        return;
+      }
+
+      if (event.key === 'Tab' && lightbox.classList.contains('is-open')) {
+        const focusable = getFocusableElements();
+        if (!focusable.length) {
+          event.preventDefault();
+          return;
+        }
+
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+
+        if (event.shiftKey) {
+          if (document.activeElement === first) {
+            event.preventDefault();
+            last.focus({ preventScroll: true });
+          }
+        } else if (document.activeElement === last) {
+          event.preventDefault();
+          first.focus({ preventScroll: true });
+        }
+      }
+    };
+
+    triggers.forEach(trigger => {
+      trigger.setAttribute('aria-haspopup', 'dialog');
+      trigger.setAttribute('aria-expanded', 'false');
+
+      trigger.addEventListener('click', event => {
+        event.preventDefault();
+        openLightbox(trigger);
+      });
+
+      trigger.addEventListener('keydown', event => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          openLightbox(trigger);
+        }
+      });
+    });
+
+    closeElements.forEach(element => {
+      element.addEventListener('click', event => {
+        event.preventDefault();
+        closeLightbox();
+      });
+    });
+
+    lightbox.addEventListener('click', event => {
+      if (event.target === lightbox) {
+        closeLightbox();
+      }
+    });
   }
 
   const lockerDoors = Array.from(document.querySelectorAll('.locker-door'));
