@@ -1,0 +1,243 @@
+body{
+  font-family:'Inter',system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  background:#f6f8fb;
+  color:#0f172a;
+  margin:0;
+}
+
+main.refunds-page{
+  padding:1.5rem clamp(1rem,3vw,2rem);
+  min-height:100vh;
+  background:#f6f8fb;
+}
+
+.page-head{
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  justify-content:space-between;
+  gap:1rem;
+  margin-bottom:1.5rem;
+}
+
+.page-head h1{
+  margin:0;
+  font-size:1.5rem;
+  font-weight:700;
+}
+.muted{
+  color:#94a3b8;
+  font-size:1rem;
+}
+
+.stats-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+  gap:1rem;
+  margin-bottom:1.5rem;
+}
+
+.stat-card{
+  background:#fff;
+  border-radius:14px;
+  padding:1.15rem;
+  box-shadow:0 12px 25px rgba(15,23,42,.08);
+  border:1px solid rgba(15,23,42,.05);
+}
+
+.stat-card h3{
+  margin:0;
+  font-size:.85rem;
+  letter-spacing:.05em;
+  text-transform:uppercase;
+  color:#94a3b8;
+}
+
+.stat-card .value{
+  margin-top:.4rem;
+  font-size:1.8rem;
+  font-weight:700;
+}
+
+.stat-card p{
+  margin:.25rem 0 0;
+  color:#64748b;
+  font-size:.9rem;
+}
+
+.filters{
+  background:#fff;
+  border-radius:14px;
+  padding:1rem;
+  box-shadow:0 8px 20px rgba(15,23,42,.05);
+  border:1px solid rgba(15,23,42,.05);
+  display:flex;
+  gap:1rem;
+  flex-wrap:wrap;
+  align-items:flex-end;
+  margin-bottom:1.5rem;
+}
+
+.filters .group{
+  display:flex;
+  flex-direction:column;
+  gap:.35rem;
+}
+
+.filters label{
+  font-size:.85rem;
+  font-weight:600;
+  color:#475569;
+}
+
+.filters input,
+.filters select{
+  min-width:180px;
+  padding:.55rem .65rem;
+  border-radius:10px;
+  border:1px solid #cbd5f5;
+  font-size:.95rem;
+  background:#f8fafc;
+}
+
+.filters .btn{
+  background:#2563eb;
+  border:none;
+  color:#fff;
+  padding:.6rem 1.25rem;
+  border-radius:10px;
+  font-weight:600;
+  cursor:pointer;
+}
+
+.filters .ghost{
+  background:#e2e8f0;
+  color:#1d4ed8;
+}
+
+.table-card{
+  background:#fff;
+  border-radius:16px;
+  padding:1rem;
+  box-shadow:0 12px 30px rgba(15,23,42,.1);
+  border:1px solid rgba(15,23,42,.05);
+}
+
+.table-card table{
+  width:100%;
+  border-collapse:collapse;
+  min-width:760px;
+}
+
+.table-card thead th{
+  text-align:left;
+  padding:.65rem .4rem;
+  font-size:.78rem;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  color:#94a3b8;
+  border-bottom:1px solid #e2e8f0;
+}
+
+.table-card tbody td{
+  padding:1rem .4rem;
+  border-bottom:1px solid #e2e8f0;
+  vertical-align:top;
+  font-size:.95rem;
+}
+
+.table-card tbody tr:last-child td{
+  border-bottom:none;
+}
+
+.pill{
+  display:inline-flex;
+  align-items:center;
+  padding:.2rem .7rem;
+  border-radius:999px;
+  font-size:.8rem;
+  font-weight:600;
+  background:#ecfdf5;
+  color:#047857;
+}
+
+.reason-note{
+  font-size:.85rem;
+  color:#64748b;
+}
+
+.meta{
+  margin-top:.35rem;
+  font-size:.8rem;
+  color:#94a3b8;
+}
+
+.pager{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:.65rem;
+  margin-top:1.2rem;
+  padding-top:.4rem;
+}
+.pager .pages{
+  font-size:.9rem;
+  color:#64748b;
+}
+.pager .nav{
+  display:flex;
+  gap:.35rem;
+  align-items:center;
+}
+.pager .nav .m-link{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:36px;
+  height:36px;
+  border-radius:10px;
+  border:1px solid #dbe3f8;
+  color:#1d4ed8;
+  font-weight:600;
+  text-decoration:none;
+  background:#fff;
+  transition:background .15s ease,border-color .15s ease,color .15s ease;
+}
+.pager .nav .m-link.active{
+  background:#dcfce7;
+  border-color:#34d399;
+  color:#065f46;
+}
+.pager .nav .m-link.disabled{
+  color:#cbd5f5;
+  border-color:#e2e8f0;
+  pointer-events:none;
+  background:#f8fafc;
+}
+.pager .nav .m-link.gap{
+  width:auto;
+  background:transparent;
+  border:none;
+  color:#94a3b8;
+}
+
+.empty-state{
+  padding:2rem;
+  text-align:center;
+  color:#94a3b8;
+}
+
+@media(max-width:720px){
+  .filters input,
+  .filters select{
+    min-width:unset;
+    width:100%;
+  }
+  .table-card{
+    padding:.75rem;
+  }
+  main.refunds-page{
+    padding:1rem;
+  }
+}

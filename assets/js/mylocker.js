@@ -243,6 +243,24 @@
   }
   async function getWalletBalance(){ await loadWallet(); return walletBalance; }
 
+  function formatMinutesLabel(mins){
+    const value = Math.max(0, Math.round(Number(mins) || 0));
+    if (value < 60) return `${value} min`;
+    const hours = Math.floor(value / 60);
+    const minutes = value % 60;
+    if (hours < 24) {
+      const hourLabel = `${hours} hr${hours === 1 ? '' : 's'}`;
+      return minutes ? `${hourLabel} ${minutes} min` : hourLabel;
+    }
+    const days = Math.floor(hours / 24);
+    const remHours = hours % 24;
+    const parts = [];
+    parts.push(`${days} day${days === 1 ? '' : 's'}`);
+    if (remHours) parts.push(`${remHours} hr${remHours === 1 ? '' : 's'}`);
+    if (minutes) parts.push(`${minutes} min`);
+    return parts.join(' ');
+  }
+
   /* ===== PRICES SYNC ===== */
   async function syncPricesFromAPI(){
     try{
@@ -518,7 +536,7 @@ if (saveBtn && qrImage){
                 <p style="margin:0 0 8px"><strong>End locker now?</strong></p>
                 <ul style="margin:6px 0 0; line-height:1.4; display:inline-block; text-align:left">
                   <li>Remaining time ends <strong>immediately</strong>.</li>
-                  <li>Payments are <strong>non-refundable</strong>.</li>
+                  <li>Unused time is <strong>credited back</strong> to your wallet.</li>
                   <li>Your QR will be <strong>disabled</strong>.</li>
                 </ul>
               </div>`,
@@ -549,12 +567,41 @@ if (saveBtn && qrImage){
         applyHueByRemaining(0);
         lockerCard?.classList.add('state-used');
         clearBaseline();
+
+        if (data?.refund?.wallet_balance !== undefined) {
+          walletBalance = Number(data.refund.wallet_balance);
+          paintWallet();
+        }
+
+        const refundHtml = (() => {
+          if (!data?.refund || Number(data.refund.amount) <= 0) return '';
+          const mins = data.refund.minutes ?? data.refund.remaining_minutes ?? 0;
+          const minsLabel = formatMinutesLabel(mins);
+          const ref = data.refund.reference_no ? `<div style="margin-top:8px;font-size:.85rem;color:#4b5563;">Ref: <code>${data.refund.reference_no}</code></div>` : '';
+          return `
+            <div style="
+              margin:16px auto 0;
+              padding:14px 16px;
+              border-radius:16px;
+              background:#f0fdf4;
+              color:#15803d;
+              text-align:center;
+              max-width:320px;
+              box-shadow:0 4px 12px rgba(22,128,61,.15);
+            ">
+              <div style="font-weight:700;font-size:1.05rem;">Wallet credited ${peso(data.refund.amount)}</div>
+              <div style="font-size:.92rem;margin-top:4px;">Unused time: ${minsLabel}</div>
+              ${ref}
+            </div>
+          `;
+        })();
+
         Swal.fire({
           icon:'success',
           title:'Locker terminated',
-          html: data.status === 'hold'
+          html: (data.status === 'hold'
             ? 'Locker is <b>on hold</b> (item still inside). Please contact the admin.'
-            : 'Locker has been released. You can generate a new locker anytime.',
+            : 'Locker has been released. You can generate a new locker anytime.') + refundHtml,
           confirmButtonColor:'#16a34a',
           confirmButtonText:'OK'
         });

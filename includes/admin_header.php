@@ -178,6 +178,15 @@ function isActive($file) {
       </a>
     </li>
     <li>
+      <a href="refunds.php" class="<?= isActive('refunds.php') ?>" aria-current="<?= $currentPage === 'refunds.php' ? 'page' : 'false' ?>">
+          <i class="fas fa-hand-holding-dollar"></i> <span>Refunds</span>
+      </a>
+    </li>
+    <li>
+
+      </a>
+    </li>
+    <li>
       <a href="wallet.php" class="<?= isActive('wallet.php') ?>" aria-current="<?= $currentPage === 'wallet.php' ? 'page' : 'false' ?>">
         <i class="fas fa-wallet"></i> <span>Wallets</span>
       </a>

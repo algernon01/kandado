@@ -89,6 +89,14 @@ function require_login() {
     return (int)$_SESSION['user_id'];
 }
 
+function generate_reference_code(string $prefix = 'RFD'): string {
+    try {
+        return $prefix . '-' . strtoupper(bin2hex(random_bytes(3))) . '-' . time();
+    } catch (Throwable $e) {
+        return $prefix . '-' . uniqid();
+    }
+}
+
 /* ---- Named locks (app-level mutex) ---- */
 function acquire_lock(mysqli $conn, string $name, int $timeout_sec = 6): bool {
     $stmt = $conn->prepare("SELECT GET_LOCK(?, ? ) AS got");
@@ -157,11 +165,15 @@ function get_wallet_balance($conn, $user_id) {
 /**
  * Credit wallet (TOPUP) — single running topup row + idempotent by reference_no
  */
-function wallet_credit($conn, $user_id, $amount, $method, $reference_no, $notes = null, $meta = null) {
+function wallet_credit($conn, $user_id, $amount, $method, $reference_no, $notes = null, $meta = null, $type = 'topup', bool $manageTransaction = true) {
     if ($amount <= 0) return ['ok'=>false, 'error'=>'invalid_amount'];
 
+    $startedTxn = false;
     try {
-        $conn->begin_transaction();
+        if ($manageTransaction) {
+            $conn->begin_transaction();
+            $startedTxn = true;
+        }
 
         // Create/lock wallet row
         $stmt = $conn->prepare("SELECT balance FROM user_wallets WHERE user_id=? FOR UPDATE");
@@ -182,7 +194,7 @@ function wallet_credit($conn, $user_id, $amount, $method, $reference_no, $notes 
             $stmtRef->bind_param("s", $reference_no);
             $stmtRef->execute();
             if ($stmtRef->get_result()->fetch_assoc()) {
-                $conn->commit();
+                if ($manageTransaction) $conn->commit();
                 return ['ok'=>true, 'idempotent'=>true, 'balance'=>$current];
             }
         }
@@ -191,10 +203,11 @@ function wallet_credit($conn, $user_id, $amount, $method, $reference_no, $notes 
         $newBal = round($current + $delta, 2);
         $note   = $notes ?: ('Top-up via ' . $method);
         $metaJson = $meta ? json_encode($meta) : null;
+        $type = in_array($type, ['topup','refund','adjustment'], true) ? $type : 'topup';
 
         $tx_id = null;
-        $stmtFind = $conn->prepare("SELECT id FROM wallet_transactions WHERE user_id=? AND type='topup' LIMIT 1");
-        $stmtFind->bind_param("i", $user_id);
+        $stmtFind = $conn->prepare("SELECT id FROM wallet_transactions WHERE user_id=? AND type=? LIMIT 1");
+        $stmtFind->bind_param("is", $user_id, $type);
         $stmtFind->execute();
         $existing = $stmtFind->get_result()->fetch_assoc();
 
@@ -222,7 +235,6 @@ function wallet_credit($conn, $user_id, $amount, $method, $reference_no, $notes 
                 }
             }
         } else {
-            $type = 'topup';
             $stmtTx = $conn->prepare("
                 INSERT INTO wallet_transactions
                     (user_id, type, method, amount, reference_no, notes, meta)
@@ -237,10 +249,10 @@ function wallet_credit($conn, $user_id, $amount, $method, $reference_no, $notes 
         $stmtUp->bind_param("di", $newBal, $user_id);
         $stmtUp->execute();
 
-        $conn->commit();
+        if ($manageTransaction) $conn->commit();
         return ['ok'=>true, 'balance'=>$newBal, 'tx_id'=>$tx_id];
     } catch (mysqli_sql_exception $e) {
-        $conn->rollback();
+        if ($startedTxn) $conn->rollback();
         if ($e->getCode() === 1062 && $reference_no) {
             $bal = get_wallet_balance($conn, $user_id);
             return ['ok'=>true, 'idempotent'=>true, 'balance'=>$bal];
@@ -357,6 +369,163 @@ function insert_history($conn, int $locker_number, string $code = null, string $
     );
     $stmt->execute();
 }
+
+function parse_duration_value($value): ?int {
+    if ($value === null) return null;
+    if (is_numeric($value)) return (int)$value;
+    $raw = strtolower(trim((string)$value));
+    if ($raw === '') return null;
+    $map = duration_minutes_map();
+    if (isset($map[$raw])) return (int)$map[$raw];
+    $normalized = str_replace([' ', '-'], '', $raw);
+    if (isset($map[$normalized])) return (int)$map[$normalized];
+    if (preg_match('/(\d+)\s*(min|minutes?)/', $raw, $m)) {
+        return (int)$m[1];
+    }
+    if (preg_match('/(\d+)\s*(hour|hours?|hrs?)/', $raw, $m)) {
+        return (int)$m[1] * 60;
+    }
+    if (preg_match('/(\d+)\s*(day|days?)/', $raw, $m)) {
+        return (int)$m[1] * 1440;
+    }
+    return null;
+}
+
+function compute_refund_allocation(mysqli $conn, int $user_id, int $locker_number, ?string $expires_at, ?int $duration_minutes): ?array {
+    if (!$expires_at || !$duration_minutes || $duration_minutes <= 0) return null;
+    $expires_ts = strtotime($expires_at);
+    if ($expires_ts === false) return null;
+    $now = now_ph();
+    if ($expires_ts <= $now) return null;
+
+    $remaining_seconds = $expires_ts - $now;
+    if ($remaining_seconds < 60) return null;
+
+    $total_minutes = max(1, (int)$duration_minutes);
+    $remaining_minutes = $remaining_seconds / 60;
+    if ($remaining_minutes <= 0) return null;
+
+    $session_start_ts = $expires_ts - ($total_minutes * 60);
+    $session_start = date('Y-m-d H:i:s', $session_start_ts);
+
+    $stmt = $conn->prepare("
+        SELECT id, amount, duration, reference_no, created_at
+        FROM payments
+        WHERE user_id = ? AND locker_number = ? AND created_at >= ?
+        ORDER BY created_at ASC
+    ");
+    $stmt->bind_param("iis", $user_id, $locker_number, $session_start);
+    $stmt->execute();
+    $payments = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    if (!$payments) return null;
+
+    $used_minutes = max(0, $total_minutes - $remaining_minutes);
+    $refundable = 0.0;
+    $refunded_minutes = 0;
+    $segments = [];
+
+    foreach ($payments as $pay) {
+        $pay_minutes = parse_duration_value($pay['duration'] ?? null);
+        if (!$pay_minutes) continue;
+        $amount = (float)$pay['amount'];
+
+        if ($used_minutes >= $pay_minutes) {
+            $used_minutes -= $pay_minutes;
+            continue;
+        }
+
+        $unused_minutes = $pay_minutes - $used_minutes;
+        if ($unused_minutes <= 0) {
+            $used_minutes = max(0, $used_minutes - $pay_minutes);
+            continue;
+        }
+
+        $portion = $unused_minutes / $pay_minutes;
+        $segment_amount = $amount * $portion;
+        $refundable += $segment_amount;
+        $refunded_minutes += $unused_minutes;
+        $segments[] = [
+            'payment_id'    => (int)$pay['id'],
+            'reference_no'  => $pay['reference_no'],
+            'unused_minutes'=> (int)round($unused_minutes),
+            'refund_amount' => round($segment_amount, 2),
+            'created_at'    => $pay['created_at']
+        ];
+        $used_minutes = 0;
+    }
+
+    if ($refundable <= 0 || !$segments) return null;
+
+    return [
+        'amount'            => round($refundable, 2),
+        'remaining_minutes' => (int)max(1, floor($remaining_minutes)),
+        'remaining_seconds' => (int)$remaining_seconds,
+        'refunded_minutes'  => (int)round($refunded_minutes),
+        'session_start'     => $session_start,
+        'segments'          => $segments
+    ];
+}
+
+function ensure_refund_log_table(mysqli $conn): void {
+    static $ensured = false;
+    if ($ensured) return;
+    $sql = "
+        CREATE TABLE IF NOT EXISTS locker_refunds (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id INT NOT NULL,
+            locker_number INT NOT NULL,
+            locker_code VARCHAR(100) NULL,
+            amount DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+            refunded_minutes INT NOT NULL DEFAULT 0,
+            reference_no VARCHAR(60) NOT NULL,
+            reason VARCHAR(60) NOT NULL DEFAULT 'early_termination',
+            balance_after DECIMAL(12,2) DEFAULT NULL,
+            meta LONGTEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(meta)),
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            KEY idx_user (user_id),
+            KEY idx_created (created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+    ";
+    try {
+        $conn->query($sql);
+        $ensured = true;
+    } catch (Throwable $e) {
+        // swallow; inserts will fail later and surface clearer error
+    }
+}
+
+function record_refund_event(mysqli $conn, array $data): void {
+    ensure_refund_log_table($conn);
+    $stmt = $conn->prepare("
+        INSERT INTO locker_refunds
+            (user_id, locker_number, locker_code, amount, refunded_minutes, reference_no, reason, balance_after, meta)
+        VALUES (?,?,?,?,?,?,?,?,?)
+    ");
+    $metaJson = !empty($data['meta']) ? json_encode($data['meta'], JSON_UNESCAPED_SLASHES) : null;
+    $locker_code = $data['locker_code'] ?? null;
+    $amount = number_format((float)($data['amount'] ?? 0), 2, '.', '');
+    $minutes = (int)($data['refunded_minutes'] ?? 0);
+    $reference = $data['reference_no'] ?? generate_reference_code('RFD');
+    $reason = $data['reason'] ?? 'early_termination';
+    $balance_after = isset($data['balance_after'])
+        ? number_format((float)$data['balance_after'], 2, '.', '')
+        : null;
+    $stmt->bind_param(
+        "iississss",
+        $data['user_id'],
+        $data['locker_number'],
+        $locker_code,
+        $amount,
+        $minutes,
+        $reference,
+        $reason,
+        $balance_after,
+        $metaJson
+    );
+    $stmt->execute();
+}
+
+ensure_refund_log_table($conn);
 
 /* ------------------- checkUserLocker ------------------- */
 if(isset($_GET['checkUserLocker'])){
@@ -746,6 +915,57 @@ if (isset($_GET['terminate'])) {
 
         insert_history($conn, $locker_number, $code, $user_fullname, $user_email, $expires_at, (int)$duration_minutes);
 
+        $refundSummary = null;
+        $refundCalc = compute_refund_allocation($conn, $user_id, $locker_number, $expires_at, (int)$duration_minutes);
+        if ($refundCalc && $refundCalc['amount'] > 0) {
+            $refundRef = generate_reference_code('RFD');
+            $notes = "Locker #{$locker_number} refund (early termination)";
+            $meta = [
+                'reason' => 'early_termination',
+                'locker_number' => $locker_number,
+                'locker_code' => $code,
+                'remaining_minutes' => $refundCalc['remaining_minutes'],
+                'segments' => $refundCalc['segments']
+            ];
+            $credit = wallet_credit(
+                $conn,
+                $user_id,
+                $refundCalc['amount'],
+                'Wallet',
+                $refundRef,
+                $notes,
+                $meta,
+                'refund',
+                false
+            );
+            if (!$credit['ok']) {
+                $conn->rollback();
+                jexit(['error'=>'refund_failed','message'=>$credit['message'] ?? 'Unable to credit wallet.'],500);
+            }
+            $refundSummary = [
+                'amount' => $refundCalc['amount'],
+                'minutes' => $refundCalc['refunded_minutes'],
+                'remaining_minutes' => $refundCalc['remaining_minutes'],
+                'reference_no' => $refundRef,
+                'wallet_balance' => $credit['balance']
+            ];
+            record_refund_event($conn, [
+                'user_id' => $user_id,
+                'locker_number' => $locker_number,
+                'locker_code' => $code,
+                'amount' => $refundCalc['amount'],
+                'refunded_minutes' => $refundCalc['refunded_minutes'],
+                'reference_no' => $refundRef,
+                'reason' => 'early_termination',
+                'balance_after' => $credit['balance'],
+                'meta' => [
+                    'remaining_minutes' => $refundCalc['remaining_minutes'],
+                    'session_start' => $refundCalc['session_start'],
+                    'segments' => $refundCalc['segments']
+                ]
+            ]);
+        }
+
         if ($item === 1) {
             $stmt_upd = $conn->prepare("
                 UPDATE locker_qr
@@ -776,7 +996,8 @@ if (isset($_GET['terminate'])) {
             'status'  => $next_status,
             'message' => $next_status === 'hold'
                 ? 'Locker terminated. Locker is on hold because an item is still inside.'
-                : 'Locker terminated and released.'
+                : 'Locker terminated and released.',
+            'refund'  => $refundSummary
         ]);
     } catch (mysqli_sql_exception $e) {
         $conn->rollback();
